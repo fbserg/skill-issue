@@ -14,3 +14,13 @@ node_modules/
 coverage/
 htmlcov/
 *.log
+.idea/
+.vscode/
+*.swp
+*.swo
+.env
+.envrc
+.direnv/
+Thumbs.db
+*.bak
+*.orig
