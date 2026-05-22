@@ -1,0 +1,4 @@
+interface:
+  display_name: "Epic Plan"
+  short_description: "Plan GitHub epics into child issues"
+  default_prompt: "Use $epic-plan to scope this feature into a GitHub epic with child issues."

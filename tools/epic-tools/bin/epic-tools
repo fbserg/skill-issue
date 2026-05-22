@@ -1,0 +1,1553 @@
+#!/usr/bin/env python3
+"""epic-tools — minimal plumbing for /epic-run skill.
+
+Single-file Python, stdlib + `gh` shellout. Core verbs:
+- parse-epic <N>  fetch epic + child issues, emit JSON for dispatch
+- epic-status <N> REST CI rollup over epic-<N> labelled PRs
+- verify-pr       PR ownership + atomic-claim check (branch, title, author, sha)
+- revert <N>      open a manual rollback PR over all merged epic-<N> children
+
+Plus thin wrappers (pr-create, cleanup) and local completion audit.
+
+No ledger. No waves. State lives on GitHub: epic issue body and PR labels.
+Resume = re-run; the script reads PR labels to know what's already done.
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import json
+import re
+import subprocess
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+# ─── shell + gh helpers ────────────────────────────────────────────────────
+
+def die(msg: str, code: int = 1) -> None:
+    print(msg, file=sys.stderr)
+    sys.exit(code)
+
+
+def sh(cmd: list[str], check: bool = True, input_: str | None = None) -> str:
+    r = subprocess.run(cmd, capture_output=True, text=True, input=input_)
+    if check and r.returncode != 0:
+        die(f"command failed: {' '.join(cmd)}\nstderr: {r.stderr.strip()}")
+    return r.stdout
+
+
+def gh_api(method: str, path: str, fields: dict | None = None,
+           body: dict | None = None) -> dict | list:
+    """REST call via `gh api -X <METHOD>`. On rate-limit, sleeps up to 60s and retries once."""
+    cmd = ["gh", "api", "-X", method, path]
+    for k, v in (fields or {}).items():
+        cmd += ["-f", f"{k}={v}"]
+    if body is not None:
+        cmd += ["--input", "-"]
+    input_json = json.dumps(body) if body is not None else None
+    r = subprocess.run(cmd, capture_output=True, text=True, input=input_json)
+
+    def _parse(raw: str) -> dict | list:
+        return json.loads(raw) if raw.strip() else {}
+
+    if r.returncode == 0:
+        return _parse(r.stdout)
+
+    stderr = r.stderr.strip()
+    is_rate = ("rate limit" in stderr.lower()
+               or "HTTP 403" in stderr or "HTTP 429" in stderr)
+    if is_rate:
+        bucket = ("search" if path.startswith("/search/")
+                  else "graphql" if path == "/graphql" else "core")
+        wait = 0
+        try:
+            rl = subprocess.run(["gh", "api", "/rate_limit"],
+                                capture_output=True, text=True)
+            data = json.loads(rl.stdout) if rl.returncode == 0 else {}
+            reset = (data.get("resources", {}).get(bucket, {}).get("reset")
+                     or data.get("rate", {}).get("reset") or 0)
+            wait = max(0, reset - int(time.time()))
+        except (json.JSONDecodeError, KeyError):
+            pass
+        if wait > 60:
+            die(f"rate-limit ({bucket}) reset in {wait}s; original error: {stderr}")
+        if wait > 0:
+            time.sleep(wait)
+        r2 = subprocess.run(cmd, capture_output=True, text=True, input=input_json)
+        if r2.returncode == 0:
+            return _parse(r2.stdout)
+        die(f"gh api retry failed: {r2.stderr.strip()}\noriginal: {stderr}")
+    die(f"command failed: {' '.join(cmd)}\nstderr: {stderr}")
+    return {}  # unreachable
+
+
+def gh_graphql(query: str, variables: dict | None = None) -> dict:
+    body: dict = {"query": query}
+    if variables:
+        body["variables"] = variables
+    out = gh_api("POST", "/graphql", body=body)
+    return out if isinstance(out, dict) else {}
+
+
+def repo_slug() -> str:
+    url = sh(["git", "remote", "get-url", "origin"], check=False).strip()
+    if not url:
+        die("no `origin` remote configured")
+    m = re.search(r"github\.com[:/]([^/]+/[^/.]+?)(?:\.git)?/?$", url)
+    if not m:
+        die(f"could not parse owner/name from origin url: {url}")
+    return m.group(1)
+
+
+# ─── gh list helpers (REST fallback for GraphQL throttle) ──────────────────
+
+_RATE_LIMIT_TOKENS = ("rate limit", "api rate limit already exceeded")
+
+
+def _is_rate_limit_stderr(stderr: str) -> bool:
+    low = (stderr or "").lower()
+    return any(tok in low for tok in _RATE_LIMIT_TOKENS)
+
+
+def _gh_pr_list_merged(label: str, repo: str) -> list[dict]:
+    """List merged PRs for a label. Tries `gh pr list` (GraphQL), falls back
+    to REST `/repos/{repo}/issues?labels=...&state=closed` on rate-limit.
+
+    Returns shape: {number, title, mergedAt, mergeCommit: {oid: <sha>}}.
+    """
+    cmd = ["gh", "pr", "list", "--label", label, "--state", "merged",
+           "--json", "number,mergeCommit,title,mergedAt", "--limit", "100"]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode == 0:
+        return json.loads(r.stdout or "[]")
+    stderr = r.stderr.strip()
+    if not _is_rate_limit_stderr(stderr):
+        die(f"command failed: {' '.join(cmd)}\nstderr: {stderr}")
+    print("epic-tools: graphql throttled, falling back to REST", file=sys.stderr)
+    raw = gh_api("GET",
+                 f"/repos/{repo}/issues?labels={label}&state=closed&per_page=100")
+    issues = raw if isinstance(raw, list) else []
+    out: list[dict] = []
+    for issue in issues:
+        if "pull_request" not in issue:
+            continue
+        num = issue.get("number")
+        pr = gh_api("GET", f"/repos/{repo}/pulls/{num}")
+        if not isinstance(pr, dict) or not pr.get("merged_at"):
+            continue
+        out.append({
+            "number": pr.get("number"),
+            "title": pr.get("title") or "",
+            "mergedAt": pr.get("merged_at"),
+            "mergeCommit": {"oid": pr.get("merge_commit_sha") or ""},
+        })
+    return out
+
+
+# ─── local completion audit ────────────────────────────────────────────────
+
+STATE_ROOT = Path.home() / ".claude/state/epic-run"
+USAGE_PATH = STATE_ROOT / "usage.jsonl"
+USAGE_MARKER_RE = re.compile(r"EPIC_RUN_USAGE\s+([^\n\r]+)")
+PLACEHOLDER_VALUE_RE = re.compile(r"^(?:\.\.\.|None,?)$")
+
+
+def _utc_now() -> str:
+    return dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _parse_ts(raw: str | None) -> dt.datetime | None:
+    if not raw:
+        return None
+    try:
+        parsed = dt.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=dt.timezone.utc)
+
+
+def _iter_jsonl(path: Path):
+    with path.open(encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+
+def _all_text(value) -> str:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "\n".join(_all_text(v) for v in value)
+    if isinstance(value, dict):
+        return "\n".join(_all_text(v) for v in value.values())
+    return ""
+
+
+def _valid_usage_marker(marker: dict) -> dict:
+    run_id = str(marker.get("run_id") or "")
+    raw_epic = str(marker.get("epic") or "")
+    raw_child = str(marker.get("child") or "")
+    values = (run_id, raw_epic, raw_child)
+    if (
+        not run_id
+        or any("<" in v or ">" in v for v in values)
+        or any(PLACEHOLDER_VALUE_RE.match(v) for v in values)
+    ):
+        return {}
+    epic = _int(raw_epic)
+    child = _int(raw_child)
+    if epic <= 0 or child <= 0:
+        return {}
+    return {"run_id": run_id, "epic": str(epic), "child": str(child)}
+
+
+def _usage_markers(text: str) -> tuple[list[dict], int]:
+    valid = []
+    invalid = 0
+    for m in USAGE_MARKER_RE.finditer(text or ""):
+        marker = dict(re.findall(r"([A-Za-z_][A-Za-z0-9_]*)=([^\s]+)", m.group(1)))
+        normalized = _valid_usage_marker(marker)
+        if normalized:
+            valid.append(normalized)
+        else:
+            invalid += 1
+    return valid, invalid
+
+
+def _usage_marker(text: str) -> dict:
+    valid, _invalid = _usage_markers(text)
+    return valid[-1] if valid else {}
+
+
+def _usage_marker_from_jsonl(path: Path) -> tuple[dict, int]:
+    last = {}
+    invalid = 0
+    for row in _iter_jsonl(path):
+        markers, bad = _usage_markers(_all_text(row))
+        invalid += bad
+        if markers:
+            last = markers[-1]
+    return last, invalid
+
+
+def _int(value) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _base_usage(runtime: str, epic: int, child: int, run_id: str) -> dict:
+    return {
+        "ts": _utc_now(),
+        "runtime": runtime,
+        "run_id": run_id,
+        "epic": epic,
+        "child": child,
+        "pr": None,
+        "sha": "",
+        "source": "transcript",
+        "model": "",
+        "in": 0,
+        "out": 0,
+        "cr": 0,
+        "cw": 0,
+        "wall_s": None,
+    }
+
+
+def _apply_completion_args(record: dict, args: argparse.Namespace) -> None:
+    pr = getattr(args, "pr", None)
+    sha = getattr(args, "sha", None)
+    if pr is not None:
+        record["pr"] = pr
+    if sha:
+        record["sha"] = sha
+
+
+def _append_usage(record: dict, out: str | None = None) -> bool:
+    path = Path(out).expanduser() if out else USAGE_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    key = (
+        record.get("runtime"),
+        record.get("run_id"),
+        record.get("epic"),
+        record.get("child"),
+        record.get("pr"),
+        record.get("sha"),
+        record.get("transcript"),
+    )
+    if path.exists():
+        for row in _iter_jsonl(path):
+            existing = (
+                row.get("runtime"),
+                row.get("run_id"),
+                row.get("epic"),
+                row.get("child"),
+                row.get("pr"),
+                row.get("sha"),
+                row.get("transcript"),
+            )
+            if existing == key:
+                return False
+    with path.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, sort_keys=True, separators=(",", ":")) + "\n")
+    return True
+
+
+def _fill_wall(record: dict, first: dt.datetime | None, last: dt.datetime | None) -> None:
+    if first and last:
+        record["wall_s"] = round((last - first).total_seconds(), 3)
+
+
+def _claude_record(path: Path, epic: int, child: int, run_id: str) -> dict:
+    record = _base_usage("claude", epic, child, run_id)
+    first: dt.datetime | None = None
+    last: dt.datetime | None = None
+    seen_requests: set[str] = set()
+    models: list[str] = []
+    for row in _iter_jsonl(path):
+        ts = _parse_ts(row.get("timestamp"))
+        if ts:
+            first = ts if first is None else min(first, ts)
+            last = ts if last is None else max(last, ts)
+        msg = row.get("message") or {}
+        usage = msg.get("usage") or {}
+        request_id = row.get("requestId") or msg.get("id") or row.get("uuid")
+        if not usage or request_id in seen_requests:
+            continue
+        seen_requests.add(request_id)
+        model = msg.get("model")
+        if model and model not in models:
+            models.append(model)
+        record["in"] += _int(usage.get("input_tokens"))
+        record["out"] += _int(usage.get("output_tokens"))
+        record["cr"] += _int(usage.get("cache_read_input_tokens"))
+        record["cw"] += _int(usage.get("cache_creation_input_tokens"))
+    record["model"] = ",".join(models)
+    record["transcript"] = str(path)
+    _fill_wall(record, first, last)
+    return record
+
+
+def _codex_record(path: Path, epic: int, child: int, run_id: str) -> dict:
+    record = _base_usage("codex", epic, child, run_id)
+    first: dt.datetime | None = None
+    last: dt.datetime | None = None
+    last_usage = None
+    for row in _iter_jsonl(path):
+        ts = _parse_ts(row.get("timestamp"))
+        if ts:
+            first = ts if first is None else min(first, ts)
+            last = ts if last is None else max(last, ts)
+        payload = row.get("payload") or {}
+        if row.get("type") == "session_meta":
+            record["model"] = payload.get("model") or ""
+        if row.get("type") == "event_msg" and payload.get("type") == "token_count":
+            info = payload.get("info") or {}
+            last_usage = info.get("total_token_usage") or info.get("last_token_usage") or last_usage
+    if last_usage:
+        record["in"] = _int(last_usage.get("input_tokens"))
+        record["out"] = _int(last_usage.get("output_tokens"))
+        record["cr"] = _int(last_usage.get("cached_input_tokens"))
+        record["cw"] = _int(last_usage.get("cache_creation_input_tokens"))
+    record["transcript"] = str(path)
+    _fill_wall(record, first, last)
+    return record
+
+
+def _marker_or_args(path: Path, args: argparse.Namespace) -> tuple[int, int, str]:
+    marker, _invalid = _usage_marker_from_jsonl(path)
+    epic = args.epic if args.epic is not None else _int(marker.get("epic"))
+    child = args.child if args.child is not None else _int(marker.get("child"))
+    run_id = args.run_id or marker.get("run_id") or ""
+    if not epic or not child:
+        die("provide --epic/--child or include EPIC_RUN_USAGE in the transcript")
+    return epic, child, run_id
+
+
+def cmd_usage_ingest_claude(args: argparse.Namespace) -> None:
+    path = Path(args.transcript).expanduser()
+    epic, child, run_id = _marker_or_args(path, args)
+    record = _claude_record(path, epic, child, run_id)
+    _apply_completion_args(record, args)
+    _append_usage(record, args.output)
+    print(f"OK completion runtime=claude epic={epic} child={child}")
+
+
+def cmd_usage_sweep(args: argparse.Namespace) -> None:
+    root = Path(args.projects_root).expanduser()
+    cutoff = time.time() - args.hours * 3600 if args.hours else 0
+    paths = []
+    if root.exists():
+        for path in root.glob("**/*.jsonl"):
+            try:
+                if path.stat().st_mtime >= cutoff:
+                    paths.append(path)
+            except OSError:
+                continue
+    scanned = appended = invalid = 0
+    for path in paths:
+        marker, bad = _usage_marker_from_jsonl(path)
+        invalid += bad
+        if not marker:
+            continue
+        scanned += 1
+        epic = _int(marker.get("epic"))
+        child = _int(marker.get("child"))
+        if not epic or not child:
+            continue
+        if args.epic is not None and epic != args.epic:
+            continue
+        record = _claude_record(path, epic, child, marker.get("run_id") or "")
+        _apply_completion_args(record, args)
+        if _append_usage(record, args.output):
+            appended += 1
+    scope = f"epic={args.epic} " if args.epic is not None else ""
+    print(
+        f"OK completion runtime=claude {scope}scanned={scanned} "
+        f"appended={appended} invalid_markers={invalid}"
+    )
+
+
+def cmd_usage_ingest_codex(args: argparse.Namespace) -> None:
+    root = Path(args.sessions_root).expanduser()
+    paths = [Path(args.session).expanduser()] if args.session else sorted(
+        root.glob("**/rollout-*.jsonl"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )[:args.limit]
+    wanted = {k: str(v) for k, v in {
+        "run_id": args.run_id,
+        "epic": args.epic,
+        "child": args.child,
+    }.items() if v is not None}
+    appended = invalid = 0
+    for path in paths:
+        marker, bad = _usage_marker_from_jsonl(path)
+        invalid += bad
+        if not marker or any(str(marker.get(k)) != v for k, v in wanted.items()):
+            continue
+        record = _codex_record(path, _int(marker.get("epic")), _int(marker.get("child")),
+                               marker.get("run_id") or "")
+        _apply_completion_args(record, args)
+        if _append_usage(record, args.output):
+            appended += 1
+    marker = _usage_marker(getattr(args, "observed_marker", None) or "")
+    if appended == 0 and marker and not any(
+        str(marker.get(k)) != v for k, v in wanted.items()
+    ):
+        record = _base_usage(
+            "codex",
+            _int(marker.get("epic")),
+            _int(marker.get("child")),
+            marker.get("run_id") or "",
+        )
+        record["source"] = "observed-marker"
+        _apply_completion_args(record, args)
+        if _append_usage(record, args.output):
+            appended += 1
+    print(
+        f"OK completion runtime=codex scanned={len(paths)} "
+        f"appended={appended} invalid_markers={invalid}"
+    )
+
+
+def _usage_matches(row: dict, args: argparse.Namespace) -> bool:
+    for key in ("runtime", "run_id"):
+        value = getattr(args, key)
+        if value and row.get(key) != value:
+            return False
+    for key in ("epic", "child"):
+        value = getattr(args, key)
+        if value is not None and row.get(key) != value:
+            return False
+    return True
+
+
+_HOOK_DIAG_TEMPLATE = (
+    "epic-tools: no completion audit rows for epic {epic}. "
+    "Run `epic-tools usage-sweep --epic {epic}` to ingest from "
+    "~/.claude/projects/*/*.jsonl into ~/.claude/state/epic-run/usage.jsonl."
+)
+
+
+def _jsonl_is_empty_or_missing(path: Path) -> bool:
+    if not path.exists():
+        return True
+    try:
+        return next(_iter_jsonl(path), None) is None
+    except OSError:
+        return True
+
+
+def cmd_usage_report(args: argparse.Namespace) -> None:
+    path = Path(args.input).expanduser() if args.input else USAGE_PATH
+    all_rows = list(_iter_jsonl(path)) if path.exists() else []
+    rows = [r for r in all_rows if _usage_matches(r, args)]
+    exit_code = 0
+    if args.epic is not None and not rows:
+        if _jsonl_is_empty_or_missing(path):
+            print(_HOOK_DIAG_TEMPLATE.format(epic=args.epic), file=sys.stderr)
+            exit_code = 2
+        elif all_rows:
+            print(
+                f"epic-tools: no rows for epic {args.epic} "
+                f"(other epics present in usage.jsonl).",
+                file=sys.stderr,
+            )
+    if args.json:
+        print(json.dumps(rows, indent=2))
+        if exit_code:
+            sys.exit(exit_code)
+        return
+    totals = {key: sum(_int(r.get(key)) for r in rows) for key in ("in", "out", "cr", "cw")}
+    wall = sum(float(r.get("wall_s") or 0) for r in rows)
+    token_rows = sum(1 for r in rows if any(_int(r.get(k)) for k in ("in", "out", "cr", "cw")))
+    print(
+        f"completion rows={len(rows)} token_rows={token_rows} "
+        f"in={totals['in']} out={totals['out']} cr={totals['cr']} cw={totals['cw']} "
+        f"wall_s={wall:.1f}"
+    )
+    if exit_code:
+        sys.exit(exit_code)
+
+
+# ─── analytics joins ───────────────────────────────────────────────────────
+
+def _usage_rows(path: Path | None = None, *, epic: int | None = None,
+                child: int | None = None) -> list[dict]:
+    src = path or USAGE_PATH
+    rows = [r for r in _iter_jsonl(src)] if src.exists() else []
+    if epic is not None:
+        rows = [r for r in rows if _int(r.get("epic")) == epic]
+    if child is not None:
+        rows = [r for r in rows if _int(r.get("child")) == child]
+    return rows
+
+
+def _usage_totals(rows: list[dict]) -> dict:
+    totals = {key: sum(_int(r.get(key)) for r in rows) for key in ("in", "out", "cr", "cw")}
+    totals["wall_s"] = round(sum(float(r.get("wall_s") or 0) for r in rows), 3)
+    totals["rows"] = len(rows)
+    totals["token_rows"] = sum(1 for r in rows if any(_int(r.get(k)) for k in ("in", "out", "cr", "cw")))
+    return totals
+
+
+def _usage_duplicate_groups(rows: list[dict]) -> list[dict]:
+    groups: dict[tuple, list[dict]] = {}
+    for row in rows:
+        key = (
+            row.get("runtime") or "",
+            row.get("run_id") or "",
+            _int(row.get("epic")),
+            _int(row.get("child")),
+        )
+        groups.setdefault(key, []).append(row)
+    return [
+        {"runtime": k[0], "run_id": k[1], "epic": k[2], "child": k[3], "rows": len(v)}
+        for k, v in sorted(groups.items())
+        if len(v) > 1
+    ]
+
+
+def _child_from_branch(epic: int, branch: str | None) -> int | None:
+    m = re.match(rf"^epic-{epic}-(\d+)-", branch or "")
+    return int(m.group(1)) if m else None
+
+
+def _child_from_pr(epic: int, pr: dict) -> int | None:
+    child = _child_from_branch(epic, pr.get("headRefName") or pr.get("head_ref"))
+    if child is not None:
+        return child
+    body = pr.get("body") or ""
+    m = re.search(r"\bCloses\s+#(\d+)\b", body, re.IGNORECASE)
+    if m:
+        return int(m.group(1))
+    title = pr.get("title") or ""
+    m = re.search(r"\(#(\d+)\)", title)
+    return int(m.group(1)) if m else None
+
+
+def _epic_prs(epic: int, *, state: str = "all") -> list[dict]:
+    repo = repo_slug()
+    raw = gh_api("GET", f"/repos/{repo}/issues?labels=epic-{epic}&state={state}&per_page=100")
+    issues = raw if isinstance(raw, list) else []
+    prs = []
+    for issue in issues:
+        if "pull_request" not in issue:
+            continue
+        pr_num = issue.get("number")
+        pr = gh_api("GET", f"/repos/{repo}/pulls/{pr_num}")
+        if not isinstance(pr, dict):
+            continue
+        state_value = "MERGED" if pr.get("merged_at") else (pr.get("state") or "").upper()
+        prs.append({
+            "number": pr.get("number"),
+            "title": pr.get("title") or "",
+            "body": pr.get("body") or "",
+            "headRefName": (pr.get("head") or {}).get("ref") or "",
+            "state": state_value,
+            "mergedAt": pr.get("merged_at"),
+            "isDraft": bool(pr.get("draft")),
+            "additions": _int(pr.get("additions")),
+            "deletions": _int(pr.get("deletions")),
+            "closedAt": pr.get("closed_at"),
+        })
+    for pr in prs:
+        pr["child"] = _child_from_pr(epic, pr)
+    return prs
+
+
+def _parse_epic_data(epic_num: int, *, allow_closed: bool = False) -> dict:
+    epic = issue_body(epic_num)
+    if epic["state"] == "CLOSED" and not allow_closed:
+        die(f"epic #{epic_num} is closed")
+    refs = find_epic_children(epic_num, epic["body"])
+    children = []
+    for n in refs:
+        try:
+            ch = issue_body(n)
+        except SystemExit:
+            print(f"WARN: child #{n} unreadable", file=sys.stderr)
+            continue
+        children.append({
+            "n": ch["number"],
+            "title": ch["title"],
+            "body": ch["body"],
+            "state": ch["state"],
+            "deps": parse_section_refs(ch["body"], DEPENDS_RE),
+            "ac_paths": parse_section_paths(ch["body"], FILES_RE),
+        })
+    return {"epic": epic_num, "title": epic["title"], "children": children}
+
+
+def _usage_audit_data(epic: int, usage_path: Path | None = None,
+                      *, allow_closed: bool = False, plan: dict | None = None,
+                      prs: list[dict] | None = None) -> dict:
+    plan = plan or _parse_epic_data(epic, allow_closed=allow_closed)
+    children = sorted(c["n"] for c in plan["children"])
+    child_set = set(children)
+    prs = prs if prs is not None else _epic_prs(epic, state="all")
+    pr_children = {p["child"] for p in prs if p.get("child") is not None}
+    usage = _usage_rows(usage_path, epic=epic)
+    usage_children = {_int(r.get("child")) for r in usage}
+
+    missing = sorted(pr_children - usage_children)
+    orphan = []
+    for row in usage:
+        child = _int(row.get("child"))
+        reasons = []
+        if child not in child_set:
+            reasons.append("no-child")
+        if child not in pr_children:
+            reasons.append("no-pr")
+        if reasons:
+            orphan.append({
+                "runtime": row.get("runtime") or "",
+                "run_id": row.get("run_id") or "",
+                "child": child,
+                "reason": ",".join(reasons),
+            })
+
+    return {
+        "epic": epic,
+        "children": children,
+        "prs": [
+            {"number": p.get("number"), "child": p.get("child"), "state": p.get("state")}
+            for p in prs
+        ],
+        "usage_rows": len(usage),
+        "empty_completion_audit": len(usage) == 0,
+        "missing_usage": missing,
+        "orphan_usage": orphan,
+        "duplicates": _usage_duplicate_groups(usage),
+    }
+
+
+def _closed_epics(limit: int) -> list[dict]:
+    repo = repo_slug()
+    per_page = min(max(limit, 1), 100)
+    raw = gh_api("GET", f"/repos/{repo}/issues?labels=epic&state=closed&per_page={per_page}")
+    issues = raw if isinstance(raw, list) else []
+    return [
+        {
+            "number": i.get("number"),
+            "title": i.get("title") or "",
+            "closedAt": i.get("closed_at"),
+            "body": i.get("body") or "",
+        }
+        for i in issues
+        if "pull_request" not in i
+    ][:limit]
+
+
+def _labelled_issues(label: str, limit: int = 50) -> list[dict]:
+    repo = repo_slug()
+    per_page = min(max(limit, 1), 100)
+    raw = gh_api("GET", f"/repos/{repo}/issues?labels={label}&state=all&per_page={per_page}")
+    issues = raw if isinstance(raw, list) else []
+    return [
+        {
+            "number": i.get("number"),
+            "title": i.get("title") or "",
+            "body": i.get("body") or "",
+            "closedAt": i.get("closed_at"),
+        }
+        for i in issues
+        if "pull_request" not in i
+    ][:limit]
+
+
+def _retro_child_rows(epic: int, epic_body: str, prs: list[dict],
+                      usage_rows: list[dict]) -> list[dict]:
+    children = parse_section_refs(epic_body, CHILDREN_RE)
+    pr_by_child: dict[int, list[dict]] = {}
+    for pr in prs:
+        child = pr.get("child")
+        if child is not None:
+            pr_by_child.setdefault(child, []).append(pr)
+    usage_by_child: dict[int, list[dict]] = {}
+    for row in usage_rows:
+        usage_by_child.setdefault(_int(row.get("child")), []).append(row)
+    joined = []
+    for child in sorted(set(children) | set(pr_by_child) | set(usage_by_child)):
+        child_prs = pr_by_child.get(child, [])
+        pr = child_prs[0] if child_prs else {}
+        diagnostics = _diagnose_pr(pr) if pr else {}
+        usage = usage_by_child.get(child, [])
+        joined.append({
+            "child": child,
+            "pr": pr.get("number"),
+            "title": pr.get("title") or "",
+            "state": pr.get("state") or "",
+            "merged_at": pr.get("mergedAt"),
+            "additions": _int(pr.get("additions")),
+            "deletions": _int(pr.get("deletions")),
+            "usage": _usage_totals(usage),
+            "missing_usage": bool(pr and not usage),
+            "stuck_reason": diagnostics.get("stuck_reason"),
+        })
+    return joined
+
+
+def cmd_retro_data(args: argparse.Namespace) -> None:
+    usage_path = Path(args.input).expanduser() if args.input else None
+    effective_path = usage_path or USAGE_PATH
+    epics = _closed_epics(args.epics)
+    out = {
+        "completion_audit_status": "present",
+        "epics": [],
+        "followups": _labelled_issues("epic-followups"),
+        "unfinished": _labelled_issues("epic-unfinished"),
+    }
+    epic_row_counts: list[int] = []
+    for epic in epics:
+        epic_num = epic["number"]
+        prs = _epic_prs(epic_num, state="all")
+        usage = _usage_rows(usage_path, epic=epic_num)
+        epic_row_counts.append(len(usage))
+        plan = {
+            "epic": epic_num,
+            "title": epic.get("title") or "",
+            "children": [{"n": n} for n in parse_section_refs(epic.get("body") or "", CHILDREN_RE)],
+        }
+        out["epics"].append({
+            "number": epic_num,
+            "title": epic.get("title") or "",
+            "closed_at": epic.get("closedAt"),
+            "children": _retro_child_rows(epic_num, epic.get("body") or "", prs, usage),
+            "usage_audit": _usage_audit_data(
+                epic_num, usage_path, allow_closed=True, plan=plan, prs=prs,
+            ),
+        })
+    if _jsonl_is_empty_or_missing(effective_path):
+        out["completion_audit_status"] = "missing"
+    elif epic_row_counts and all(c == 0 for c in epic_row_counts):
+        out["completion_audit_status"] = "missing"
+    elif epic_row_counts and any(c == 0 for c in epic_row_counts):
+        out["completion_audit_status"] = "partial"
+    else:
+        out["completion_audit_status"] = "present"
+    if args.json:
+        print(json.dumps(out, indent=2))
+        return
+    child_count = sum(len(e["children"]) for e in out["epics"])
+    missing = sum(1 for e in out["epics"] for c in e["children"] if c["missing_usage"])
+    print(
+        f"retro-data epics={len(out['epics'])} children={child_count} "
+        f"missing_usage={missing} followups={len(out['followups'])} "
+        f"unfinished={len(out['unfinished'])}"
+    )
+
+
+# ─── epic body parsing ────────────────────────────────────────────────────
+
+CHILD_REF_RE = re.compile(r"#(\d+)")
+CHECKLIST_CHILD_RE = re.compile(r"^\s*-\s+\[[ xX]\]\s+#(\d+)", re.MULTILINE)
+CHILDREN_RE = re.compile(r"^##\s+Children\s*$(.*?)(?=^##\s|\Z)", re.MULTILINE | re.DOTALL)
+DEPENDS_RE = re.compile(r"^##\s+Depends on\s*$(.*?)(?=^##\s|\Z)", re.MULTILINE | re.DOTALL)
+FILES_RE = re.compile(r"^##\s+Files likely touched\s*$(.*?)(?=^##\s|\Z)",
+                      re.MULTILINE | re.DOTALL)
+PATH_RE = re.compile(r"`([^`]+)`")
+
+
+def parse_section_refs(body: str, section_re: re.Pattern) -> list[int]:
+    m = section_re.search(body)
+    return [int(x) for x in CHILD_REF_RE.findall(m.group(1))] if m else []
+
+
+def parse_section_paths(body: str, section_re: re.Pattern) -> list[str]:
+    m = section_re.search(body)
+    return PATH_RE.findall(m.group(1)) if m else []
+
+
+def issue_body(num: int) -> dict:
+    repo = repo_slug()
+    raw = gh_api("GET", f"/repos/{repo}/issues/{num}")
+    return {
+        "number": raw["number"],
+        "title": raw.get("title", ""),
+        "body": raw.get("body") or "",
+        "state": raw["state"].upper(),
+        "labels": [l["name"] for l in raw.get("labels", [])],
+    }
+
+
+def find_epic_children(epic: int, body: str) -> list[int]:
+    refs = [int(m) for m in CHECKLIST_CHILD_RE.findall(body)]
+    if refs:
+        return refs
+    return parse_section_refs(body, CHILDREN_RE)
+
+
+# ─── plan-file parser ──────────────────────────────────────────────────────
+
+PLAN_CHILD_RE = re.compile(
+    r"^(#{2,3})\s+Child\s+(\d+)\s*[—\-:]\s*(.+?)\s*$",
+    re.MULTILINE,
+)
+PLAN_DEPS_RE = re.compile(
+    r"^#{2,4}\s+Depends\s+on\s*$(.*?)(?=^#{2,4}\s|\Z)",
+    re.MULTILINE | re.DOTALL,
+)
+PLAN_DEP_TOKEN_RE = re.compile(r"#?child[-\s]*(\d+)|#(\d+)|\b(\d+)\b", re.I)
+
+
+def _normalize_child_body(raw_slice: str) -> str:
+    """Convert ###+ headers to ## so DEPENDS_RE / FILES_RE can match them."""
+    return re.sub(r"^#{3,}(?=\s)", "##", raw_slice, flags=re.MULTILINE)
+
+
+def _parse_deps_ordinals(body: str) -> list[int]:
+    m = DEPENDS_RE.search(body)
+    if not m:
+        return []
+    text = m.group(1).strip()
+    if not text or text.lower() in ("none", "n/a", "-", "—"):
+        return []
+    result = []
+    for tok in PLAN_DEP_TOKEN_RE.finditer(text):
+        n = int(next(g for g in tok.groups() if g is not None))
+        result.append(n)
+    return sorted(set(result))
+
+
+def _rewrite_dep_refs(text: str, ordinal_to_num: dict) -> str:
+    def _replace(m: re.Match) -> str:
+        n = int(next(g for g in m.groups() if g is not None))
+        real = ordinal_to_num.get(n)
+        return f"#{real}" if real is not None else m.group(0)
+    return PLAN_DEP_TOKEN_RE.sub(_replace, text)
+
+
+def _rewrite_child_body(body: str, ordinal_to_num: dict, epic_num: int) -> str:
+    """Rewrite ordinal dep refs → real issue numbers; replace epic placeholder."""
+    lines = body.split("\n")
+    in_deps = False
+    result = []
+    for line in lines:
+        if re.match(r"^##\s+Depends on", line):
+            in_deps = True
+            result.append(line)
+            continue
+        if in_deps and re.match(r"^##\s", line):
+            in_deps = False
+        if in_deps:
+            line = _rewrite_dep_refs(line, ordinal_to_num)
+        result.append(line)
+    new_body = "\n".join(result)
+    return new_body.replace("Part of epic (pending).", f"Part of epic #{epic_num}.")
+
+
+def parse_plan_file(text: str) -> dict:
+    """Pure function. Returns {epic_title, epic_preamble, children[]}."""
+    title_m = re.search(r"^#\s+(.+?)\s*$", text, re.MULTILINE)
+    epic_title = title_m.group(1) if title_m else "Untitled Epic"
+
+    child_matches = list(PLAN_CHILD_RE.finditer(text))
+    if not child_matches:
+        raise ValueError(
+            "No children found — expected '## Child N — Title' or '### Child N — Title'"
+        )
+
+    epic_preamble = text[:child_matches[0].start()].strip()
+
+    children = []
+    for i, m in enumerate(child_matches):
+        ordinal = int(m.group(2))
+        title = m.group(3)
+        start = m.end()
+        end = child_matches[i + 1].start() if i + 1 < len(child_matches) else len(text)
+        body = _normalize_child_body(text[start:end]).strip()
+        children.append({
+            "ordinal": ordinal,
+            "title": title,
+            "body": body,
+            "deps_ordinals": _parse_deps_ordinals(body),
+            "ac_paths": parse_section_paths(body, FILES_RE),
+        })
+
+    return {"epic_title": epic_title, "epic_preamble": epic_preamble, "children": children}
+
+
+def _validate_plan(parsed: dict) -> None:
+    children = parsed["children"]
+    ordinals = {c["ordinal"] for c in children}
+    expected = set(range(1, len(children) + 1))
+    if ordinals != expected:
+        missing = sorted(expected - ordinals)
+        extra = sorted(ordinals - expected)
+        msg = f"Child ordinals not contiguous from 1: got {sorted(ordinals)}"
+        if missing:
+            msg += f", missing {missing}"
+        if extra:
+            msg += f", extra {extra}"
+        raise ValueError(msg)
+    for c in children:
+        for dep in c["deps_ordinals"]:
+            if dep == c["ordinal"]:
+                raise ValueError(f"Child {c['ordinal']} depends on itself")
+            if dep not in ordinals:
+                raise ValueError(
+                    f"Child {c['ordinal']} depends on #{dep} which doesn't exist "
+                    f"(valid ordinals: {sorted(ordinals)})"
+                )
+
+
+def cmd_plan_to_epic(args: argparse.Namespace) -> None:
+    """Parse a plan file and create GitHub epic + child issues.
+
+    One-shot. Re-running creates duplicate issues.
+    """
+    text = Path(args.plan).read_text()
+    try:
+        parsed = parse_plan_file(text)
+        _validate_plan(parsed)
+    except ValueError as e:
+        die(str(e))
+
+    if args.dry_run:
+        children_out = [
+            {
+                "ordinal": c["ordinal"],
+                "title": c["title"],
+                "body": "Part of epic (pending).\n\n" + c["body"],
+                "deps_ordinals": c["deps_ordinals"],
+            }
+            for c in parsed["children"]
+        ]
+        checklist = "\n".join(
+            f"- [ ] #PENDING-{c['ordinal']}  {c['title']}"
+            for c in parsed["children"]
+        )
+        epic_body = parsed["epic_preamble"] + "\n\n## Children\n" + checklist
+        print(json.dumps(
+            {"epic": {"title": parsed["epic_title"], "body": epic_body}, "children": children_out},
+            indent=2,
+        ))
+        return
+
+    repo = args.repo or repo_slug()
+    created_children: list[tuple] = []  # (ordinal, issue_num, title)
+
+    try:
+        # Create child issues
+        ordinal_to_num: dict = {}
+        for c in parsed["children"]:
+            result = gh_api("POST", f"/repos/{repo}/issues", body={
+                "title": c["title"],
+                "body": "Part of epic (pending).\n\n" + c["body"],
+            })
+            num = int(result["number"])
+            ordinal_to_num[c["ordinal"]] = num
+            created_children.append((c["ordinal"], num, c["title"]))
+            print(f"  child #{num}: {c['title']}")
+
+        # Build epic body and create epic
+        checklist = "\n".join(
+            f"- [ ] #{ordinal_to_num[c['ordinal']]}  {c['title']}"
+            for c in parsed["children"]
+        )
+        epic_body = parsed["epic_preamble"] + "\n\n## Children\n" + checklist
+        epic_result = gh_api("POST", f"/repos/{repo}/issues", body={
+            "title": parsed["epic_title"],
+            "body": epic_body,
+            "labels": ["epic"],
+        })
+        epic_num = int(epic_result["number"])
+
+        # Patch each child with real dep numbers + epic reference
+        for c in parsed["children"]:
+            num = ordinal_to_num[c["ordinal"]]
+            new_body = _rewrite_child_body(
+                "Part of epic (pending).\n\n" + c["body"],
+                ordinal_to_num,
+                epic_num,
+            )
+            gh_api("PATCH", f"/repos/{repo}/issues/{num}", body={"body": new_body})
+            verify = gh_api("GET", f"/repos/{repo}/issues/{num}")
+            if "Part of epic (pending)." in (verify.get("body") or ""):
+                die(
+                    f"PATCH verification failed for child #{num}: "
+                    f"placeholder still present after update"
+                )
+
+        child_nums = [ordinal_to_num[c["ordinal"]] for c in parsed["children"]]
+        print(
+            f"epic #{epic_num} created with {len(child_nums)} children "
+            f"(#{child_nums[0]}..#{child_nums[-1]})"
+        )
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        print(f"\nERROR: {e}", file=sys.stderr)
+        if created_children:
+            print("Created so far (clean up manually):", file=sys.stderr)
+            for _ordinal, num, title in created_children:
+                print(f"  #{num}: {title}", file=sys.stderr)
+        sys.exit(1)
+
+
+# ─── commands ──────────────────────────────────────────────────────────────
+
+def cmd_parse_epic(args: argparse.Namespace) -> None:
+    """Fetch epic + children once. Emit JSON for the orchestrator's dispatch loop."""
+    print(json.dumps(_parse_epic_data(args.epic), indent=2))
+
+
+def _rollup_from_pr(pr: dict) -> dict:
+    if "check_runs" in pr:
+        return _rollup_from_check_runs(pr.get("check_runs") or [])
+    nodes = ((pr.get("commits") or {}).get("nodes") or [])
+    if not nodes:
+        return {}
+    return (nodes[0].get("commit", {}).get("statusCheckRollup") or {})
+
+
+def _rollup_from_check_runs(runs: list[dict]) -> dict:
+    if not runs:
+        return {"state": "EXPECTED", "contexts": {"nodes": []}}
+    contexts = []
+    has_pending = False
+    has_failure = False
+    all_success = True
+    for run in runs:
+        name = run.get("name") or "check-run"
+        status = (run.get("status") or "").upper()
+        conclusion = (run.get("conclusion") or "").upper()
+        contexts.append({"name": name, "status": status, "conclusion": conclusion})
+        if status != "COMPLETED":
+            has_pending = True
+            all_success = False
+        elif conclusion != "SUCCESS":
+            all_success = False
+            if conclusion in {"FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED"}:
+                has_failure = True
+            else:
+                has_pending = True
+    if has_failure:
+        state = "FAILURE"
+    elif has_pending:
+        state = "PENDING"
+    elif all_success:
+        state = "SUCCESS"
+    else:
+        state = "EXPECTED"
+    return {"state": state, "contexts": {"nodes": contexts}}
+
+
+def _check_names(rollup: dict) -> tuple[list[str], list[str]]:
+    failing, pending = [], []
+    contexts = ((rollup.get("contexts") or {}).get("nodes") or [])
+    for node in contexts:
+        name = node.get("name") or node.get("context") or "status"
+        conclusion = (node.get("conclusion") or "").upper()
+        status = (node.get("status") or node.get("state") or "").upper()
+        if conclusion in {"FAILURE", "ERROR", "TIMED_OUT", "CANCELLED", "ACTION_REQUIRED"}:
+            failing.append(name)
+        elif status in {"PENDING", "EXPECTED", "QUEUED", "IN_PROGRESS", "WAITING", "REQUESTED"}:
+            pending.append(name)
+        elif status in {"FAILURE", "ERROR"}:
+            failing.append(name)
+    return failing, pending
+
+
+def _diagnose_pr(pr: dict) -> dict:
+    rollup = _rollup_from_pr(pr)
+    ci = (rollup.get("state") or "EXPECTED").upper()
+    failing, pending = _check_names(rollup)
+    mergeable = (
+        pr.get("mergeable_state")
+        or pr.get("mergeable")
+        or pr.get("mergeStateStatus")
+        or ""
+    ).upper()
+    is_draft = bool(pr.get("isDraft") or pr.get("is_draft"))
+    if pr.get("mergedAt"):
+        reason = "merged"
+    elif (pr.get("state") or "").upper() == "CLOSED":
+        reason = "closed"
+    elif is_draft:
+        reason = "draft"
+    elif mergeable in {"CONFLICTING", "CONFLICT", "DIRTY"}:
+        reason = "conflict"
+    elif ci in {"FAILURE", "ERROR"}:
+        reason = "red-ci"
+    elif ci in {"PENDING", "EXPECTED"}:
+        reason = "pending-ci"
+    elif ci == "SUCCESS":
+        reason = "open-green"
+    else:
+        reason = "unknown"
+    return {
+        "number": pr.get("number"),
+        "title": pr.get("title") or "",
+        "headRefName": pr.get("headRefName") or "",
+        "state": pr.get("state") or "",
+        "mergedAt": pr.get("mergedAt"),
+        "is_draft": is_draft,
+        "ci_state": ci,
+        "failing_checks": failing,
+        "pending_checks": pending,
+        "mergeable": mergeable or None,
+        "stuck_reason": reason,
+    }
+
+
+def _epic_status_nodes_from_rest(epic: int) -> list[dict] | None:
+    """Build PR node dicts via REST. Returns None if REST fails."""
+    repo = repo_slug()
+    try:
+        issues = gh_api("GET", f"/repos/{repo}/issues?labels=epic-{epic}&state=all&per_page=100")
+    except SystemExit:
+        return None
+    if not isinstance(issues, list):
+        return None
+    nodes = []
+    for issue in issues:
+        if "pull_request" not in issue:
+            continue
+        pr_num = issue.get("number")
+        try:
+            pr = gh_api("GET", f"/repos/{repo}/pulls/{pr_num}")
+        except SystemExit:
+            return None
+        if not isinstance(pr, dict):
+            continue
+        head = pr.get("head") or {}
+        head_sha = head.get("sha") or ""
+        check_runs: list[dict] = []
+        if head_sha and not pr.get("merged_at") and pr.get("state") == "open":
+            try:
+                raw_runs = gh_api("GET", f"/repos/{repo}/commits/{head_sha}/check-runs")
+            except SystemExit:
+                return None
+            if isinstance(raw_runs, dict):
+                check_runs = raw_runs.get("check_runs") or []
+        nodes.append({
+            "number": pr.get("number"),
+            "title": pr.get("title") or "",
+            "state": "MERGED" if pr.get("merged_at") else (pr.get("state") or "").upper(),
+            "isDraft": bool(pr.get("draft")),
+            "mergedAt": pr.get("merged_at"),
+            "mergeable_state": pr.get("mergeable_state"),
+            "headRefName": head.get("ref") or "",
+            "check_runs": check_runs,
+        })
+    return nodes
+
+
+def _build_epic_status_buckets(nodes: list[dict]) -> tuple[list, list, list, list, list]:
+    merged, red, pending, open_green, diagnostics = [], [], [], [], []
+    for n in nodes:
+        diag = _diagnose_pr(n)
+        diagnostics.append(diag)
+        num = n["number"]
+        if n.get("mergedAt"):
+            merged.append(num)
+            continue
+        state = (n.get("state") or "").upper()
+        if state == "CLOSED":
+            continue
+        ci = diag["ci_state"]
+        if ci in ("FAILURE", "ERROR"):
+            red.append(num)
+        elif ci in ("PENDING", "EXPECTED"):
+            pending.append(num)
+        else:
+            open_green.append(num)
+    return merged, red, pending, open_green, diagnostics
+
+
+def cmd_epic_status(args: argparse.Namespace) -> None:
+    """CI rollup over epic-<N> labelled PRs. REST-only, fail-loud on throttle."""
+    label = f"epic-{args.epic}"
+
+    nodes = _epic_status_nodes_from_rest(args.epic)
+    if nodes is None:
+        print(f"THROTTLED: epic-status unreliable for {label}, refusing to count", file=sys.stderr)
+        sys.exit(2)
+
+    merged, red, pending, open_green, diagnostics = _build_epic_status_buckets(nodes)
+    if args.json:
+        print(json.dumps({"epic": args.epic,
+                          "merged": merged, "red": red,
+                          "pending": pending, "open_green": open_green,
+                          "prs": diagnostics}, indent=2))
+        return
+    parts = [f"epic #{args.epic}",
+             f"{len(merged)} merged"]
+    if red: parts.append(f"{len(red)} red ({','.join(f'#{p}' for p in red)})")
+    if pending: parts.append(f"{len(pending)} pending ({','.join(f'#{p}' for p in pending)})")
+    if open_green: parts.append(f"{len(open_green)} open-green ({','.join(f'#{p}' for p in open_green)})")
+    stuck = [d for d in diagnostics if d["stuck_reason"] in {"draft", "conflict", "red-ci"}]
+    if stuck:
+        parts.append("stuck " + ",".join(f"#{d['number']}:{d['stuck_reason']}" for d in stuck))
+    print(" | ".join(parts))
+
+
+def cmd_verify_pr(args: argparse.Namespace) -> None:
+    """Verify a child PR's ownership. Returns OK or FAIL: <reason>."""
+    pr, child, epic = args.pr, args.child, args.epic
+    repo = repo_slug()
+    try:
+        raw = gh_api("GET", f"/repos/{repo}/pulls/{pr}")
+    except SystemExit:
+        print(f"FAIL: pr #{pr} not viewable")
+        return
+    head = (raw.get("head") or {}).get("ref", "")
+    if not head.startswith(f"epic-{epic}-{child}-"):
+        print(f"FAIL: branch '{head}' does not match expected prefix epic-{epic}-{child}-")
+        return
+    if f"(#{child})" not in (raw.get("title") or ""):
+        print(f"FAIL: title missing (#{child})")
+        return
+    expected_author = args.author or (gh_api("GET", "/user") or {}).get("login", "")
+    actual_author = (raw.get("user") or {}).get("login", "")
+    if expected_author and actual_author and actual_author != expected_author:
+        print(f"FAIL: author '{actual_author}' != expected '{expected_author}'")
+        return
+    if args.claimed_sha:
+        commits = [c["sha"] for c in gh_api("GET", f"/repos/{repo}/pulls/{pr}/commits")]
+        if args.claimed_sha not in commits and not any(
+                c.startswith(args.claimed_sha) for c in commits):
+            print(f"FAIL: claimed sha {args.claimed_sha[:8]} not in pr commits")
+            return
+    if raw.get("merged_at"):
+        print(f"OK merged sha={raw['head']['sha'][:8]}")
+        return
+    if raw.get("state") == "open":
+        print("OK open")
+        return
+    print(f"FAIL: unexpected state={(raw.get('state') or '').upper()}")
+
+
+def _read_body_file(path: str) -> str:
+    return Path(path).read_text(encoding="utf-8")
+
+
+def cmd_pr_create(args: argparse.Namespace) -> None:
+    """Create PR + apply epic-<N> label. One REST + one REST."""
+    if args.epic and "(#" not in args.title:
+        die(f"FAIL: epic PR title missing (#<child>) tag: {args.title!r}")
+    repo = repo_slug()
+    body = {
+        "title": args.title,
+        "body": _read_body_file(args.body_file),
+        "head": args.head,
+        "base": args.base,
+    }
+    result = gh_api("POST", f"/repos/{repo}/pulls", body=body)
+    pr_num = result["number"]
+    if args.epic:
+        gh_api("POST", f"/repos/{repo}/issues/{pr_num}/labels",
+               body={"labels": [f"epic-{args.epic}"]})
+        labels = gh_api("GET", f"/repos/{repo}/issues/{pr_num}/labels")
+        label_names = [l.get("name") for l in (labels if isinstance(labels, list) else [])]
+        if f"epic-{args.epic}" not in label_names:
+            print(f"FAIL: PR #{pr_num} missing epic-{args.epic} label after create",
+                  file=sys.stderr)
+            sys.exit(2)
+    print(pr_num)
+
+
+def cmd_revert(args: argparse.Namespace) -> None:
+    """Open a manual rollback PR for every merged epic-<N> child.
+
+    Manual rollback tool only; the orchestrator does not call this during a
+    normal epic-run. Best-effort: revert conflicts surface in the PR body.
+    """
+    epic = args.epic
+    label = f"epic-{epic}"
+    repo = repo_slug()
+    prs = _gh_pr_list_merged(label, repo)
+    if not prs:
+        die(f"no merged PRs labelled {label}")
+    prs.sort(key=lambda p: p.get("mergedAt") or "", reverse=True)
+
+    default = sh(["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+                 check=False).strip().split("/")[-1] or "main"
+    sh(["git", "fetch", "origin"])
+    suffix = sh(["openssl", "rand", "-hex", "4"]).strip()
+    branch = f"{label}-revert-{suffix}"
+    sh(["git", "checkout", "-B", branch, f"origin/{default}"])
+
+    reverted: list[tuple[int, str]] = []
+    failed: list[tuple[int, str]] = []
+    for pr in prs:
+        sha = (pr.get("mergeCommit") or {}).get("oid") or ""
+        if not sha:
+            failed.append((pr["number"], "no merge commit recorded"))
+            continue
+        r = subprocess.run(["git", "revert", "--no-edit", "-m", "1", sha],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            # try again without -m (non-merge commit)
+            r = subprocess.run(["git", "revert", "--no-edit", sha],
+                               capture_output=True, text=True)
+        if r.returncode != 0:
+            sh(["git", "revert", "--abort"], check=False)
+            failed.append((pr["number"], f"conflict: {r.stderr.strip()[:80]}"))
+            continue
+        reverted.append((pr["number"], sha))
+
+    if not reverted:
+        die(f"could not revert any of {len(prs)} merged PRs (conflicts on all)")
+
+    sh(["git", "push", "-u", "origin", branch])
+    body_lines = [f"Manual rollback of merged `{label}` children.\n",
+                  "## Reverted"]
+    body_lines.extend(f"- #{n} ({s[:8]})" for n, s in reverted)
+    if failed:
+        body_lines.append("\n## Could not revert — manual intervention")
+        body_lines.extend(f"- #{n}: {r}" for n, r in failed)
+    bf = tempfile.NamedTemporaryFile("w", suffix=".md", delete=False)
+    bf.write("\n".join(body_lines))
+    bf.close()
+
+    title = f"Revert epic #{epic}"
+    pr_url = sh(["gh", "pr", "create", "--title", title,
+                 "--body-file", bf.name, "--base", default,
+                 "--head", branch, "--label", f"{label}-revert"]).strip()
+    pr_num = pr_url.rsplit("/", 1)[-1]
+    sh(["gh", "pr", "merge", "--auto", "--squash", "--delete-branch", pr_num], check=False)
+    print(f"OK revert-pr={pr_url} reverted={len(reverted)} failed={len(failed)}")
+
+
+def cmd_cleanup(args: argparse.Namespace) -> None:
+    """Remove epic-<N> worktrees (orch + agent) and prune squash-merged branches."""
+    epic = args.epic
+    removed = []
+
+    # Map worktree path → short branch name from porcelain output
+    wt_branches: dict[str, str] = {}
+    current_path: str | None = None
+    for line in sh(["git", "worktree", "list", "--porcelain"], check=False).splitlines():
+        if line.startswith("worktree "):
+            current_path = line[len("worktree "):]
+        elif line.startswith("branch ") and current_path:
+            wt_branches[current_path] = line[len("branch refs/heads/"):]
+
+    # Drop orch-* and agent-* worktrees that are on an epic-N branch
+    for wt_root in (Path.home() / ".claude/worktrees", Path.home() / ".codex/worktrees"):
+        if not wt_root.exists():
+            continue
+        for wt in wt_root.iterdir():
+            wt_str = str(wt)
+            branch = wt_branches.get(wt_str, "")
+            if wt.name.startswith(f"epic-{epic}-orch-") or (
+                wt.name.startswith("agent-") and branch.startswith(f"epic-{epic}-")
+            ):
+                sh(["git", "worktree", "remove", "-f", "-f", wt_str], check=False)
+                removed.append(wt_str)
+
+    sh(["git", "worktree", "prune"], check=False)
+    sh(["git", "fetch", "--prune", "origin"], check=False)
+
+    default = (
+        sh(["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"], check=False)
+        .strip().split("/")[-1] or "main"
+    )
+
+    def _is_ancestor(b: str) -> bool:
+        return subprocess.run(
+            ["git", "merge-base", "--is-ancestor", b, default], capture_output=True
+        ).returncode == 0
+
+    def _all_squashed(b: str) -> bool:
+        lines = sh(["git", "cherry", "-v", default, b], check=False).strip().splitlines()
+        return bool(lines) and all(l.startswith("-") for l in lines)
+
+    # Delete merged and squash-merged epic-N-* branches
+    for line in sh(["git", "branch", "--format=%(refname:short)\t%(upstream:track)"],
+                   check=False).splitlines():
+        parts = line.split("\t", 1)
+        b, track = parts[0].strip(), (parts[1].strip() if len(parts) > 1 else "")
+        if not b.startswith(f"epic-{epic}-"):
+            continue
+        if track == "[gone]" or _is_ancestor(b) or _all_squashed(b):
+            sh(["git", "branch", "-D", b], check=False)
+            removed.append(f"branch:{b}")
+
+    # Prune merged worktree-agent-* branches (epic-agnostic; always safe when merged)
+    for line in sh(["git", "branch", "--format=%(refname:short)\t%(upstream:track)"],
+                   check=False).splitlines():
+        parts = line.split("\t", 1)
+        b, track = parts[0].strip(), (parts[1].strip() if len(parts) > 1 else "")
+        if not b.startswith("worktree-agent-"):
+            continue
+        if track == "[gone]" or _is_ancestor(b):
+            sh(["git", "branch", "-D", b], check=False)
+            removed.append(f"branch:{b}")
+
+    print(f"OK removed={len(removed)}")
+    for r in removed:
+        print(f"  {r}")
+
+
+# ─── arg parsing ───────────────────────────────────────────────────────────
+
+def main() -> None:
+    p = argparse.ArgumentParser(prog="epic-tools",
+                                description="Minimal plumbing for /epic-run skill.")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    s = sub.add_parser("parse-epic", help="Fetch epic + children. Emits JSON.")
+    s.add_argument("epic", type=int)
+    s.set_defaults(func=cmd_parse_epic)
+
+    s = sub.add_parser("epic-status", help="One-shot CI rollup over epic-<N> labelled PRs.")
+    s.add_argument("epic", type=int)
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(func=cmd_epic_status)
+
+    s = sub.add_parser("verify-pr",
+                       help="Verify PR ownership + atomic claim (branch, title, author, sha).")
+    s.add_argument("--epic", type=int, required=True)
+    s.add_argument("--child", type=int, required=True)
+    s.add_argument("--pr", type=int, required=True)
+    s.add_argument("--claimed-sha", default=None)
+    s.add_argument("--author", default=None)
+    s.set_defaults(func=cmd_verify_pr)
+
+    s = sub.add_parser("revert", help="Open a rollback PR for merged epic-<N> children.")
+    s.add_argument("epic", type=int)
+    s.set_defaults(func=cmd_revert)
+
+    s = sub.add_parser("pr-create", help="Create PR; with --epic, label epic-<N>.")
+    s.add_argument("--title", required=True)
+    s.add_argument("--body-file", required=True)
+    s.add_argument("--head", required=True)
+    s.add_argument("--base", required=True)
+    s.add_argument("--epic", type=int, default=None)
+    s.set_defaults(func=cmd_pr_create)
+
+    s = sub.add_parser("cleanup", help="Remove epic-<N> orch worktrees + prune merged branches.")
+    s.add_argument("epic", type=int)
+    s.set_defaults(func=cmd_cleanup)
+
+    s = sub.add_parser("usage-ingest-claude",
+                       help="Append one Claude child completion audit row.")
+    s.add_argument("--transcript", required=True)
+    s.add_argument("--epic", type=int, default=None)
+    s.add_argument("--child", type=int, default=None)
+    s.add_argument("--run-id", default="")
+    s.add_argument("--pr", type=int, default=None)
+    s.add_argument("--sha", default="")
+    s.add_argument("--output", default=None)
+    s.set_defaults(func=cmd_usage_ingest_claude)
+
+    s = sub.add_parser("usage-sweep",
+                       help="Scan ~/.claude/projects transcripts for child completion markers.")
+    s.add_argument("--epic", type=int, default=None,
+                   help="Only ingest rows whose marker matches this epic.")
+    s.add_argument("--projects-root", default=str(Path.home() / ".claude/projects"))
+    s.add_argument("--hours", type=float, default=24,
+                   help="Skip transcripts older than N hours by mtime (0 = no limit).")
+    s.add_argument("--pr", type=int, default=None)
+    s.add_argument("--sha", default="")
+    s.add_argument("--output", default=None)
+    s.set_defaults(func=cmd_usage_sweep)
+
+    s = sub.add_parser("usage-ingest-codex",
+                       help="Scan Codex rollout JSONLs for child completion markers.")
+    s.add_argument("--session", default=None, help="Single rollout-*.jsonl to scan.")
+    s.add_argument("--sessions-root", default=str(Path.home() / ".codex/sessions"))
+    s.add_argument("--limit", type=int, default=40, help="Recent sessions to scan.")
+    s.add_argument("--epic", type=int, default=None)
+    s.add_argument("--child", type=int, default=None)
+    s.add_argument("--run-id", default=None)
+    s.add_argument("--pr", type=int, default=None)
+    s.add_argument("--sha", default="")
+    s.add_argument("--observed-marker", default=None,
+                   help="Fallback EPIC_RUN_USAGE line observed from worker status.")
+    s.add_argument("--output", default=None)
+    s.set_defaults(func=cmd_usage_ingest_codex)
+
+    s = sub.add_parser("usage-report",
+                       help="Summarize local epic-run completion audit rows.")
+    s.add_argument("--input", default=None)
+    s.add_argument("--runtime", default=None)
+    s.add_argument("--epic", type=int, default=None)
+    s.add_argument("--child", type=int, default=None)
+    s.add_argument("--run-id", default=None)
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(func=cmd_usage_report)
+
+    s = sub.add_parser("retro-data",
+                       help="Emit joined closed-epic, PR, followup, unfinished, and usage facts.")
+    s.add_argument("--epics", type=int, default=10)
+    s.add_argument("--input", default=None)
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(func=cmd_retro_data)
+
+    s = sub.add_parser(
+        "plan-to-epic",
+        help="Parse a local plan .md file and create GitHub epic + child issues. "
+             "One-shot — re-running creates duplicate issues.",
+    )
+    s.add_argument("plan", help="Path to plan .md file")
+    s.add_argument(
+        "--repo", default=None,
+        help="GitHub repo slug (owner/name). Defaults to current git remote.",
+    )
+    s.add_argument(
+        "--dry-run", action="store_true",
+        help="Print would-be JSON without creating any GitHub issues.",
+    )
+    s.set_defaults(func=cmd_plan_to_epic)
+
+    args = p.parse_args()
+    args.func(args)
+
+
+if __name__ == "__main__":
+    main()
