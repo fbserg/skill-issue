@@ -5,11 +5,13 @@ description: Mine closed epics into skill improvements. Invoke with /epic-retro 
 
 The retrospective for the retrospectives. Reads what `/epic-run` and child PRs already produced — merged PR bodies/diffs, stuck open PRs, followup/unfinished labels — and produces a ranked, evidence-cited list of changes to `epic-plan` / `epic-run` / `dispatch.md`.
 
-**Signal lives in PRs + followups + stuck-PR backlog.** Comments are bonus signal — PR/issue bodies are primary. Don't over-index on comments but don't refuse them either.
+**Signal lives in PRs + followups + stuck-PR backlog.** PR/issue bodies are primary; comments are bonus signal.
 
-**Speculation is fine.** Cite when you have evidence, but don't gate findings on it. A hunch from one PR, a smell across the dispatch logic, a "this will bite us next epic" prediction — surface it. Mark confidence (`observed`, `inferred`, `hunch`) so the reader can weight it. Better to surface a wrong hunch than miss a right one.
+**Speculation is fine.** Mark confidence (`observed`, `inferred`, `hunch`) — surface a wrong hunch rather than miss a right one.
 
 ## Inputs
+
+> **Note:** `epic-tools retro-data` and `epic-tools usage-report` require local completion audit markers (`EPIC_RUN_USAGE` lines) to have been emitted during epic runs. If these commands return empty results, use the REST fallback commands below.
 
 Default input is one agent-run bundle:
 
@@ -46,7 +48,7 @@ If that fails, fetch the same sources in parallel via Bash. For each closed epic
 gh issue list --label epic --state closed --json number,title,closedAt,body --limit <N>
 
 # child numbers from epic body's "## Children" section
-gh pr list --state merged --json number,title,body,files --limit 200 | jq '[.[] | select(.body | test("Closes #<child>"))]'
+gh pr list --state merged --json number,title,body,files --limit 200 | jq '[.[] | select(.body | test("Closes #[0-9]+"))]'
 
 # per closed epic — stuck PRs that auto-merge never resolved
 gh pr list --label epic-<N> --state open --json number,title,headRefName
@@ -59,7 +61,7 @@ epic-tools usage-report --epic <N> --json
 - `[]` for one epic but `usage.jsonl` has rows for other epics → note "no completion audit for epic N" and continue.
 - `usage.jsonl` doesn't exist at all → the orchestrator never recorded child completions. Surface this as a top finding and skip completion-shape analysis for the run.
 
-**Multi-repo.** If multiple repos are active in the time window (passed as `--repos a,b,c` or auto-detected via recent commits across `$HOME/projects/*`), run the pull steps per repo and merge findings. Cite as `<repo>#<epic>` in evidence cells (for example, `api#273` or `web#305`).
+**Multi-repo.** If multiple repos are active in the time window, pass them with `--repos a,b,c` (e.g. `--repos owner/repo1,owner/repo2`). Run the pull steps per repo and merge findings. Cite as `<repo>#<epic>` in evidence cells.
 
 ### 2. Mine stuck-PR backlog
 
