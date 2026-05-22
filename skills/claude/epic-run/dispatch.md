@@ -32,6 +32,8 @@ If `gh` hits `GraphQL: API rate limit already exceeded`, use REST:
 
 0. **Bootstrap before any other action.**
 
+   Follow the repo's bootstrap docs (CLAUDE.md `## Worktree bootstrap` section, or README install instructions) when present. Use lockfile auto-detection only as a fallback:
+
    Run `CLAUDE.md` `## Worktree bootstrap` fenced `bash` block if present.
    Else auto-detect:
 
@@ -52,9 +54,8 @@ If `gh` hits `GraphQL: API rate limit already exceeded`, use REST:
    Dependencies are already merged; never wait on them.
 2. Read every file listed in "Files likely touched" before editing.
 3. Implement only this issue. Run focused tests only, e.g.
-   `<PYTHON> -m pytest -q tests/test_<area>.py` or
-   `scripts/tests_for.py <changed-files>`. Never run the full tree.
-4. If `<TIDY>=yes`, call `Skill({skill:"tidy"})` before committing. Re-run
+   `<PYTHON> -m pytest -q tests/test_<area>.py` or the equivalent focused test command for the changed files. Never run the full tree.
+4. If `<TIDY>=yes`, run the `tidy` skill before committing (it ships with this bundle at `skills/claude/tidy/SKILL.md`). Re-run
    focused tests if it edits. Skip when `<TIDY>=no`.
 5. `git diff --stat`; reject foreign files. Commit once with `git commit -m/-F`;
    message references `(#<child>)`. Never amend or open an editor.
@@ -100,7 +101,7 @@ Bootstrap exits non-zero twice → exit immediately with
 
 For `verify-pr`, integrity, or AC failure: comment on PR and exit failed.
 
-If focused tests stay red after two diagnosis attempts, ask `advisor()` once.
+If focused tests stay red after two diagnosis attempts, ask for a second opinion: if `advisorModel` is configured in your Claude Code settings, call `advisor()` once; otherwise dispatch a fresh `general-purpose` subagent with the error and relevant context.
 Bail if still stuck, after three unchanged pytest repeats, five edits to one
 file without convergence, or confusing git state. For confusing git, paste
 `git status` and `git branch -vv`; exit `STATUS=fail REASON=worktree-corruption`.
