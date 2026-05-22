@@ -1369,6 +1369,47 @@ def cmd_revert(args: argparse.Namespace) -> None:
     print(f"OK revert-pr={pr_url} reverted={len(reverted)} failed={len(failed)}")
 
 
+def cmd_lock_status(args: argparse.Namespace) -> None:
+    """Check run-lock for epic N. Auto-clears stale locks (>6h no activity). Exits 1 if active."""
+    import datetime as _dt
+    epic = args.epic
+    repo = repo_slug()
+    lock = f"epic-{epic}-running"
+
+    issue = gh_api("GET", f"/repos/{repo}/issues/{epic}")
+    label_names = [lb["name"] for lb in issue.get("labels", [])]
+    if lock not in label_names:
+        print("no-lock")
+        return
+
+    cutoff = _dt.datetime.now(_dt.timezone.utc) - _dt.timedelta(hours=6)
+
+    prs = gh_api("GET", f"/repos/{repo}/pulls?state=open&per_page=20")
+    pr_times = [
+        pr["updated_at"] for pr in (prs if isinstance(prs, list) else [])
+        if any(lb["name"] == lock for lb in pr.get("labels", []))
+    ]
+
+    comments = gh_api("GET", f"/repos/{repo}/issues/{epic}/comments?per_page=5")
+    comment_times = [c["updated_at"] for c in (comments if isinstance(comments, list) else [])]
+
+    timestamps = [t for t in pr_times + comment_times if t]
+    if timestamps:
+        latest = max(
+            _dt.datetime.fromisoformat(t.replace("Z", "+00:00")) for t in timestamps
+        )
+        stale = latest < cutoff
+    else:
+        stale = True
+
+    if stale:
+        sh(["gh", "issue", "edit", str(epic), "--remove-label", lock])
+        print("cleared (stale lock >6h)")
+    else:
+        print(f"locked (active PR/comment in last 6h)")
+        sys.exit(1)
+
+
 def cmd_cleanup(args: argparse.Namespace) -> None:
     """Remove epic-<N> worktrees (orch + agent) and prune squash-merged branches."""
     if not args.yes:
@@ -1484,6 +1525,11 @@ def main() -> None:
     s.add_argument("--base", required=True)
     s.add_argument("--epic", type=int, default=None)
     s.set_defaults(func=cmd_pr_create)
+
+    s = sub.add_parser("lock-status",
+                       help="Check/clear the run-lock for epic N. Exits 1 if actively locked.")
+    s.add_argument("epic", type=int)
+    s.set_defaults(func=cmd_lock_status)
 
     s = sub.add_parser("cleanup", help="Remove epic-<N> orch worktrees + prune merged branches.")
     s.add_argument("epic", type=int)

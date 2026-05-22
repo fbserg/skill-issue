@@ -5,7 +5,7 @@ description: Scope a feature, audit, or cleanup into a GitHub epic with child is
 
 Turn a topic into a GitHub epic (tracking issue + child issues) ready for `/epic-run`.
 
-**Required:** GitHub CLI (`gh`) authenticated. Subagent dispatch for Stage 3 external research.
+**Required:** GitHub CLI (`gh`) authenticated.
 
 ## Stage 0 — Topic capture
 
@@ -29,6 +29,12 @@ Questions to draw from (ask only what matters for this topic):
   *Recommended: [state the most likely way the happy path skips a hard case]*
 - One epic or actually two?
   *Recommended: [state one if the goal is coherent; two if there are independent themes]*
+- Should any child be split or merged with another? (ask after seeing the draft)
+  *Recommended: [state your judgment]*
+- Is the ordering correct given file-overlap constraints? (ask after seeing the draft)
+  *Recommended: [state the right order]*
+- Any child that's secretly a sibling epic? (ask after seeing the draft)
+  *Recommended: [name it if so, else "no"]*
 
 **Codebase-answerable questions:** before asking, `grep` or `Explore` for the answer. If the codebase answers it, state the finding and move on — don't ask.
 
@@ -47,44 +53,34 @@ Walk relevant files, grep for affected symbols, check live state when the topic 
 
 If >5 unaddressed followup/unfinished issues surface, propose a "grab-bag" epic (`/epic-plan "grab-bag: clean out followups"`).
 
-## Stage 3 — External research
+## Stage 3 — External research (optional)
 
-Fire three parallel agents on every epic. Three parallel searches cost ~5 minutes; missing a peer pattern costs a whole epic. Skip only for: pure typo/comment/version-bump, rollback of a specific commit, doc-only edit with no design choice in flight.
+If the landscape is unclear and this affects a user-facing surface, suggest `/epic-research <topic>` before drafting. Otherwise proceed directly to Stage 4.
 
-**Do not ask "research worth it?"** — that question reliably gets "no" and gets regretted.
+## Stage 4 — Draft the plan in chat
 
-Ground each agent with 3–10 bullets about our current codebase shape (file paths, key abstractions, constraints) from Stage 2's findings, then dispatch all three in a single message:
+Use the canonical plan-file format so the output is directly usable with `epic-tools plan-to-epic`:
 
-**Agent 1 — Direct competitors:** Who else solves this exact job for this exact user? Reddit/HN/forums for honest user voice. For each: deliverable, mechanism, pricing, target user, ahead-or-behind on which axes. Goal: leapfrog territory or catch-up?
+```
+## Child N — <title>
 
-**Agent 2 — Tech-stack peers:** Best-of-breed projects (open + commercial) using the same technical approach, even for a different deliverable. Identify 2–3 exemplars worth studying and 2–3 we're already ahead of. Cite specific patterns with repo paths, not vague categories.
+### Scope
+<1-3 sentences>
 
-**Agent 3 — GitHub deep search:** ~10–15 targeted `gh search code`/`gh search repos` queries. For top 10–15 hits: repo, stack, what they generate, relevant file structure with paths and line counts, multi-variant handling. Flag anything materially better than our approach.
+### Acceptance criteria
+- <testable bullet>
 
-After all three return, synthesize: where we sit (leapfrog/parity/catch-up), comparison table, ideas worth stealing (with source + refactor path), patterns to avoid, smallest next move.
+### Depends on
+Child M  <!-- ordinal ref; "none" if no deps -->
 
-If findings raise new ambiguities — competitor does X, parity / explicit non-goal / leapfrog? — proceed to Stage 4 to resolve them. Otherwise go to Stage 5.
+### Files likely touched
+- path/to/file.py
 
-## Stage 4 — Gap/scope grill
+### Risk
+<text-only|visual|shared-state>
+```
 
-Ask **one question at a time** with a recommended answer. Draw from:
-
-- For each "ideas worth stealing" finding: parity / explicit non-goal / leapfrog?
-  *Recommended: [state the one that serves the user's stated goal]*
-- Capability-gap probe: run the deliverable's hot path end-to-end against unmodified code with a hypothetical fixture. Whatever blocks it is a child, not "out of scope." What's blocking?
-  *Recommended: [state what the most obvious blocker would be]*
-- Skeleton-shipping smell: if every child's AC ships behind a skip-gate or feature flag, the epic isn't done — it's deferred. Is there a missing unblocker child?
-  *Recommended: [name it if you see it, or say "no smell"]*
-- Mini-epic check: if any child needs 3+ parallel workers, spans UI+backend+data, or changes a public API — stop and propose splitting.
-  *Recommended: [split / don't split]*
-
-Stop when scope is settled.
-
-## Stage 5 — Draft the plan in chat
-
-Numbered list. Each item: self-contained (one session), clear AC, files likely touched, deps on earlier items.
-
-**Cross-child AC smell.** If A's AC bullet names a file/function B will create, re-phrase A's AC to "function is importable" or merge them.
+Each child: self-contained (one session), clear AC, files likely touched. For deps, use the `### Depends on` subsection with ordinal refs (`Child 1`, `Child 2`, etc.) — **never bold inline text** like `**Depends on:** #1`. The parser requires the section header.
 
 **Risk tag.** Assign exactly one:
 - `text-only`: docs, comments, prompts, config trims, mechanical renames.
@@ -98,22 +94,7 @@ Default to `shared-state` when uncertain.
 
 **Surface walk (optional).** Spawn an `Explore` subagent to walk the affected surface when integration risk is unclear. Brief it with the draft shape; ask for entry points, cross-process consumers, live state, and non-obvious tests. Cap under 800 words. Skip when single-file or you already know the surface.
 
-## Stage 6 — Confirmation grill
-
-Ask **one question at a time** with a recommended answer:
-
-- Should child N be split / merged with another?
-  *Recommended: [state your judgment]*
-- Is this ordering correct given file-overlap constraints?
-  *Recommended: [state the right order]*
-- Any child that's secretly a sibling epic?
-  *Recommended: [name it if so, else "no"]*
-
-Stop when user says "go."
-
-**Do NOT create issues until user says go.**
-
-## Stage 7 — Materialize epic
+## Stage 5 — Materialize epic
 
 ### Tracker (`gh issue create --label epic --title "Epic: <topic>"`)
 
@@ -125,7 +106,7 @@ Stop when user says "go."
 <text-only|visual|shared-state>
 
 ## Demo
-<single end-to-end command + expected outcome — see Stage 5>
+<single end-to-end command + expected outcome — see Stage 4>
 
 ## Test command
 <command-the-orchestrator-runs-as-Gate-A; default `pytest -q`>
@@ -140,39 +121,19 @@ Stop when user says "go."
 ## Scope
 <1-3 sentences>
 
+**Risk:** <text-only|visual|shared-state>
+
 ## Acceptance criteria
 - <testable bullet>
-- <testable bullet>
-
-## Proof
-<REQUIRED for visual/shared-state, OMIT for text-only.
- Visual: screenshot/GIF. Shared-state: before/after of the affected route, table row,
- or transcript proving the surface behaves correctly.>
-
-## Out of scope
-- <thing an agent might be tempted to also do but shouldn't>
 
 ## Files likely touched
 - path/to/file.py
-
-## Prior art
-<existing helper, pattern, sibling issue worth checking before inventing — omit if none>
-
-## Sibling repo
-<REQUIRED if child touches a sibling project. State:
- - which repo (path on disk + remote)
- - branch convention to push to
- - who merges (this agent | follow-up child | human)
- If "this agent" — add an AC bullet requiring the sibling-repo PR opened AND merged.
- Pushed branch is not done. -->
 
 ## Depends on
 #<other-child-num>  <!-- omit if no deps -->
 
 Part of #<epic-num>
 ```
-
-**Carry-overs.** If a child folds an open issue you expect to fall out incidentally, tag the line in `## Children` as `(carry-over, expected to resolve incidentally)`.
 
 **Live-state mutators.** Phrase ACs as "verify the target state, migrating any non-conforming records."
 
@@ -181,7 +142,7 @@ After children created, edit tracker to fill `## Children` with `- [ ] #N — <t
 ### Labels
 
 If `epic` doesn't exist: `gh label create epic --color "5319e7" --description "Tracking issue for a multi-issue epic"`.
-Topic-specific: `gh label list | grep epic:` for existing convention.
+Topic-specific: `gh label list | grep epic:` for existing convention. Create `epic:<slug>` if topic warrants and apply to tracker + every child.
 
 ### Report
 
@@ -190,13 +151,9 @@ One line: The run command: `/epic-run <epic-num>` (or `/loop /epic-run <epic-num
 ## Rules
 
 - **Don't invent scope.** "Audit backups" means backups, not "and clean up the dashboard while we're here."
-- **`## Out of scope` is a smell test.** Each bullet: would removing it break the deliverable? If yes, it's on the critical path — pull in.
 - **Order matters.** File-overlapping items are sequential — note in `Depends on`.
 - **No PRD ceremony.** Tracker stays lean; children carry scope, AC, out-of-scope.
 - **The user runs `/epic-run` separately.** This skill ends when issues are created.
 - **No silent sub-orchestrators.** Genuine sub-decomposition → escalate to a sibling epic.
 
-## Labels
-
-If `epic` doesn't exist: `gh label create epic --color "5319e7" --description "Tracking issue for a multi-issue epic"`.
-Topic-specific: `gh label list | grep epic:` for existing convention. Create `epic:<slug>` if topic warrants and apply to tracker + every child.
+**Do NOT create issues until user says go.**

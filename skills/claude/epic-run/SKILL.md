@@ -63,31 +63,7 @@ MODE=normal
 First tick:
 
 ```bash
-if gh api repos/$REPO/issues/<N> --jq '.labels[].name' | grep -qx "$LOCK"; then
-  # Check for recent PR or comment activity — not label age, which is wrong for
-  # long-running epics where the label is old but work is still in progress.
-  LAST_PR=$(gh api "repos/$REPO/pulls?state=open&per_page=20" \
-    --jq "[.[] | select(.labels[].name==\"epic-<N>\") | .updated_at] | sort | last // \"\"")
-  LAST_COMMENT=$(gh api "repos/$REPO/issues/<N>/comments?per_page=5" \
-    --jq '[.[].updated_at] | sort | last // ""')
-  STALE=$(python3 -c "
-from datetime import datetime, timezone, timedelta
-import sys
-cutoff = datetime.now(timezone.utc) - timedelta(hours=6)
-timestamps = [s for s in ['$LAST_PR','$LAST_COMMENT'] if s]
-if not timestamps:
-    print('yes'); sys.exit()
-latest = max(datetime.fromisoformat(t.replace('Z','+00:00')) for t in timestamps)
-print('yes' if latest < cutoff else 'no')
-")
-  if [[ "$STALE" == "yes" ]]; then
-    echo "Stale lock (no PR/comment activity >6h); clearing and re-entering."
-    gh issue edit <N> --remove-label "$LOCK"
-  else
-    echo "epic #<N> already running (active PR/comment in last 6h); exit 1"
-    exit 1
-  fi
-fi
+epic-tools lock-status <N> || { echo "epic #<N> already running (active in last 6h)"; exit 1; }
 PARSE=$(epic-tools parse-epic <N>)
 gh issue edit <N> --add-label "$LOCK"
 RUN_ID_SUFFIX=$(openssl rand -hex 4)
@@ -139,7 +115,7 @@ CI check source: REST check-runs
 
 ## §3  Dispatch + collect
 
-Slots = `7 - count(in-flight)`. Dispatch up to that many `ready` children in one
+Slots = `7 - count(in-flight)`. (7 = practical concurrency cap; avoids shared-helper conflicts.) Dispatch up to that many `ready` children in one
 message as parallel `Agent` calls with worktree isolation, background mode, and
 bypass permissions. Each child bootstraps its worktree (uv/poetry/npm/yarn +
 pre-commit) as Step 0 before any work; see `dispatch.md`. Pass only a short
@@ -153,9 +129,7 @@ Substitutions:
   EPIC_TOOLS=<absolute path to bin/epic-tools> MODE=<normal|manual-merge>
 ```
 
-Set `TIDY=yes` to run a tidy pass (non-trivial children: 3+ likely-touched
-files, new logic, refactor, or feature work). Use `TIDY=no` for tiny
-docs/comments/version/typo work. Default yes.
+Set `TIDY=yes` to run a tidy pass (3+ likely-touched files, new logic, refactor, or feature work). Default no.
 
 Each child must print:
 
@@ -213,9 +187,7 @@ ScheduleWakeup(
 )
 ```
 
-Use 60-270s only when a state change is imminent; never exactly 300s. Use 1200s
-by default and 1800s+ for long-running work. If `pending == 0`, go to §4a and do
-not schedule a wakeup.
+Use 60-270s only when a state change is imminent; 1200s by default; 1800s+ for long-running work. If `pending == 0`, go to §4a and do not schedule a wakeup.
 
 ## §4a  Close (final tick only)
 

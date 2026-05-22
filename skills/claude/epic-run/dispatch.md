@@ -59,31 +59,26 @@ If `gh` hits `GraphQL: API rate limit already exceeded`, use REST:
    focused tests if it edits. Skip when `<TIDY>=no`.
 5. `git diff --stat`; reject foreign files. Commit once with `git commit -m/-F`;
    message references `(#<child>)`. Never amend or open an editor.
-6. If this child's epic listed upstream sibling issues whose changes may affect
-   your files (e.g. shared lock files, test stubs, shared helpers), run
-   `git pull --rebase origin <DEFAULT_BRANCH>` and re-run focused tests. Bail
-   on rebase conflicts per Bail rules. Skip if no upstream deps or your branch
-   was created after all deps merged.
-7. `git push -u origin <branch>`.
-8. Write a PR body from the template. Create the PR:
+6. `git push -u origin <branch>`.
+7. Write a PR body from the template. Create the PR:
    `<EPIC_TOOLS> pr-create --epic <N> --title "<prefix>: <title> (#<child>)" --body-file "$PR_BODY" --head <branch> --base <DEFAULT_BRANCH>`.
    Prefix is `chore|test|fix|feat`.
-9. Verify ownership:
+8. Verify ownership:
    `<EPIC_TOOLS> verify-pr --epic <N> --child <child> --pr $PR --claimed-sha <sha> --author "$GH_USER"`.
    Failure goes to Bail.
-10. Risk-gated verifiers. Run test-integrity and AC verifiers only for behavior
-    changes, shared helpers, multi-file changes, or tests that could weaken
-    coverage. Skip for tiny docs, comments, and mechanical edits. When run, the
-    test-integrity verifier fails on weakened/skipped/hollow/missing tests; the
-    AC verifier fails unless every accepted criterion passes.
-11. Stop at a verified PR. Do not queue auto-merge, merge directly, push to
+9. Risk-gated verifiers. Run test-integrity and AC verifiers only for behavior
+   changes, shared helpers, multi-file changes, or tests that could weaken
+   coverage. Skip for tiny docs, comments, and mechanical edits. When run, the
+   test-integrity verifier fails on weakened/skipped/hollow/missing tests; the
+   AC verifier fails unless every accepted criterion passes.
+10. Stop at a verified PR. Do not queue auto-merge, merge directly, push to
     main, or ask the user to merge. The orchestrator owns all merge actions in
     both normal and `manual-merge` modes.
-12. Optional PR notes. Add `## Notes` only for non-blocking adjacent observations:
+11. Optional PR notes. Add `## Notes` only for non-blocking adjacent observations:
     duplicate helpers, suspicious test gaps, drift, or cleanup ideas. Anything
     required for this child acceptance criteria must be fixed or returned as
     `STATUS=fail REASON=<short>`, never hidden in notes.
-13. Reply exactly:
+12. Reply exactly:
     `EPIC_RUN_USAGE run_id=<RUN_ID_SUFFIX> epic=<N> child=<child>`
     then `STATUS=ok PR=$PR SHA=<full-sha>` or `STATUS=fail REASON=<short>`.
 
@@ -101,9 +96,8 @@ Bootstrap exits non-zero twice → exit immediately with
 
 For `verify-pr`, integrity, or AC failure: comment on PR and exit failed.
 
-If focused tests stay red after two diagnosis attempts, ask for a second opinion: if `advisorModel` is configured in your Claude Code settings, call `advisor()` once; otherwise dispatch a fresh `general-purpose` subagent with the error and relevant context.
-Bail if still stuck, after three unchanged pytest repeats, five edits to one
-file without convergence, or confusing git state. For confusing git, paste
+If focused tests stay red after two diagnosis attempts, bail immediately.
+Bail after three unchanged pytest repeats, five edits to one file without convergence, or confusing git state. For confusing git, paste
 `git status` and `git branch -vv`; exit `STATUS=fail REASON=worktree-corruption`.
 
 ## PR body template
