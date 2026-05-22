@@ -1305,6 +1305,13 @@ def cmd_revert(args: argparse.Namespace) -> None:
     Manual rollback tool only; the orchestrator does not call this during a
     normal epic-run. Best-effort: revert conflicts surface in the PR body.
     """
+    if not args.yes:
+        epic_n = args.epic
+        print(f"About to create a revert PR for epic #{epic_n}. This is irreversible. Proceed? [y/N] ", end="", flush=True)
+        response = input().strip().lower()
+        if response not in ("y", "yes"):
+            print("Aborted.")
+            sys.exit(0)
     epic = args.epic
     label = f"epic-{epic}"
     repo = repo_slug()
@@ -1364,6 +1371,13 @@ def cmd_revert(args: argparse.Namespace) -> None:
 
 def cmd_cleanup(args: argparse.Namespace) -> None:
     """Remove epic-<N> worktrees (orch + agent) and prune squash-merged branches."""
+    if not args.yes:
+        epic_n = args.epic
+        print(f"About to clean up worktrees and branches for epic #{epic_n}. Proceed? [y/N] ", end="", flush=True)
+        response = input().strip().lower()
+        if response not in ("y", "yes"):
+            print("Aborted.")
+            sys.exit(0)
     epic = args.epic
     removed = []
 
@@ -1460,6 +1474,7 @@ def main() -> None:
 
     s = sub.add_parser("revert", help="Open a rollback PR for merged epic-<N> children.")
     s.add_argument("epic", type=int)
+    s.add_argument("--yes", action="store_true", help="skip confirmation prompt")
     s.set_defaults(func=cmd_revert)
 
     s = sub.add_parser("pr-create", help="Create PR; with --epic, label epic-<N>.")
@@ -1472,6 +1487,7 @@ def main() -> None:
 
     s = sub.add_parser("cleanup", help="Remove epic-<N> orch worktrees + prune merged branches.")
     s.add_argument("epic", type=int)
+    s.add_argument("--yes", action="store_true", help="skip confirmation prompt")
     s.set_defaults(func=cmd_cleanup)
 
     s = sub.add_parser("usage-ingest-claude",

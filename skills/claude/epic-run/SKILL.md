@@ -3,6 +3,8 @@ name: epic-run
 description: "Execute a planned GitHub epic end-to-end — fetch issues, fan children out as parallel subagents in isolated worktrees, and merge verified PRs from the orchestrator. **Have a local plan file? Run `epic-tools plan-to-epic <path>` first to materialize the epic + children, then `/epic-run <N>`.** Automatically uses manual-merge mode when Actions are disabled. Use when user invokes `/loop /epic-run <epic-issue-number>`, \"run this epic\", \"epic run it\", \"ship this plan\"."
 ---
 
+**Requires:** subagent dispatch with worktree isolation. **Optional:** scheduled wakeups via `ScheduleWakeup` (available in Claude Code's loop/cron harness). Without scheduled wakeups, run one tick at a time manually.
+
 Run a `/epic-plan` epic to merged child PRs. The orchestrator handles dependency
 math, dispatch, verification, and merging. Children work in isolated worktrees,
 open verified PRs, and return `STATUS=`. Disabled Actions automatically switch
@@ -18,22 +20,15 @@ the orchestrator passes the path to `dispatch.md` but does not read it.
 ## Hard rails
 
 - Orchestrator may use `gh`, `epic-tools`, child `STATUS=` replies, and
-  `ScheduleWakeup`.
-- Orchestrator must not inspect repo source/tests/config, review child diffs,
-  debug tool internals, implement child work, or second-guess verifier subagents.
-- Verification doubt → dispatch a targeted `Explore` subagent. Do not recon in
-  the launch checkout.
-- Repos must run sufficient CI on each PR for normal mode. There is no
-  orchestrator full-suite or demo check after children merge. When Actions are
-  disabled, use `manual-merge` mode automatically.
-- The orchestrator owns every merge. Children must not queue auto-merge, merge
-  directly, or ask the user to merge.
-- **Resume**: skip any child whose remote branch `epic-<N>-<child>-*` already
-  exists, regardless of PR state. GitHub labels, PRs, and branch names are the
-  source of truth; no local ledger or state table is maintained.
+  `ScheduleWakeup`. Must not inspect repo source/tests/config, review child
+  diffs, debug tool internals, implement child work, or second-guess verifier
+  subagents.
 - **Isolation**: orchestration runs from an isolated checkout. The user's launch
   checkout is the starting point only — never mutated or used as a work
   workspace.
+- **Resume**: skip any child whose remote branch `epic-<N>-<child>-*` already
+  exists, regardless of PR state. GitHub labels, PRs, and branch names are the
+  source of truth; no local ledger or state table is maintained.
 - **Disposability**: unmerged orch/child state is disposable — stop the run,
   remove workspace/branch, resume from GitHub state. Merged PRs need
   `epic-tools revert <N>` or a manual revert PR; the orchestrator never
@@ -196,17 +191,11 @@ merges via the same CI-green REST fallback if needed.
 Completion audit after collected replies:
 
 ```bash
-epic-tools usage-sweep --epic <N>
-epic-tools usage-ingest-codex --run-id <RUN_ID_SUFFIX> --epic <N> --child <c> --pr <pr> --sha <sha>
-epic-tools usage-ingest-claude --transcript <p> --epic <N> --child <c> --pr <pr> --sha <sha>
-epic-tools usage-report --epic <N>
-epic-tools retro-data --epics <N>
+# Optional: if epic-tools telemetry is configured (see docs/install.md)
+epic-tools tick-complete --epic <N> --run-id <RUN_ID_SUFFIX>
 ```
 
-Claude runs normally use `usage-sweep`; the others are Codex/backfill/reporting
-paths. Treat this as child completion audit. Token fields are optional
-best-effort extras, not cost accounting; Codex rows may be marker-only with
-zero token counts.
+> **Footnote:** The `tick-complete` subcommand wraps the individual ingest/report calls. If not available, run `usage-sweep`, `usage-ingest-*`, `usage-report`, and `retro-data` separately.
 
 ## §4  Tick exit
 
