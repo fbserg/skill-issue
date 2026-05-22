@@ -1,16 +1,12 @@
 ---
 name: sweep
-description: Batch simplify-pass over recent commits — groups by repo area, dispatches code-simplifier review agents 2 batches at a time, then dispatches fix agents for each batch. Invoke as `/sweep` (last 30 commits) or `/sweep 24h` / `/sweep 50` / `/sweep <sha>`.
+description: Batch simplify-pass over recent commits — groups by repo area, runs 3-angle review 2 batches at a time, dispatches Sonnet fix agents for each batch. Invoke as `/sweep` (last 30 commits) or `/sweep 24h` / `/sweep 50` / `/sweep <sha>`.
 user-invocable: true
-dependencies:
-  - code-simplifier plugin from claude-plugins-official (required for Step 3 review)
 ---
 
 # sweep — batch simplify pass on recent commits
 
-Collects recent commits, groups them by repo area into reasonable batches, dispatches `code-simplifier` review agents 2 batches at a time, then dispatches fix agents based on findings.
-
-**Requires:** `code-simplifier` plugin installed from `claude-plugins-official`. Without it, Step 3 review agents will fail to dispatch.
+Collects recent commits, groups them by repo area into reasonable batches, reviews 2 batches at a time with parallel 3-angle agents, then dispatches Sonnet fix agents based on the findings.
 
 ## Invocation forms
 
@@ -52,33 +48,36 @@ Common area examples:
 
 State the batches and their approximate line counts before proceeding, so the user can redirect if the grouping looks wrong.
 
-## Step 3 — Review 2 batches at a time via code-simplifier
+## Step 3 — Review 2 batches at a time via parallel subagents
 
-For each pair of batches, get the diffs first, then dispatch `code-simplifier` agents — one per batch — in parallel. Never do the analysis inline.
+For each pair of batches, get the diffs first, then **dispatch exactly 3 review agents per batch in parallel** (6 agents total for a pair). Never do the analysis inline — spawn the agents.
 
 For each batch:
 
 1. Run `git diff <oldest_commit_in_batch>^..<newest_commit_in_batch> -- <files>` to get the scoped diff
-2. Dispatch one `Agent({subagent_type: "code-simplifier", ...})` call per batch:
+2. Dispatch 3 parallel `Agent({subagent_type:"general-purpose", model:"sonnet"})` calls, one per angle:
 
-```
-Agent({
-  subagent_type: "code-simplifier",
-  prompt: "Review this diff for simplification opportunities — dead code, over-engineering, phantom abstractions, defensive theater, comment slop. Return findings as JSON: [{file, line, summary, fix}]. Diff:\n<diff>"
-})
-```
+**Angle A prompt** (line-by-line scan):
+> "You are a code reviewer. Review this diff line by line for bugs. For every changed hunk, also read the enclosing function — bugs in unchanged lines of touched functions are in scope. Look for: inverted conditions, off-by-one, null/undefined deref, falsy-zero, wrong-variable copy-paste, swallowed errors, missing awaits. Return up to 6 candidates as JSON: [{file, line, summary, failure_scenario}]. Diff:\n<diff>"
 
-3. Collect all findings from the agents. Dedup near-duplicates (same defect + location → keep one). Discard findings that are clearly style-only with no observable effect.
+**Angle B prompt** (removed-behavior auditor):
+> "You are a code reviewer. For every line this diff DELETES or replaces, name the invariant it enforced, then find where the new code re-establishes it. If you can't find it, that's a finding: dropped guard, narrowed validation, removed error path. Return up to 6 candidates as JSON: [{file, line, summary, failure_scenario}]. Diff:\n<diff>"
+
+**Angle C prompt** (cross-file caller/callee tracer):
+> "You are a code reviewer. For each function this diff changes, check: (1) do any callers break due to new preconditions, changed signatures, or new exceptions? (2) do any callees become unsafe due to this change? Use grep/read to find callers. Return up to 6 candidates as JSON: [{file, line, summary, failure_scenario}]. Diff:\n<diff>"
+
+3. Collect all findings from the 3 agents. Dedup near-duplicates (same defect + location → keep one). Discard findings that are clearly style-only with no observable effect.
 
 Process pairs sequentially so findings from earlier batches don't bleed into later ones.
 
 ## Step 4 — Dispatch fix agents per batch
 
-After each pair of review runs, dispatch fix agents — one per batch — in parallel. Each fix agent works in **an isolated worktree** to avoid index conflicts:
+After each pair of review runs, dispatch **Sonnet** fix agents — one per batch — in parallel. Each fix agent works in an isolated worktree to avoid index conflicts:
 
 ```
 Agent({
   subagent_type: "general-purpose",
+  model: "sonnet",
   isolation: "worktree",
   prompt: "Apply these fixes to <batch files>: <findings from Step 3>. Run tests after. Commit if tests pass."
 })
@@ -98,6 +97,7 @@ After all batches complete:
 
 ## Guardrails
 
+- **Models**: Sonnet for all review and fix agents.
 - **Don't double-run**: If Wave 1 agents are already in the background, launch Wave 2 while they run — don't wait idle.
 - **Scope**: Only touch files changed in the commits being reviewed. Don't wander.
 - **Tests must pass** before committing any fix. If tests break, surface the conflict — don't patch around it.

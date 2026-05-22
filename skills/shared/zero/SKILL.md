@@ -15,8 +15,6 @@ This command is intentionally aggressive. It is only for the user's explicit "ze
 
 ## Execution
 
-**Flags:** `--auto-resolve` — automatically resolve merge conflicts (keeps all good new behavior from both sides). Without this flag, stop on any conflict and ask the user. `--yes` — skip the pre-push confirmation gate.
-
 ### 1. Preamble
 
 ```bash
@@ -135,7 +133,7 @@ git merge-base --is-ancestor <branch> main
   git merge <branch-name> --no-edit
   ```
   - Success: drop worktree + branch as above.
-  - Conflicts: if `--auto-resolve` was passed, read both sides, keep all good new behavior from both branches, remove duplicated or obsolete code, run the narrowest relevant validation, then `git add -A && git commit --no-edit`. Without `--auto-resolve`, STOP — report the conflicting files, show both sides of the key hunks, and ask the user how to resolve before continuing.
+  - Conflicts: resolve them. Read both sides, keep all good new behavior from both branches, remove duplicated or obsolete code, run the narrowest relevant validation, then `git add -A && git commit --no-edit`. Only ask the user if the conflict requires a product decision that cannot be inferred from code/tests.
 
 ### 6. Stray local branches
 
@@ -179,15 +177,11 @@ git merge <branch-name> --no-edit
 git branch -d <branch-name>
 ```
 - Success: count it as merged and deleted.
-- Conflicts: if `--auto-resolve` was passed, read both sides, keep all good new behavior from both branches, remove duplicated or obsolete code, run the narrowest relevant validation, then `git add -A && git commit --no-edit`. Without `--auto-resolve`, STOP — report the conflicting files, show both sides of the key hunks, and ask the user how to resolve before continuing. Do not delete the branch until the merge commit succeeds.
+- Conflicts: resolve them. Read both sides, keep all good new behavior from both branches, remove duplicated or obsolete code, run the narrowest relevant validation, then `git add -A && git commit --no-edit`. Only ask the user if the conflict requires a product decision that cannot be inferred from code/tests. Do not delete the branch until the merge commit succeeds.
 
 ### 7. Push main
 
 After all possible merges, deletions, and conflict resolutions are complete, push `main`.
-
-Before pushing: print a one-line summary of what will be pushed — "About to push main: N commits ahead, includes merges from: [branch list]. Confirm? (y/N)". Wait for confirmation. If the user says anything other than `y`/`yes`, abort the push and report.
-
-Skip the confirmation gate if `--yes` was passed as a flag.
 
 Prefer the repository's documented push/deploy command from CLAUDE.md or README when one exists. Otherwise use:
 ```bash
