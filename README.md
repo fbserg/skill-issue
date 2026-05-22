@@ -13,7 +13,6 @@ Claude skills:
 - `epic-plan` - turn a scoped idea into a GitHub epic and child issues.
 - `epic-run` - run a planned epic through worker branches and verified PRs.
 - `epic-retro` - mine closed epics and PRs for skill/process improvements.
-- `grill-me` - stress-test a plan or design through focused questioning.
 - `sweep` - review recent commits in batches and dispatch focused fix agents.
 - `zero` - aggressively checkpoint, merge, clean, and push a repo.
 
@@ -21,7 +20,6 @@ Codex skills:
 
 - `epic-plan`
 - `epic-run`
-- `grill-me`
 - `zero`
 
 `issue-do` is intentionally not included in this public cut.

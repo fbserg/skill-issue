@@ -10,7 +10,6 @@ mkdir -p ~/.claude/skills
 ln -sfn "$PWD/skills/claude/epic-plan" ~/.claude/skills/epic-plan
 ln -sfn "$PWD/skills/claude/epic-run" ~/.claude/skills/epic-run
 ln -sfn "$PWD/skills/claude/epic-retro" ~/.claude/skills/epic-retro
-ln -sfn "$PWD/skills/claude/grill-me" ~/.claude/skills/grill-me
 ln -sfn "$PWD/skills/claude/sweep" ~/.claude/skills/sweep
 ln -sfn "$PWD/skills/claude/zero" ~/.claude/skills/zero
 ```
@@ -21,7 +20,6 @@ ln -sfn "$PWD/skills/claude/zero" ~/.claude/skills/zero
 mkdir -p ~/.codex/skills
 ln -sfn "$PWD/skills/codex/epic-plan" ~/.codex/skills/epic-plan
 ln -sfn "$PWD/skills/codex/epic-run" ~/.codex/skills/epic-run
-ln -sfn "$PWD/skills/codex/grill-me" ~/.codex/skills/grill-me
 ln -sfn "$PWD/skills/codex/zero" ~/.codex/skills/zero
 ```
 
