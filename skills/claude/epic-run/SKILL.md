@@ -134,7 +134,6 @@ Set `TIDY=yes` to run a tidy pass (3+ likely-touched files, new logic, refactor,
 Each child must print:
 
 ```
-EPIC_RUN_USAGE run_id=<RUN_ID_SUFFIX> epic=<N> child=<child>
 STATUS=ok PR=<n> SHA=<full-sha>
 ```
 
@@ -161,15 +160,6 @@ For conflicted PRs, dispatch one rebase subagent per PR per tick. It rebases the
 existing head branch onto `origin/<DEFAULT_BRANCH>`, resolves conflicts so all
 changes survive, force-pushes with lease, waits for green CI on the new SHA, and
 merges via the same CI-green REST fallback if needed.
-
-Completion audit after collected replies:
-
-```bash
-# Optional: if epic-tools telemetry is configured (see docs/install.md)
-epic-tools tick-complete --epic <N> --run-id <RUN_ID_SUFFIX>
-```
-
-> **Footnote:** The `tick-complete` subcommand wraps the individual ingest/report calls. If not available, run `usage-sweep`, `usage-ingest-*`, `usage-report`, and `retro-data` separately.
 
 ## §4  Tick exit
 

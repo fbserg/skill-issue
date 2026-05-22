@@ -51,8 +51,6 @@ control tools live in adapters, not here.
   queue auto-merge, merge directly, or ask the user to merge.
 - Child PRs must pass `epic-tools verify-pr` before any orchestrator merge.
 - Child PR bodies use `Closes #<child>` so GitHub closes child issues on merge.
-- Child replies include
-  `EPIC_RUN_USAGE run_id=<suffix> epic=<N> child=<child>` on its own line.
 - Child status line is exactly `STATUS=ok PR=<n> SHA=<sha>` or
   `STATUS=fail REASON=<short>`.
 - The child completion audit file (`usage.jsonl`) is written to a runtime-specific state directory. For Claude: `~/.claude/state/epic-run/usage.jsonl`. For Codex: use a path appropriate for your runtime, or omit if no persistent state directory is available. Not run state — token fields are optional best-effort extras; Codex rows may be marker-only with zero token counts.
@@ -86,7 +84,6 @@ In `manual-merge` mode:
 - `epic-tools pr-create` creates child PRs and applies `epic-<N>`.
 - `epic-tools verify-pr` checks ownership, branch, title, author, and SHA.
 - `epic-tools epic-status <N>` reports merged, pending, red, and open-green PRs.
-- `epic-tools usage-report --epic <N>` summarizes local child completion rows.
 - `epic-tools revert <N>` opens a revert PR over all merged epic-<N> children.
   Manual use only — orchestrator no longer invokes it.
 - `epic-tools cleanup <N>` is auto-invoked at epic close (§4a step 6); also runnable manually for stale runs.
@@ -146,8 +143,6 @@ Worker prompts include:
 - instruction that children never merge, queue auto-merge, or ask the user to merge;
 - instruction that optional PR `## Notes` are only for non-blocking adjacent
   observations, never unfinished acceptance criteria;
-- instruction to print
-  `EPIC_RUN_USAGE run_id=<RUN_ID_SUFFIX> epic=<epic> child=<child>` before `STATUS=`;
 - instruction not to deploy, restart daemons, push to main, create unrelated
   commits, close issues manually, or touch another child's branch.
 
@@ -158,10 +153,6 @@ mode merges only when current REST check-runs for that SHA are successful;
 stale, failed, missing, or queued checks are not green. GraphQL throttling falls
 back to the same REST check-run gate. In `manual-merge`, squash-merge the
 verified PR via REST immediately.
-
-After each worker returns, run `epic-tools usage-ingest-codex --run-id <RUN_ID_SUFFIX>
---epic <epic> --child <child> --pr <pr> --sha <sha>
---observed-marker "<EPIC_RUN_USAGE line>"`. Review with `usage-report`.
 
 ## Close
 

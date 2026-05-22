@@ -11,15 +11,7 @@ The retrospective for the retrospectives. Reads what `/epic-run` and child PRs a
 
 ## Inputs
 
-> **Note:** `epic-tools retro-data` and `epic-tools usage-report` require local completion audit markers (`EPIC_RUN_USAGE` lines) to have been emitted during epic runs. If these commands return empty results, use the REST fallback commands below.
-
-Default input is one agent-run bundle:
-
-```bash
-epic-tools retro-data --epics <N> --json
-```
-
-Fallbacks if the bundle command fails:
+Fetch the same sources in parallel via Bash. For each closed epic, also pull its merged child PRs:
 
 | Source | Command | What it gives |
 |---|---|---|
@@ -28,20 +20,13 @@ Fallbacks if the bundle command fails:
 | Stuck PRs | `gh pr list --label epic-<N> --state open --json number,title,headRefName` per closed epic | Open PRs that auto-merge never resolved — CI brittleness or conflict signal |
 | Followups | `gh issue list --label epic-followups --state all --json number,title,body,closedAt --limit 50` | `~~strikethrough~~` = closed, plain = open |
 | Unfinished | `gh issue list --label epic-unfinished --state all --json number,title,body --limit 50` | Partial ACs filed mid-epic — recurring patterns = systemic gap |
-| Completion audit | `epic-tools usage-report --epic <N> --json` | Local child completion rows; token/cache/wall-clock fields are optional extras |
 
 ## Steps
 
 ### 1. Pull
 
 <!-- Source: epic-retro 2026-05-05 — core-REST label fetch (5000/hr vs 30/hr); dropped gotchas.jsonl (unreferenced in steps 2-5) -->
-Default: last 10 closed epics. `/epic-retro 20` overrides. First run:
-
-```bash
-epic-tools retro-data --epics <N> --json
-```
-
-If that fails, fetch the same sources in parallel via Bash. For each closed epic, also pull its merged child PRs:
+Default: last 10 closed epics. `/epic-retro 20` overrides.
 
 ```bash
 # Bulk epic fetch — label filter, core REST bucket, no search quota
@@ -52,14 +37,7 @@ gh pr list --state merged --json number,title,body,files --limit 200 | jq '[.[] 
 
 # per closed epic — stuck PRs that auto-merge never resolved
 gh pr list --label epic-<N> --state open --json number,title,headRefName
-
-# local completion audit — no API calls, ok if empty for older epics
-epic-tools usage-report --epic <N> --json
 ```
-
-**Completion audit edge cases:**
-- `[]` for one epic but `usage.jsonl` has rows for other epics → note "no completion audit for epic N" and continue.
-- `usage.jsonl` doesn't exist at all → the orchestrator never recorded child completions. Surface this as a top finding and skip completion-shape analysis for the run.
 
 **Multi-repo.** If multiple repos are active in the time window, pass them with `--repos a,b,c` (e.g. `--repos owner/repo1,owner/repo2`). Run the pull steps per repo and merge findings. Cite as `<repo>#<epic>` in evidence cells.
 

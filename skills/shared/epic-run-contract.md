@@ -24,7 +24,6 @@ the adapter SKILL.md, not here.
 - The orchestrator owns all merging. Children create verified PRs; they never queue auto-merge, merge directly, or ask the user to merge.
 - Child PRs must pass `epic-tools verify-pr` before any orchestrator merge.
 - Child PR bodies use `Closes #<child>` so GitHub closes child issues on merge.
-- Child replies include `EPIC_RUN_USAGE run_id=<suffix> epic=<N> child=<child>` on its own line.
 - Child status line is exactly `STATUS=ok PR=<n> SHA=<sha>` or `STATUS=fail REASON=<short>`.
 - Child PR bodies may include `## Notes` for non-blocking adjacent observations only.
 - When `pending == 0`: close the epic only after `epic-tools epic-status <N>` is clean and every child issue is closed.

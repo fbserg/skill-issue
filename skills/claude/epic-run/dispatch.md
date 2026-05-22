@@ -79,8 +79,7 @@ If `gh` hits `GraphQL: API rate limit already exceeded`, use REST:
     required for this child acceptance criteria must be fixed or returned as
     `STATUS=fail REASON=<short>`, never hidden in notes.
 12. Reply exactly:
-    `EPIC_RUN_USAGE run_id=<RUN_ID_SUFFIX> epic=<N> child=<child>`
-    then `STATUS=ok PR=$PR SHA=<full-sha>` or `STATUS=fail REASON=<short>`.
+    `STATUS=ok PR=$PR SHA=<full-sha>` or `STATUS=fail REASON=<short>`.
 
 ## Hard rails
 
