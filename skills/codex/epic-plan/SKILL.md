@@ -8,70 +8,111 @@ description: Scope a feature, audit, cleanup, or multi-step repo change into a l
 Turn an idea into a GitHub tracking issue plus small child issues that a future
 Codex runner can execute.
 
-## Workflow
+## Stage 0 — Topic capture
 
-1. Shape the problem before planning.
-   Ask 3-5 sharp questions that matter for this topic, then stop for answers
-   unless the user explicitly told you to decide. Pin success criteria,
-   exclusions, ambiguous terms, existing related code, likely failure mode, and
-   whether the request is really one epic or several.
+User invokes `$epic-plan "<topic>"`. No questions yet. Record the topic.
 
-2. Research the current state.
-   After round-one answers, inspect relevant files, history, tests, maps, CI,
-   or live state. Measure when the topic depends on reality: run tests for test
-   epics, profile for performance epics, inspect cron/backup status for ops
-   epics, and so on. If target repo Actions are disabled, plan for explicit
-   local proof because `$epic-run manual-merge` will not have CI. Surface
-   concise findings before drafting.
+## Stage 1 — Scoping grill
 
-3. Ask round-two questions only if research exposed real ambiguity.
-   Focus on integration points, old behavior, data-model gaps, edge cases,
-   deployment hooks, and what "all" means. Do not draft while important scope
-   remains unresolved.
+Ask **one question at a time** with a recommended answer. After each answer, decide whether the next question is still needed. Stop when decision branches are resolved.
 
-4. Assign exactly one risk tag:
-   - `text-only`: docs, comments, prompts, config trims, mechanical renames.
-   - `visual`: UI, rendered documents, screenshots, or anything judged by sight.
-   - `shared-state`: DB, daemon behavior, schemas, auth, deploy paths, public APIs,
-     cross-project artifacts, or anything where green local tests may miss risk.
-   Default to `shared-state` when uncertain.
+Questions to draw from (ask only what matters for this topic):
 
-5. Check whether the epic shape is too large.
-   Default to one runnable epic with 3-5 implementation children. Six or seven
-   children is acceptable after checking sequencing risk. If the plan wants 8+
-   children, multiple themes, or multiple independent workstreams, make a
-   shallow parent epic whose children are smaller runnable epics. Do not nest
-   deeper than parent epic -> runnable epic -> child issue.
+- What does success look like, concretely? (passing test, metric, user-visible behavior)
+  *Recommended: [state the most obvious AC]*
+- What's explicitly out of scope?
+  *Recommended: [state the nearest adjacent thing a worker might add]*
+- Which terms are ambiguous? Pin definitions now.
+  *Recommended: [state the most natural interpretation]*
+- What existing code/skill/tool already does some of this?
+  *Recommended: [grep for it; if found, answer yourself instead of asking]*
+- What's the failure mode if we ship the obvious version?
+  *Recommended: [state the most likely way the happy path skips a hard case]*
+- One epic or actually two?
+  *Recommended: [one if goal is coherent; two if there are independent themes]*
 
-6. Check whether any child is too large.
-   Escalate to a sibling epic instead of creating a giant child when an item
-   spans UI plus backend plus data, requires migration plus compatibility plus
-   cleanup, changes shared architecture, needs 3+ parallel workers, or cannot
-   fit in one Codex context window.
+**Codebase-answerable questions:** before asking, grep or read for the answer. If the codebase answers it, state the finding and move on — don't ask.
 
-7. Draft the plan in chat.
-   Use numbered work items. Each item must be self-contained, have testable
-   acceptance criteria, name likely touched files, and list dependencies. Split
-   an item if likely touched files exceed about 15, the change looks over about
-   1000 LOC, or it would require reading more than about 10 large files.
+If the user says "you decide," state assumptions explicitly so they can be challenged.
 
-   If GitHub writes are blocked because the agent is in Plan Mode, the final
-   `<proposed_plan>` is the handoff artifact. Include GitHub-ready tracker and
-   child issue bodies directly in the plan. Child bodies must preserve the
-   research context a fresh/weaker runner would otherwise lose: discovered repo
-   facts, relevant files, existing helpers/patterns, implementation approach,
-   edge cases, dependencies, acceptance criteria, proof commands, and explicit
-   out-of-scope boundaries. Do not rely on hidden transcript context.
+## Stage 2 — Local research
 
-8. Iterate with the user.
-   Add, drop, split, or reorder. Do not create issues until the user explicitly
-   says to proceed.
+After Stage 1: inspect relevant files, history, tests, CI, or live state. Measure when the topic depends on reality: run tests for test epics, profile for performance epics, inspect cron/backup status for ops epics. Surface concise findings before drafting.
 
-9. Create GitHub issues with `gh`.
-   Create the tracker first, then children, then backfill the tracker's child
-   checklist once child numbers are known.
+If target repo Actions are disabled, plan for explicit local proof because `$epic-run manual-merge` will not have CI.
 
-## Tracker Template
+```bash
+git log --oneline -20
+gh issue list --label epic-followups,epic-unfinished --state open --json number,title,body --limit 30
+```
+
+If >5 unaddressed followup/unfinished issues surface, propose a "grab-bag" epic.
+
+## Stage 3 — External research
+
+Fire three parallel agents on every epic. Three searches cost ~5 minutes; missing a peer pattern costs a whole epic. Skip only for: pure typo/comment/version-bump, rollback of a specific commit, doc-only edit with no design choice in flight.
+
+**Do not ask "research worth it?"** — that question reliably gets "no" and gets regretted.
+
+Ground each agent with 3–10 bullets about the current codebase shape from Stage 2's findings, then spawn all three in a single dispatch:
+
+**Agent 1 — Direct competitors:** Who else solves this exact job for this exact user? For each: deliverable, mechanism, target user, ahead-or-behind on which axes.
+
+**Agent 2 — Tech-stack peers:** Best-of-breed projects using the same technical approach. Identify 2–3 exemplars worth studying. Cite specific patterns with repo paths.
+
+**Agent 3 — GitHub deep search:** ~10–15 targeted searches. For top hits: repo, stack, relevant file structure. Flag anything materially better than our approach.
+
+After all three return, synthesize: where we sit, ideas worth stealing (with refactor path on our side), patterns to avoid, smallest next move.
+
+If findings raise new ambiguities, proceed to Stage 4. Otherwise go to Stage 5.
+
+## Stage 4 — Gap/scope grill
+
+Ask **one question at a time** with a recommended answer:
+
+- For each "ideas worth stealing": parity / explicit non-goal / leapfrog?
+  *Recommended: [state the one that serves the user's stated goal]*
+- Capability-gap probe: run the deliverable's hot path end-to-end against unmodified code with a hypothetical fixture. Whatever blocks it is a child, not "out of scope."
+  *Recommended: [state what the most obvious blocker would be]*
+- Skeleton-shipping smell: if every child's AC ships behind a skip-gate, there's a missing unblocker child.
+  *Recommended: [name it if you see it, or say "no smell"]*
+- Mini-epic check: if any child needs 3+ parallel workers or spans multiple independent workstreams, propose splitting.
+  *Recommended: [split / don't split]*
+
+Stop when scope is settled.
+
+## Stage 5 — Draft the plan in chat
+
+Numbered work items. Each item must be self-contained, have testable acceptance criteria, name likely touched files, and list dependencies.
+
+**Risk tag.** Assign exactly one:
+- `text-only`: docs, comments, prompts, config trims, mechanical renames.
+- `visual`: UI, rendered documents, screenshots, or anything judged by sight.
+- `shared-state`: DB, daemon behavior, schemas, auth, deploy paths, public APIs, or anything where green local tests may miss risk.
+Default to `shared-state` when uncertain.
+
+Split an item if likely touched files exceed about 15, the change looks over about 1000 LOC, or it would require reading more than about 10 large files.
+
+If GitHub writes are blocked because the agent is in Plan Mode, the final `<proposed_plan>` is the handoff artifact. Include GitHub-ready tracker and child issue bodies directly in the plan. Child bodies must preserve the research context a fresh/weaker runner would otherwise lose.
+
+## Stage 6 — Confirmation grill
+
+Ask **one question at a time** with a recommended answer:
+
+- Should child N be split / merged?
+  *Recommended: [state your judgment]*
+- Is this ordering correct given file-overlap constraints?
+  *Recommended: [state the right order]*
+- Any child that's secretly a sibling epic?
+  *Recommended: [name it if so, else "no"]*
+
+Stop when user explicitly says to proceed. **Do not create issues until then.**
+
+## Stage 7 — Materialize epic
+
+Create the tracker first, then children, then backfill the tracker's child checklist once child numbers are known.
+
+### Tracker template
 
 ```markdown
 ## Goal
@@ -93,7 +134,7 @@ Use title `Epic: <topic>` and label `epic`. Create the label if missing:
 gh label create epic --color "5319e7" --description "Tracking issue for a multi-issue epic"
 ```
 
-## Child Template
+### Child template
 
 ```markdown
 ## Scope
