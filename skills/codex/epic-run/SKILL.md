@@ -55,9 +55,7 @@ control tools live in adapters, not here.
   `EPIC_RUN_USAGE run_id=<suffix> epic=<N> child=<child>` on its own line.
 - Child status line is exactly `STATUS=ok PR=<n> SHA=<sha>` or
   `STATUS=fail REASON=<short>`.
-- `~/.claude/state/epic-run/usage.jsonl` is an append-only child completion
-  audit, not run state. Token fields are optional best-effort extras; Codex rows
-  may be marker-only with zero token counts.
+- The child completion audit file (`usage.jsonl`) is written to a runtime-specific state directory. For Claude: `~/.claude/state/epic-run/usage.jsonl`. For Codex: use a path appropriate for your runtime, or omit if no persistent state directory is available. Not run state — token fields are optional best-effort extras; Codex rows may be marker-only with zero token counts.
 - Child PR bodies may include `## Notes` for non-blocking adjacent observations.
   Anything required for the child acceptance criteria must be fixed or returned
   as `STATUS=fail`, never hidden in notes.
