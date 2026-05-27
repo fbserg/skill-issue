@@ -12,4 +12,4 @@
 
 - [ ] Skill tested end-to-end in Claude Code / Codex
 - [ ] `python3 -m py_compile tools/epic-tools/bin/epic-tools` passes (if epic-tools changed)
-- [ ] No private paths or account names introduced (`grep -rE '/Users/[a-z]+|fbserg' .` returns nothing)
+- [ ] No private paths introduced (`git grep -nE '/Users/[a-z]+|~/projects/|\$HOME/projects' -- . ':!.github/PULL_REQUEST_TEMPLATE.md'` returns nothing)

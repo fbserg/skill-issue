@@ -1,6 +1,6 @@
 ---
 name: epic-plan
-description: Scope a feature, audit, or cleanup into a GitHub epic with child issues. Use when user invokes `/epic-plan "<topic>"` to turn an idea into a runnable epic. Pairs with `/epic-run` which executes the epic.
+description: Scope a feature, audit, or cleanup into a GitHub epic with child issues. Use when user invokes /epic-plan TOPIC to turn an idea into a runnable epic. Pairs with /epic-run which executes the epic.
 ---
 
 Turn a topic into a GitHub epic (tracking issue + child issues) ready for `/epic-run`.

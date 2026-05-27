@@ -2,7 +2,7 @@
 
 Reusable agent skills and workflow helpers for Claude and Codex.
 
-A curated public bundle focused on GitHub issue/epic workflows and general-purpose
+A curated public bundle focused on GitHub epic/issue workflows plus practical
 agent operating skills.
 
 ## Quickstart
@@ -14,7 +14,7 @@ gh auth login   # GitHub CLI, authenticated
 # 2. Clone and install
 git clone https://github.com/fbserg/skill-issue
 cd skill-issue
-bash docs/install.md   # follow the manual steps inside, or run them directly
+# Follow docs/install.md, or run the symlink commands in the Install section below.
 
 # 3. Use
 # In Claude Code, type:
@@ -47,6 +47,7 @@ bash docs/install.md   # follow the manual steps inside, or run them directly
 | [`epic-run`](skills/codex/epic-run/SKILL.md) | Codex adapter for the epic-run orchestrator. |
 | [`epic-research`](skills/codex/epic-research/SKILL.md) | Parity copy of the Claude epic-research skill. |
 | [`issue-sweep`](skills/codex/issue-sweep/SKILL.md) | Claim oldest GitHub issues, fix in parallel worktrees, land commits, and close issues. |
+| [`quick-research`](skills/codex/quick-research/SKILL.md) | Lightweight fan-out research for practical decisions and tradeoff answers. |
 | [`tidy`](skills/codex/tidy/SKILL.md) | Parity copy of the Claude tidy skill. |
 | [`zero`](skills/codex/zero/SKILL.md) | Same as Claude zero. |
 
@@ -96,6 +97,7 @@ ln -sfn "$PWD/skills/codex/epic-plan"      ~/.codex/skills/epic-plan
 ln -sfn "$PWD/skills/codex/epic-run"       ~/.codex/skills/epic-run
 ln -sfn "$PWD/skills/codex/epic-research"  ~/.codex/skills/epic-research
 ln -sfn "$PWD/skills/codex/issue-sweep"    ~/.codex/skills/issue-sweep
+ln -sfn "$PWD/skills/codex/quick-research" ~/.codex/skills/quick-research
 ln -sfn "$PWD/skills/codex/tidy"           ~/.codex/skills/tidy
 ln -sfn "$PWD/skills/codex/zero"           ~/.codex/skills/zero
 

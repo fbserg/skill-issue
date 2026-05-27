@@ -26,7 +26,7 @@ For security issues, see [SECURITY.md](SECURITY.md).
   wiring.
 - Skills are prompt files. Keep them concise — every sentence is read by the model on every invocation.
 - No hardcoded paths, account names, or repo-specific references.
-- Use capability language rather than model names (`a capable reviewer model` not `claude-sonnet-4-6`).
+- Use capability language rather than model names (`a capable reviewer model`, not a dated model ID).
 - Declare external dependencies in the YAML frontmatter under `dependencies:`.
 - Harness primitives (`ScheduleWakeup`, `TaskStop`, `advisor`, `code-simplifier`) must be declared as optional where they might not be available.
 

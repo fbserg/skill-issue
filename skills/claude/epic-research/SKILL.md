@@ -1,6 +1,6 @@
 ---
 name: epic-research
-description: Pre-plan research. Invoke with /epic-research "<topic>".
+description: Pre-plan research for an upcoming epic. Invoke with /epic-research TOPIC.
 ---
 
 Three parallel agents on three lanes (direct competitors, tech peers, GitHub code), all grounded in our actual implementation. Output: a synthesis the user can act on or feed into `/epic-plan`. Stops: after step 0 (wait for scope answers), after step 4 (wait for "go to plan?" or "save report").

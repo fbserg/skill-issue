@@ -7,7 +7,7 @@ Before tagging and announcing a new release:
 - [ ] `epic-tools --help` lists all subcommands
 - [ ] `python3 scripts/check-install.py` passes and covers every shipped Claude/Codex skill symlink plus `epic-tools`
 - [ ] `epic-tools revert --help` and `epic-tools cleanup --help` both mention `--yes`
-- [ ] `grep -rE '(/Users/[a-z]+|fbserg|info@|~/projects/|\$HOME/projects/|scripts/tests_for|just push-main|claude-(haiku|sonnet|opus)-[0-9])' .` returns nothing
+- [ ] `git grep -nE '(/Users/[a-z]+|info@|~/projects/|\$HOME/projects/|scripts/tests_for|just push-main|claude-(haiku|sonnet|opus)-[0-9])' -- . ':!CHANGELOG.md' ':!docs/publication-checklist.md' ':!.github/PULL_REQUEST_TEMPLATE.md'` returns nothing
 - [ ] `grep -rn '/simplify' skills/` returns nothing
 - [ ] `grep -rE 'Skill\(\{skill:"(simplify|loop|epic-research|advisor)"' skills/` returns nothing
 - [ ] `find skills -type d -empty` returns nothing

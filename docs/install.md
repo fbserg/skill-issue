@@ -20,8 +20,9 @@
 These examples use symlinks so local edits in this repo are immediately visible
 to the agent runtime. Use `cp -R` instead if you prefer static copies.
 
-This checkout is the canonical edit point for the shipped epic, tidy, sweep, and
-zero skills plus `epic-tools`. Do not edit installed copies under
+This checkout is the canonical edit point for the shipped epic, issue-sweep,
+quick-research, tidy, sweep, and zero skills plus `epic-tools`. Do not edit
+installed copies under
 `~/.claude/skills`, `~/.codex/skills`, or older prototype repos.
 
 ### Claude
@@ -45,9 +46,10 @@ mkdir -p ~/.codex/skills
 ln -sfn "$PWD/skills/codex/epic-plan"     ~/.codex/skills/epic-plan
 ln -sfn "$PWD/skills/codex/epic-run"      ~/.codex/skills/epic-run
 ln -sfn "$PWD/skills/codex/epic-research" ~/.codex/skills/epic-research
-ln -sfn "$PWD/skills/codex/issue-sweep"   ~/.codex/skills/issue-sweep
-ln -sfn "$PWD/skills/codex/tidy"          ~/.codex/skills/tidy
-ln -sfn "$PWD/skills/codex/zero"          ~/.codex/skills/zero
+ln -sfn "$PWD/skills/codex/issue-sweep"    ~/.codex/skills/issue-sweep
+ln -sfn "$PWD/skills/codex/quick-research" ~/.codex/skills/quick-research
+ln -sfn "$PWD/skills/codex/tidy"           ~/.codex/skills/tidy
+ln -sfn "$PWD/skills/codex/zero"           ~/.codex/skills/zero
 ```
 
 ### epic-tools
@@ -85,6 +87,8 @@ Open Claude Code in any repo and type `/epic-plan "hello world"` — you should 
 
 Claude and Codex both have: `epic-plan`, `epic-run`, `epic-research`, `issue-sweep`, `tidy`, `zero`.
 
+Codex-only: `quick-research`.
+
 Claude-only: `epic-retro`, `sweep` (requires `code-simplifier` plugin).
 
 ## Uninstall
@@ -92,11 +96,11 @@ Claude-only: `epic-retro`, `sweep` (requires `code-simplifier` plugin).
 ```bash
 # Remove Claude skill symlinks
 rm ~/.claude/skills/epic-plan ~/.claude/skills/epic-run ~/.claude/skills/epic-research
-rm ~/.claude/skills/epic-retro ~/.claude/skills/sweep ~/.claude/skills/tidy ~/.claude/skills/zero
+rm ~/.claude/skills/epic-retro ~/.claude/skills/issue-sweep ~/.claude/skills/sweep ~/.claude/skills/tidy ~/.claude/skills/zero
 
 # Remove Codex skill symlinks
 rm ~/.codex/skills/epic-plan ~/.codex/skills/epic-run ~/.codex/skills/epic-research
-rm ~/.codex/skills/tidy ~/.codex/skills/zero
+rm ~/.codex/skills/issue-sweep ~/.codex/skills/quick-research ~/.codex/skills/tidy ~/.codex/skills/zero
 
 # Remove epic-tools
 rm ~/.local/bin/epic-tools

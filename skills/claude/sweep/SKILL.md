@@ -1,7 +1,6 @@
 ---
 name: sweep
-description: Batch review-and-fix pass over recent commits — groups by repo area, runs /code-review per batch, dispatches Sonnet fix agents for findings. Invoke as `/sweep` (last 30 commits) or `/sweep 24h` / `/sweep 50` / `/sweep <sha>` / `/sweep epic <N>`.
-user-invocable: true
+description: Batch review-and-fix pass over recent commits. Invoke as /sweep, /sweep 24h, /sweep 50, /sweep SHA, or /sweep epic N.
 ---
 
 # sweep — batch review-and-fix pass over recent commits
