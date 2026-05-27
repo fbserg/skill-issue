@@ -1,41 +1,61 @@
 ---
 name: sweep
-description: Batch simplify-pass over recent commits — groups by repo area, runs 3-angle review 2 batches at a time, dispatches Sonnet fix agents for each batch. Invoke as `/sweep` (last 30 commits) or `/sweep 24h` / `/sweep 50` / `/sweep <sha>`.
+description: Batch review-and-fix pass over recent commits — groups by repo area, runs /code-review per batch, dispatches Sonnet fix agents for findings. Invoke as `/sweep` (last 30 commits) or `/sweep 24h` / `/sweep 50` / `/sweep <sha>` / `/sweep epic <N>`.
 user-invocable: true
 ---
 
-# sweep — batch simplify pass on recent commits
+# sweep — batch review-and-fix pass over recent commits
 
-Collects recent commits, groups them by repo area into reasonable batches, reviews 2 batches at a time with parallel 3-angle agents, then dispatches Sonnet fix agents based on the findings.
+Collects recent commits, groups them by repo area into batches, runs `/code-review` on each batch, then dispatches Sonnet fix agents for confirmed findings.
 
 ## Invocation forms
 
 ```
-/sweep           # last 30 non-merge commits
-/sweep 24h       # last 24 hours
-/sweep 48h       # last 48 hours
-/sweep 50        # last N commits
-/sweep abc1234   # from this SHA to HEAD
+/sweep              # last 30 non-merge commits
+/sweep 24h          # last 24 hours
+/sweep 48h          # last 48 hours
+/sweep 50           # last N commits
+/sweep abc1234      # from this SHA to HEAD
+/sweep epic 123     # all commits belonging to GitHub epic #123
 ```
+
+The preferred entry point for planned work is `/sweep epic <N>` immediately after an epic closes.
 
 ## Step 1 — Collect commits
 
+**Time window / count / SHA range:**
 ```bash
 git log --since="24 hours ago" --oneline --no-merges     # for time window
 git log -30 --oneline --no-merges                        # for count
 git log abc1234..HEAD --oneline --no-merges              # for SHA range
 ```
 
+**Epic (`/sweep epic <N>`):**
+1. Fetch the epic and its closed children:
+   ```bash
+   gh api repos/{owner}/{repo}/issues/N
+   # parse child issue numbers from the task list in the body
+   ```
+2. For each child issue, find the merge commit of its linked PR:
+   ```bash
+   gh api repos/{owner}/{repo}/issues/CHILD/timeline \
+     --jq '[.[] | select(.event=="cross-referenced") | .source.issue.pull_request.merged_at] | min'
+   # get the merge SHA
+   gh api repos/{owner}/{repo}/pulls/PR_NUMBER --jq '.merge_commit_sha'
+   ```
+3. Find the oldest merge commit SHA across all children — call it `<base>`.
+4. Collect commits: `git log <base>^..HEAD --oneline --no-merges`
+
 Skip commits that only touch:
 - `*.md`, `docs/`, `AGENTS.md`, `CLAUDE.md`, `*.toml` (docs/config-only)
 - `.claude/skills/` (skill files)
 - Single-file chores with no logic change (e.g. docstring-only, import rename)
 
-## Step 2 — Group into batches by area
+## Step 2 — Group into batches by area, then size-check each one
 
-Get file lists per commit with `git show --stat <sha>` and group by natural area. Target ~150–500 lines of diff per batch. Split large areas; merge small adjacent ones.
+**2a — Initial grouping**
 
-Common area examples:
+Get file lists per commit with `git show --stat <sha>` and group by natural area:
 
 | Batch label | File pattern |
 |---|---|
@@ -46,33 +66,42 @@ Common area examples:
 | frontend | `web/**`, `ui/**`, `components/**` |
 | tests | `tests/**`, `spec/**`, `__tests__/**` |
 
-State the batches and their approximate line counts before proceeding, so the user can redirect if the grouping looks wrong.
+Merge adjacent small areas freely. State the proposed batches before proceeding so the user can redirect if the grouping looks wrong.
 
-## Step 3 — Review 2 batches at a time via parallel subagents
+**2b — Measure and size-check each batch (~600L target)**
 
-For each pair of batches, get the diffs first, then **dispatch exactly 3 review agents per batch in parallel** (6 agents total for a pair). Never do the analysis inline — spawn the agents.
+For each batch, measure the actual diff:
+```bash
+git diff <oldest>^..<newest> -- <files> | wc -l
+```
 
-For each batch:
+Target is ~600L per batch. This is a **soft limit**: a single atomic commit or file that can't be meaningfully split is fine at 700–800L — just use `high` effort for the review. Only split when a batch is well over 600L and a natural seam exists. Prefer fewer, larger batches over many tiny fragments.
 
-1. Run `git diff <oldest_commit_in_batch>^..<newest_commit_in_batch> -- <files>` to get the scoped diff
-2. Dispatch 3 parallel `Agent({subagent_type:"general-purpose", model:"sonnet"})` calls, one per angle:
+Split a batch when it's significantly over target — in order of preference:
+1. **By sub-area** — divide into subdirectory or file-type groups
+2. **By commit range** — first half vs second half of the commits in that batch
 
-**Angle A prompt** (line-by-line scan):
-> "You are a code reviewer. Review this diff line by line for bugs. For every changed hunk, also read the enclosing function — bugs in unchanged lines of touched functions are in scope. Look for: inverted conditions, off-by-one, null/undefined deref, falsy-zero, wrong-variable copy-paste, swallowed errors, missing awaits. Return up to 6 candidates as JSON: [{file, line, summary, failure_scenario}]. Diff:\n<diff>"
+There is no minimum — a 50L batch is fine.
 
-**Angle B prompt** (removed-behavior auditor):
-> "You are a code reviewer. For every line this diff DELETES or replaces, name the invariant it enforced, then find where the new code re-establishes it. If you can't find it, that's a finding: dropped guard, narrowed validation, removed error path. Return up to 6 candidates as JSON: [{file, line, summary, failure_scenario}]. Diff:\n<diff>"
+## Step 3 — Review batches 2 at a time via Agent
 
-**Angle C prompt** (cross-file caller/callee tracer):
-> "You are a code reviewer. For each function this diff changes, check: (1) do any callers break due to new preconditions, changed signatures, or new exceptions? (2) do any callees become unsafe due to this change? Use grep/read to find callers. Return up to 6 candidates as JSON: [{file, line, summary, failure_scenario}]. Diff:\n<diff>"
+Each code review runs 3 independent finder angles, deduplicates, verifies each candidate, and returns a JSON findings array. Do NOT use `Skill({ skill: "code-review" })` here — Skill is main-thread only and can't run in parallel. Use `Agent` instead with the instructions below embedded.
 
-3. Collect all findings from the 3 agents. Dedup near-duplicates (same defect + location → keep one). Discard findings that are clearly style-only with no observable effect.
+Process batches **2 at a time in parallel**. Launch two `Agent` calls in a single message, wait for both to return, collect their findings, then launch the next pair.
 
-Process pairs sequentially so findings from earlier batches don't bleed into later ones.
+Each Agent prompt should instruct the subagent to:
+1. Run `git diff <oldest>^..<newest> -- <files>` to get the diff
+2. Run 3 independent finder angles in parallel (line-by-line scan / removed-behavior audit / cross-file tracer), each surfacing up to 6 candidates with file, line, summary, failure_scenario
+3. Dedup and verify each candidate (CONFIRMED / PLAUSIBLE / REFUTED) — keep CONFIRMED and PLAUSIBLE
+4. Return a JSON array of findings (≤8 for medium, ≤10 for high effort), ranked most-severe first
 
-## Step 4 — Dispatch fix agents per batch
+Effort: `medium` by default (≤8 findings). Use `high` for batches over 500L or touching security-sensitive code (≤10 findings, recall-biased verification).
 
-After each pair of review runs, dispatch **Sonnet** fix agents — one per batch — in parallel. Each fix agent works in an isolated worktree to avoid index conflicts:
+Use `model: "sonnet"` for all review agents.
+
+## Step 4 — Dispatch fix agents in parallel after all reviews complete
+
+Once all batches have been reviewed, dispatch **Sonnet** fix agents — one per batch — all in parallel. Each fix agent works in an isolated worktree to avoid index conflicts:
 
 ```
 Agent({
@@ -97,8 +126,7 @@ After all batches complete:
 
 ## Guardrails
 
-- **Models**: Sonnet for all review and fix agents.
-- **Don't double-run**: If Wave 1 agents are already in the background, launch Wave 2 while they run — don't wait idle.
+- **Review model**: Sonnet for fix agents.
 - **Scope**: Only touch files changed in the commits being reviewed. Don't wander.
 - **Tests must pass** before committing any fix. If tests break, surface the conflict — don't patch around it.
 - **Protect**: No public signature changes, no serialized output changes, no test-intent changes unless explicitly requested.

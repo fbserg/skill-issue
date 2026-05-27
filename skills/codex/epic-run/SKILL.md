@@ -53,7 +53,6 @@ control tools live in adapters, not here.
 - Child PR bodies use `Closes #<child>` so GitHub closes child issues on merge.
 - Child status line is exactly `STATUS=ok PR=<n> SHA=<sha>` or
   `STATUS=fail REASON=<short>`.
-- The child completion audit file (`usage.jsonl`) is written to a runtime-specific state directory. For Claude: `~/.claude/state/epic-run/usage.jsonl`. For Codex: use a path appropriate for your runtime, or omit if no persistent state directory is available. Not run state — token fields are optional best-effort extras; Codex rows may be marker-only with zero token counts.
 - Child PR bodies may include `## Notes` for non-blocking adjacent observations.
   Anything required for the child acceptance criteria must be fixed or returned
   as `STATUS=fail`, never hidden in notes.
@@ -68,14 +67,16 @@ control tools live in adapters, not here.
 ## Disabled Actions
 
 When repo Actions are disabled, the adapter sets `MODE=manual-merge` in
-preflight and continues without asking the user to re-run.
+preflight and stops for explicit user approval before dispatch or merge.
 
 In `manual-merge` mode:
 
 - workers create branches, run focused tests, commit, push, open PRs, and run
   `epic-tools verify-pr`;
-- the orchestrator merges verified PRs directly via REST (no auto-merge queue,
-  no CI gate);
+- the orchestrator merges verified PRs directly via REST only after user
+  approval and orchestrator-side aggregate validation appropriate to the epic
+  risk. Shared-state epics need the repo's broader relevant suite, not only
+  worker-focused tests;
 - dependency ordering, wakeup scheduling, and epic close proceed unchanged.
 
 ## Tool Surface
@@ -116,7 +117,9 @@ ACTIONS_ENABLED=$(gh api repos/$REPO/actions/permissions --jq .enabled 2>/dev/nu
 EXISTING=$(epic-tools epic-status <epic> --json)
 ```
 
-Refuse closed epics. `ACTIONS_ENABLED=false` means `MODE=manual-merge`.
+Refuse closed epics. `ACTIONS_ENABLED=false` means `MODE=manual-merge`; report
+that Actions are disabled, name the validation command set that will replace
+CI, and wait for explicit user approval before continuing.
 If the lock exists, surface it and stop. Otherwise add it before dispatch and
 remove it on every exit. On resume, reuse `RUN_ID_SUFFIX` and re-run
 `parse-epic`; if memory was lost while locked, stop and surface stale state.
@@ -151,8 +154,10 @@ Do not dispatch dependents early; promote them only after parent PRs merge.
 After `STATUS=ok`, run `epic-tools verify-pr` against reported PR/SHA. Normal
 mode merges only when current REST check-runs for that SHA are successful;
 stale, failed, missing, or queued checks are not green. GraphQL throttling falls
-back to the same REST check-run gate. In `manual-merge`, squash-merge the
-verified PR via REST immediately.
+back to the same REST check-run gate. In `manual-merge`, do not merge
+immediately: run the approved orchestrator-side validation from preflight, then
+squash-merge the verified PR via REST only if validation passes and the user
+approved manual merge for this run.
 
 ## Close
 

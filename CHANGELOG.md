@@ -14,10 +14,12 @@ All notable changes to this project will be documented here.
 - `zero`: default conflict resolution changed from auto-resolve to stop+ask; add `--auto-resolve` opt-in flag; add pre-push confirmation gate; detect default branch dynamically
 - `sweep`: rewritten to dispatch `code-simplifier` agent instead of the non-existent `/simplify` slash command; plugin dependency documented
 - `dispatch.md`: replace `Skill({skill:"tidy"})` with reference to shipped tidy skill; make `advisor()` conditional on `advisorModel` setting; remove private `scripts/tests_for.py` path
-- `epic-retro`: remove `$HOME/projects/*` hardcoded path; fix jq filter; scope telemetry dependency note
-- `epic-run`: trim Hard rails; add harness contract note; consolidate telemetry block
+- `epic-retro`: remove `$HOME/projects/*` hardcoded path and fix jq filter
+- `epic-run`: trim Hard rails and add harness contract note
 
 ### Fixed
+- Add an install-contract check so shipped Claude/Codex skills and `epic-tools` cannot silently point at different checkouts
+- Remove stale completion-audit documentation from the current `epic-tools` surface
 - `epic-tools revert` and `cleanup` now require `--yes` or interactive confirmation
 - `codex/epic-run/SKILL.md`: replace `~/.claude/state` hardcoded path with runtime-neutral note
 - LICENSE: change copyright from "Serg" to "skill-issue contributors"

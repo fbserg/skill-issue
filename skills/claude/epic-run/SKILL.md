@@ -1,14 +1,15 @@
 ---
 name: epic-run
-description: "Execute a planned GitHub epic end-to-end — fetch issues, fan children out as parallel subagents in isolated worktrees, and merge verified PRs from the orchestrator. **Have a local plan file? Run `epic-tools plan-to-epic <path>` first to materialize the epic + children, then `/epic-run <N>`.** Automatically uses manual-merge mode when Actions are disabled. Use when user invokes `/loop /epic-run <epic-issue-number>`, \"run this epic\", \"epic run it\", \"ship this plan\"."
+description: "Execute a planned GitHub epic end-to-end with isolated worktrees and orchestrator-owned PR merges. For a local plan file, run `epic-tools plan-to-epic PATH` first. Requires explicit approval for manual-merge mode when Actions are disabled. Use when user invokes `/loop /epic-run N`, \"run this epic\", \"epic run it\", or \"ship this plan\"."
 ---
 
 **Requires:** subagent dispatch with worktree isolation. **Optional:** scheduled wakeups via `ScheduleWakeup` (available in Claude Code's loop/cron harness). Without scheduled wakeups, run one tick at a time manually.
 
 Run a `/epic-plan` epic to merged child PRs. The orchestrator handles dependency
 math, dispatch, verification, and merging. Children work in isolated worktrees,
-open verified PRs, and return `STATUS=`. Disabled Actions automatically switch
-to `manual-merge`: the orchestrator merges verified PRs via REST.
+open verified PRs, and return `STATUS=`. Disabled Actions switch to
+`manual-merge`, which requires explicit user approval and orchestrator-side
+validation before REST merges.
 
 Use `/loop /epic-run <N>` for unattended runs. Each tick re-reads GitHub state,
 dispatches newly-ready children, collects replies, then either wakes later or
@@ -60,6 +61,10 @@ MODE=normal
 [[ "$ACTIONS_ENABLED" == "false" ]] && MODE=manual-merge
 ```
 
+If `MODE=manual-merge`, report that Actions are disabled, name the validation
+command set that will replace CI, and wait for explicit user approval before
+dispatching workers or merging PRs.
+
 First tick:
 
 ```bash
@@ -107,7 +112,9 @@ Immediately label every `dep-failed` or real `ci-failed` child with
 `conflicted` stays in-flight and gets a rebase subagent in §3.
 
 In `manual-merge` mode, do not treat missing CI as pending or green. Children
-still stop at verified PRs; the orchestrator merges those PRs directly via REST.
+still stop at verified PRs; the orchestrator merges those PRs directly via REST
+only after user approval and orchestrator-side aggregate validation appropriate
+to the epic risk.
 
 CI check source: REST check-runs
 `gh api repos/$REPO/commits/<head_sha>/check-runs --jq '.check_runs[] | {status, conclusion}'`.
@@ -145,7 +152,8 @@ fail, label the child `epic-<N>-failed`; no auto-retry. On ok, run
 merge only when current REST check-runs for the reported head SHA are all
 successful; stale, failed, missing, or queued checks are not green. If GraphQL is
 throttled, use REST check-runs and squash-merge only after the same green check.
-In `manual-merge` mode, squash-merge the verified PR directly via REST:
+In `manual-merge` mode, run the approved orchestrator-side validation first,
+then squash-merge the verified PR directly via REST only if validation passes:
 `PUT /repos/$REPO/pulls/<n>/merge` with `merge_method=squash`. After any merge
 attempt, read back the PR once — `gh api repos/$REPO/pulls/<n> --jq .merged` —
 before acting on the result. If `.merged == true`, mark it merged and continue.

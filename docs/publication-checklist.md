@@ -5,6 +5,7 @@ Before tagging and announcing a new release:
 ## Code quality
 - [ ] `python3 -m py_compile tools/epic-tools/bin/epic-tools` passes
 - [ ] `epic-tools --help` lists all subcommands
+- [ ] `python3 scripts/check-install.py` passes and covers every shipped Claude/Codex skill symlink plus `epic-tools`
 - [ ] `epic-tools revert --help` and `epic-tools cleanup --help` both mention `--yes`
 - [ ] `grep -rE '(/Users/[a-z]+|fbserg|info@|~/projects/|\$HOME/projects/|scripts/tests_for|just push-main|claude-(haiku|sonnet|opus)-[0-9])' .` returns nothing
 - [ ] `grep -rn '/simplify' skills/` returns nothing

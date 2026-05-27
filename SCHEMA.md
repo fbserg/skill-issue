@@ -34,16 +34,6 @@ Child PR titles follow the format: `<prefix>: <title> (#<child>)` where prefix i
 
 Epic issue title format: `Epic: <topic>`
 
-## `epic-tools` completion audit
-
-When telemetry is enabled, each child completion emits a marker line:
-
-```
-EPIC_RUN_USAGE run_id=<suffix> epic=<N> child=<child>
-```
-
-This is appended to a local audit file and ingested by `epic-tools usage-ingest-*`. Token counts are optional best-effort extras; rows without token counts are valid.
-
 ## Issue body sections
 
 ### Epic tracker

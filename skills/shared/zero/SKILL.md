@@ -1,15 +1,27 @@
 ---
 name: zero
-description: "Zero out a repo — destructive: commits pending work, merges all open PRs, merges all local branches into the default branch, drops worktrees, deletes branches, pushes. Run only at a deliberate cleanup point when no other agents are working."
-user-invocable: true
-allowed-tools: Bash
+description: "Zero out a repo — destructive cleanup of pending work, PRs, branches, worktrees, and main push. Requires read-only inventory first plus explicit typed confirmation before any writes."
 ---
 
 # /zero skill
 
-Zero out the repo completely. Commit pending changes on `main`, merge open PRs and delete their source branches, commit and merge every non-main worktree into `main`, merge every stray local branch into `main`, drop worktrees, delete local branches, push `main`, and report open issues.
+Zero out the repo completely. Commit pending changes on `main`, merge open PRs and delete their source branches, commit and merge every non-main worktree into `main`, merge every stray local branch into `main`, drop worktrees, delete branches, push `main`, and report open issues.
 
 This command is intentionally aggressive. It is only for the user's explicit "zero" cleanup point when no other agents are expected to still be working in the repo.
+
+Default mode is read-only inventory. Do not run any Git/GitHub writer until the user confirms an execution token that includes:
+
+- repo slug;
+- default branch;
+- count of open PRs to merge;
+- count of non-main worktrees to merge/drop;
+- count of stray branches to merge/delete.
+
+Confirmation format:
+
+```text
+zero execute <owner/repo> <default-branch> prs=<N> worktrees=<N> branches=<N>
+```
 
 ---
 
@@ -41,6 +53,8 @@ gh pr list --state open --json number,title,headRefName
 # open issues
 gh issue list --limit 50 --state open --json number,title
 ```
+
+Stop after inventory and report the confirmation token. Continue only after the user provides the exact token. If the user provides a mismatched token, re-run inventory and ask for the new token.
 
 ### 3. Checkpoint main
 
@@ -147,7 +161,7 @@ git rev-list --count <branch-name>..main   # behind main
 - `ahead=0`: delete only; nothing needs merging.
 - `ahead>0` and no open PR: merge into `main`.
 - open PR: handle only through `gh pr merge`.
-- tracking status `[gone]`: delete; remote branch was already removed.
+- tracking status `[gone]`: treat as suspect until local commits are proven merged or empty.
 
 **a. Open PR guard:**
 ```bash
@@ -157,18 +171,21 @@ If an open PR still exists after step 4: report it ("open PR #N - skipped/failed
 
 **b. Merge or delete:**
 
-If tracking is `[gone]`, treat it as already handled remotely and delete it:
+If tracking is `[gone]`, prove it is safe before deleting:
 ```bash
 # %(upstream:track) outputs [gone] when remote ref was deleted (catches squash-merges)
-git branch -D <branch>
+git rev-list --count main..<branch-name>
+git merge-base --is-ancestor <branch-name> main
+git cherry main <branch-name>
 ```
+Delete only if `ahead=0`, or `merge-base --is-ancestor` succeeds, or `git cherry` shows no unmerged commits. Otherwise preserve it and report it as "gone upstream but unmerged locally"; do not merge or delete it without a separate explicit confirmation.
 
 If already merged into `main`, delete it:
 ```bash
 git merge-base --is-ancestor <branch> main
 git branch -d <branch>
 ```
-If `git branch -d` refuses only because the branch is not merged to its upstream, but `git merge-base --is-ancestor <branch> HEAD` succeeds, use `git branch -D <branch>`. The code is already in `main`; this is local metadata cleanup.
+If `git branch -d` refuses only because the branch is not merged to its upstream, but `git merge-base --is-ancestor <branch> "$DEFAULT_BRANCH"` succeeds, use `git branch -D <branch>`. The code is already in `main`; this is local metadata cleanup.
 
 If not merged, merge it into `main` one branch at a time, then delete it:
 ```bash
@@ -213,7 +230,7 @@ Open issues:         list "#N title"  ← informational only, never touched
 ## Guardrails
 
 - Never delete `main`.
-- Never `git branch -D` (force-delete) unless the upstream track is `[gone]` or the branch is already an ancestor of `HEAD` and `git branch -d` only refused due upstream bookkeeping.
+- Never `git branch -D` (force-delete) unless the branch is proven merged/empty (`ahead=0`, `merge-base --is-ancestor`, or clean `git cherry`) and `git branch -d` only refused due upstream bookkeeping.
 - Open PR branches are handled only through `gh pr merge <number> --merge --delete-branch`; if that fails, leave the PR and branch alone.
 - Dirty `main` and dirty non-main worktrees are checkpointed with `git add -A && git commit` before merging.
 - Merge all local branches into `main` one by one unless blocked by a failed checkpoint commit, failed PR merge, or a conflict that requires a product decision.

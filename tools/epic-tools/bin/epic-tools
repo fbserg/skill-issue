@@ -357,38 +357,48 @@ def cmd_plan_to_epic(args: argparse.Namespace) -> None:
 
     repo = args.repo or repo_slug()
     created_children: list[tuple] = []  # (ordinal, issue_num, title)
+    epic_num: int | None = None
 
     try:
-        # Create child issues
+        # Create tracker first so a mid-run failure never leaves orphan children.
+        pending_checklist = "\n".join(
+            f"- [ ] #PENDING-{c['ordinal']}  {c['title']}"
+            for c in parsed["children"]
+        )
+        pending_epic_body = parsed["epic_preamble"] + "\n\n## Children\n" + pending_checklist
+        epic_result = gh_api("POST", f"/repos/{repo}/issues", body={
+            "title": parsed["epic_title"],
+            "body": pending_epic_body,
+            "labels": ["epic"],
+        })
+        epic_num = int(epic_result["number"])
+        print(f"  epic #{epic_num}: {parsed['epic_title']}")
+
+        # Create child issues with a real parent reference.
         ordinal_to_num: dict = {}
         for c in parsed["children"]:
             result = gh_api("POST", f"/repos/{repo}/issues", body={
                 "title": c["title"],
-                "body": "Part of epic (pending).\n\n" + c["body"],
+                "body": f"Part of epic #{epic_num}.\n\n" + c["body"],
             })
             num = int(result["number"])
             ordinal_to_num[c["ordinal"]] = num
             created_children.append((c["ordinal"], num, c["title"]))
             print(f"  child #{num}: {c['title']}")
 
-        # Build epic body and create epic
+        # Patch tracker with real child numbers.
         checklist = "\n".join(
             f"- [ ] #{ordinal_to_num[c['ordinal']]}  {c['title']}"
             for c in parsed["children"]
         )
         epic_body = parsed["epic_preamble"] + "\n\n## Children\n" + checklist
-        epic_result = gh_api("POST", f"/repos/{repo}/issues", body={
-            "title": parsed["epic_title"],
-            "body": epic_body,
-            "labels": ["epic"],
-        })
-        epic_num = int(epic_result["number"])
+        gh_api("PATCH", f"/repos/{repo}/issues/{epic_num}", body={"body": epic_body})
 
-        # Patch each child with real dep numbers + epic reference
+        # Patch each child with real dep numbers.
         for c in parsed["children"]:
             num = ordinal_to_num[c["ordinal"]]
             new_body = _rewrite_child_body(
-                "Part of epic (pending).\n\n" + c["body"],
+                f"Part of epic #{epic_num}.\n\n" + c["body"],
                 ordinal_to_num,
                 epic_num,
             )
@@ -411,6 +421,8 @@ def cmd_plan_to_epic(args: argparse.Namespace) -> None:
     except Exception as e:
         print(f"\nERROR: {e}", file=sys.stderr)
         if created_children:
+            if epic_num is not None:
+                print(f"Tracker created: #{epic_num}", file=sys.stderr)
             print("Created so far (clean up manually):", file=sys.stderr)
             for _ordinal, num, title in created_children:
                 print(f"  #{num}: {title}", file=sys.stderr)
@@ -624,23 +636,65 @@ def cmd_verify_pr(args: argparse.Namespace) -> None:
     except SystemExit:
         print(f"FAIL: pr #{pr} not viewable")
         return
-    head = (raw.get("head") or {}).get("ref", "")
+    default = sh(["git", "symbolic-ref", "--short", "refs/remotes/origin/HEAD"],
+                 check=False).strip().split("/")[-1] or "main"
+    base = raw.get("base") or {}
+    if (base.get("ref") or "") != default:
+        print(f"FAIL: base '{base.get('ref')}' != default '{default}'")
+        return
+    if raw.get("draft"):
+        print("FAIL: pr is draft")
+        return
+    if (raw.get("state") or "") != "open" and not raw.get("merged_at"):
+        print(f"FAIL: unexpected state={(raw.get('state') or '').upper()}")
+        return
+    head_obj = raw.get("head") or {}
+    head = head_obj.get("ref", "")
     if not head.startswith(f"epic-{epic}-{child}-"):
         print(f"FAIL: branch '{head}' does not match expected prefix epic-{epic}-{child}-")
         return
+    base_owner = (((base.get("repo") or {}).get("owner") or {}).get("login") or "").lower()
+    head_owner = ((((head_obj.get("repo") or {}).get("owner") or {}).get("login") or "").lower())
+    if base_owner and head_owner and head_owner != base_owner:
+        print(f"FAIL: head repo owner '{head_owner}' != base repo owner '{base_owner}'")
+        return
     if f"(#{child})" not in (raw.get("title") or ""):
         print(f"FAIL: title missing (#{child})")
+        return
+    body = raw.get("body") or ""
+    if not re.search(rf"(?im)\b(closes|fixes|resolves)\s+#{child}\b", body):
+        print(f"FAIL: body missing Closes/Fixes/Resolves #{child}")
+        return
+    labels = gh_api("GET", f"/repos/{repo}/issues/{pr}/labels")
+    label_names = [l.get("name") for l in (labels if isinstance(labels, list) else [])]
+    if f"epic-{epic}" not in label_names:
+        print(f"FAIL: missing epic-{epic} label")
         return
     expected_author = args.author or (gh_api("GET", "/user") or {}).get("login", "")
     actual_author = (raw.get("user") or {}).get("login", "")
     if expected_author and actual_author and actual_author != expected_author:
         print(f"FAIL: author '{actual_author}' != expected '{expected_author}'")
         return
+    current_head_sha = head_obj.get("sha") or ""
     if args.claimed_sha:
+        if current_head_sha and current_head_sha != args.claimed_sha and not current_head_sha.startswith(args.claimed_sha):
+            print(f"FAIL: current head {current_head_sha[:8]} != claimed sha {args.claimed_sha[:8]}")
+            return
         commits = [c["sha"] for c in gh_api("GET", f"/repos/{repo}/pulls/{pr}/commits")]
         if args.claimed_sha not in commits and not any(
                 c.startswith(args.claimed_sha) for c in commits):
             print(f"FAIL: claimed sha {args.claimed_sha[:8]} not in pr commits")
+            return
+    if current_head_sha and not raw.get("merged_at"):
+        runs = gh_api("GET", f"/repos/{repo}/commits/{current_head_sha}/check-runs")
+        check_runs = (runs.get("check_runs") or []) if isinstance(runs, dict) else []
+        rollup = _rollup_from_check_runs(check_runs)
+        failing, pending = _check_names(rollup)
+        if failing:
+            print(f"FAIL: failing checks for head {current_head_sha[:8]}: {', '.join(failing)}")
+            return
+        if pending:
+            print(f"FAIL: pending checks for head {current_head_sha[:8]}: {', '.join(pending)}")
             return
     if raw.get("merged_at"):
         print(f"OK merged sha={raw['head']['sha'][:8]}")

@@ -1,6 +1,6 @@
 ---
 name: tidy
-description: Code-quality review: fix LLM slop and over-engineering. Run before commits.
+description: "Code-quality review: fix LLM slop and over-engineering. Run before commits."
 user-invocable: true
 ---
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue Sweep"
+  short_description: "Fix oldest GitHub issues in worktrees and land them"
+  default_prompt: "Use $issue-sweep to fix the oldest eligible GitHub issues in isolated worktrees, push landed commits to the default branch, and close them."

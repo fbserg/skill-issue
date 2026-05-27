@@ -19,6 +19,11 @@ For security issues, see [SECURITY.md](SECURITY.md).
 
 ## Skill guidelines
 
+- Treat this repository as the canonical edit point for shipped epic, tidy,
+  sweep, zero, and `epic-tools` behavior. Installed entries under
+  `~/.claude/skills`, `~/.codex/skills`, and `~/.local/bin` should be symlinks
+  back here; run `python3 scripts/check-install.py` after changing install
+  wiring.
 - Skills are prompt files. Keep them concise — every sentence is read by the model on every invocation.
 - No hardcoded paths, account names, or repo-specific references.
 - Use capability language rather than model names (`a capable reviewer model` not `claude-sonnet-4-6`).
