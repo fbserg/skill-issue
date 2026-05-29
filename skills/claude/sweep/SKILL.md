@@ -1,6 +1,7 @@
 ---
 name: sweep
 description: Batch review-and-fix pass over recent commits. Invoke as /sweep, /sweep 24h, /sweep 50, /sweep SHA, or /sweep epic N.
+model: sonnet
 ---
 
 # sweep — batch review-and-fix pass over recent commits

@@ -1,6 +1,7 @@
 ---
 name: tidy
 description: "Code-quality review: fix LLM slop and over-engineering. Run before commits."
+model: sonnet
 ---
 
 # tidy — anti-slop pass on changed code
