@@ -19,10 +19,10 @@ Thin wrapper around the built-in `deep-research` named workflow baked into the C
 
 ## How to invoke
 
-Call the built-in workflow, passing the question as `args`:
+Call the local workflow script (leaner than the built-in):
 
 ```
-Workflow({ name: "deep-research", args: "<refined question>" })
+Workflow({ scriptPath: "/Users/serg/projects/skill-issue/skills/claude/deep-research/workflow.js", args: "<refined question>" })
 ```
 
 Weave any clarifying answers into the question string before passing it.
@@ -30,14 +30,14 @@ Weave any clarifying answers into the question string before passing it.
 ## Pipeline (handled by the workflow)
 
 ```
-Scope (1 agent)     — decomposes question into 5 search angles
-Search (5 agents)   — parallel WebSearch per angle
-Fetch (≤15 agents)  — URL-dedup → fetch sources → extract falsifiable claims
-Verify (≤75 agents) — 3-vote adversarial check per claim (≥2 refutes kills it)
+Scope (1 agent)     — decomposes question into 3 search angles
+Search (3 agents)   — parallel WebSearch per angle
+Fetch (≤8 agents)   — URL-dedup → fetch sources → extract falsifiable claims
+Verify (≤24 agents) — 2-vote adversarial check per claim (both must refute to kill)
 Synthesize (1 agent)— merge dupes, rank by confidence, write cited report
 ```
 
-Total: ~30–100 agents depending on source count. Takes 2–5 minutes.
+Total: ~15–37 agents. Takes 1–3 minutes.
 
 ## Output
 
