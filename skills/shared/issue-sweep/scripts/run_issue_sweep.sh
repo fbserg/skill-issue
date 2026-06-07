@@ -239,6 +239,12 @@ excerpt_file() {
 release_issue() {
   local issue="$1"
   gh issue edit "$issue" --remove-assignee "$assignee" >/dev/null || true
+  local index
+  for index in "${!claimed_issues[@]}"; do
+    if [[ "${claimed_issues[$index]}" == "$issue" ]]; then
+      claimed_released[$index]="1"
+    fi
+  done
 }
 
 delete_remote_branch() {
@@ -594,6 +600,8 @@ fi
 attempted=()
 results=()
 ci_timeouts=()
+claimed_issues=()
+claimed_released=()
 
 # Worker ledger: one entry per started worker, kept for the whole run so the
 # EXIT trap and the leak audit can account for every claim, branch, and
@@ -608,6 +616,23 @@ cl_contexts=()
 cl_status=()
 cl_pushed=()
 cl_pr=()
+
+remember_claim() {
+  local issue="$1"
+  claimed_issues+=("$issue")
+  claimed_released+=("0")
+}
+
+claim_has_pr() {
+  local issue="$1"
+  local index
+  for index in "${!cl_issues[@]}"; do
+    if [[ "${cl_issues[$index]}" == "$issue" && -n "${cl_pr[$index]}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
 
 run_worker() {
   local issue="$1"
@@ -1139,10 +1164,37 @@ cleanup_and_report() {
     wait "$pid" 2>/dev/null || true
     abandon_worker "$index" "sweep interrupted"
   done
+  for index in "${!claimed_issues[@]}"; do
+    if [[ "${claimed_released[$index]}" == "0" ]] && ! claim_has_pr "${claimed_issues[$index]}"; then
+      release_issue "${claimed_issues[$index]}"
+    fi
+  done
   print_summary
 }
 trap cleanup_and_report EXIT
 trap 'exit 130' INT TERM
+
+triage_decision_candidates_after_limit() {
+  local skip issue_json issue title
+
+  while :; do
+    skip="${attempted[*]:-}"
+    issue_json="$(ISSUE_SWEEP_SKIP_NUMBERS="$skip" ISSUE_SWEEP_SKIP_LABELS="$skip_labels" ISSUE_SWEEP_PREFER_LABELS="$prefer_labels" "$skill_dir/scripts/next_issue.sh")"
+    issue="$(jq -r '.number // empty' <<<"$issue_json")"
+    if [[ -z "$issue" ]]; then
+      break
+    fi
+
+    title="$(jq -r '.title // ""' <<<"$issue_json")"
+    attempted+=("$issue")
+    echo "[post-limit] preflight issue #$issue: $title"
+
+    if preflight_issue "$issue" "$title"; then
+      rm -f "$preflight_context_file"
+      break
+    fi
+  done
+}
 
 iteration=0
 while [[ "$forever" == "1" || "$iteration" -lt "$limit" ]]; do
@@ -1187,6 +1239,7 @@ while [[ "$forever" == "1" || "$iteration" -lt "$limit" ]]; do
       echo "[$iteration/$limit] claim issue #$issue: $title"
     fi
     "$skill_dir/scripts/claim_issue.sh" "$issue"
+    remember_claim "$issue"
 
     start_worker "$issue" "$title" "$preflight_context_file"
     batch_indices+=("$worker_index")
@@ -1234,3 +1287,7 @@ while [[ "$forever" == "1" || "$iteration" -lt "$limit" ]]; do
     fi
   done
 done
+
+if [[ "$forever" != "1" && "$iteration" -ge "$limit" ]]; then
+  triage_decision_candidates_after_limit
+fi
