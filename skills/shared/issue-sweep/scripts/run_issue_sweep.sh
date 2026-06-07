@@ -285,11 +285,16 @@ run_agent_json() {
   esac
 
   if ! jq -e 'type == "object"' "$output" >/dev/null 2>&1; then
-    # Tolerate markdown-fenced JSON from chatty agents before giving up.
-    local stripped
-    stripped="$(sed -E '/^[[:space:]]*```/d' "$output")"
-    if jq -e 'type == "object"' <<<"$stripped" >/dev/null 2>&1; then
-      printf '%s\n' "$stripped" >"$output"
+    # Tolerate prose and markdown fences around the JSON: take the first '{'
+    # through the last '}' and try again before giving up.
+    local raw prefix tmp suffix candidate
+    raw="$(cat "$output")"
+    prefix="${raw%%\{*}"
+    tmp="${raw#"$prefix"}"
+    suffix="${tmp##*\}}"
+    candidate="${tmp%"$suffix"}"
+    if [[ -n "$candidate" ]] && jq -e 'type == "object"' <<<"$candidate" >/dev/null 2>&1; then
+      printf '%s\n' "$candidate" >"$output"
       return 0
     fi
     printf '{"route":"decision_needed","reason":"%s returned malformed JSON"}\n' "$mode" >"$output"
@@ -560,15 +565,16 @@ fi
 
 if [[ "$merge_after_pr" == "true" ]]; then
   actions_enabled="$(gh api "repos/$repo_slug/actions/permissions" --jq .enabled 2>/dev/null || echo "unknown")"
-  if [[ "$actions_enabled" == "false" && -n "$checks_upload_command" ]]; then
-    # With Actions disabled, every status on the PR would come from this
-    # run's own checksUploadCommand: the sweep would be grading its own
-    # homework and then merging on it.
-    echo "WARNING: GitHub Actions are disabled for $repo_slug and checksUploadCommand is set;" >&2
+  if [[ "$actions_enabled" != "true" && -n "$checks_upload_command" ]]; then
+    # With Actions disabled (or unverifiable), every status on the PR would
+    # come from this run's own checksUploadCommand: the sweep would be
+    # grading its own homework and then merging on it. An API failure here
+    # demotes too — fail closed, never assume CI exists.
+    echo "WARNING: GitHub Actions state for $repo_slug is '$actions_enabled' and checksUploadCommand is set;" >&2
     echo "WARNING: merging on self-uploaded statuses is not allowed. Demoted to PR-only." >&2
     merge_after_pr="false"
-  elif [[ "$actions_enabled" == "false" ]]; then
-    echo "WARNING: GitHub Actions are disabled for $repo_slug; there is no CI to gate a merge." >&2
+  elif [[ "$actions_enabled" != "true" ]]; then
+    echo "WARNING: GitHub Actions state for $repo_slug is '$actions_enabled'; cannot prove CI gates a merge." >&2
     echo "WARNING: --merge-after-pr demoted to PR-only for this run." >&2
     merge_after_pr="false"
   fi
@@ -646,7 +652,9 @@ EOF
       "${cmd[@]}"
       ;;
     claude)
-      local cmd=(claude --print --permission-mode dontAsk)
+      # Non-interactive workers need bypassPermissions: dontAsk denies every
+      # tool instead of granting it, leaving the worker unable to edit.
+      local cmd=(claude --print --permission-mode bypassPermissions)
       if [[ -n "$model" ]]; then
         cmd+=(--model "$model")
       fi
@@ -826,15 +834,17 @@ wait_for_checks() {
       echo "wait_for_checks: cannot read commit statuses for $sha" >&2
       return 1
     fi
-    if ! checks="$(gh api "repos/$repo_slug/commits/$sha/check-runs")"; then
+    # --paginate: the default page is 30 check runs; a failing check at
+    # position 31 must not be invisible. Slurp pages into one array.
+    if ! checks="$(gh api --paginate "repos/$repo_slug/commits/$sha/check-runs?per_page=100" --jq '.check_runs[]' | jq -s '.')"; then
       echo "wait_for_checks: cannot read check runs for $sha" >&2
       return 1
     fi
     status_state="$(jq -r '.state' <<<"$combined")"
     status_count="$(jq -r '.total_count' <<<"$combined")"
-    check_total="$(jq -r '.total_count' <<<"$checks")"
-    bad_checks="$(jq '[.check_runs[] | select(.conclusion != null) | select(.conclusion | IN("failure", "cancelled", "timed_out", "action_required"))] | length' <<<"$checks")"
-    pending_checks="$(jq '[.check_runs[] | select(.status != "completed")] | length' <<<"$checks")"
+    check_total="$(jq 'length' <<<"$checks")"
+    bad_checks="$(jq '[.[] | select(.conclusion != null) | select(.conclusion | IN("failure", "cancelled", "timed_out", "action_required"))] | length' <<<"$checks")"
+    pending_checks="$(jq '[.[] | select(.status != "completed")] | length' <<<"$checks")"
 
     if [[ "$status_state" == "failure" || "$status_state" == "error" || "$bad_checks" -gt 0 ]]; then
       echo "wait_for_checks: checks failed for PR #$pr at $sha" >&2
@@ -923,8 +933,11 @@ open_worker_pr() {
   rm -f "$pr_create_err"
   if ! pr_number="$(gh pr view "$pr_url" --json number --jq .number)"; then
     # The PR exists; the branch now belongs to it. Leave both for a human.
+    # From here on the issue stays assigned on failure: the PR owns the
+    # issue, and releasing the claim while a PR is open invites a second
+    # sweep run to open a duplicate (the PR-search block lags behind the
+    # search index; the assignee does not).
     echo "#$issue PR was created but could not be read back: $pr_url" >&2
-    release_issue "$issue"
     return 1
   fi
   cl_pr[index]="$pr_number"
@@ -934,7 +947,6 @@ open_worker_pr() {
     if ! run_proof_command "Proof" "$proof_command" "$worktree" "$proof_output"; then
       echo "#$issue proof command failed in worktree; draft PR #$pr_number left for a human" >&2
       excerpt_file "$proof_output" >&2
-      release_issue "$issue"
       rm -f "$proof_output"
       return 1
     fi
@@ -945,7 +957,6 @@ open_worker_pr() {
     if ! run_proof_command "Checks upload" "$checks_upload_command" "$worktree" "$upload_output"; then
       echo "#$issue checks upload command failed; draft PR #$pr_number left for a human" >&2
       excerpt_file "$upload_output" >&2
-      release_issue "$issue"
       rm -f "$proof_output" "$upload_output"
       return 1
     fi
@@ -958,7 +969,6 @@ open_worker_pr() {
   gh pr edit "$pr_number" --body "$body" >/dev/null || true
   if [[ "$pr_is_draft" == "1" ]] && ! gh pr ready "$pr_number" >/dev/null; then
     echo "#$issue could not mark draft PR #$pr_number ready" >&2
-    release_issue "$issue"
     return 1
   fi
 
@@ -966,13 +976,11 @@ open_worker_pr() {
   if [[ "$merge_after_pr" == "true" ]]; then
     if [[ -z "$proof_command" ]]; then
       echo "#$issue merge override requires a proofCommand to be configured" >&2
-      release_issue "$issue"
       return 1
     fi
     head_sha="$(git -C "$worktree" rev-parse HEAD)"
     if ! verify_pr "$pr_number" "$head_sha" "$issue"; then
       echo "#$issue PR #$pr_number failed pre-merge verification; not merging" >&2
-      release_issue "$issue"
       return 1
     fi
     rc=0
@@ -982,25 +990,26 @@ open_worker_pr() {
       merge_outcome="skipped (no checks reported)"
     elif [[ "$rc" -ne 0 ]]; then
       echo "#$issue checks failed or timed out; PR #$pr_number left unmerged" >&2
-      release_issue "$issue"
       return 1
     else
+      # No --delete-branch: gh would also try to delete the LOCAL branch,
+      # which is checked out in the worktree — git refuses and gh exits
+      # non-zero AFTER the remote merge already landed, turning a success
+      # into a reported failure. The read-back below is the only truth
+      # about whether the merge happened; gh's exit code is advisory.
       merge_output="$(mktemp)"
-      if ! gh pr merge "$pr_number" "--$merge_method" --delete-branch >"$merge_output" 2>&1; then
-        echo "#$issue PR merge failed" >&2
-        excerpt_file "$merge_output" >&2
-        release_issue "$issue"
-        rm -f "$merge_output"
-        return 1
-      fi
-      rm -f "$merge_output"
+      gh pr merge "$pr_number" "--$merge_method" >"$merge_output" 2>&1 || true
       # Read back the merge; never re-fire gh pr merge on uncertainty.
       merged="$(gh api "repos/$repo_slug/pulls/$pr_number" --jq .merged 2>/dev/null || echo "false")"
       if [[ "$merged" != "true" ]]; then
         echo "#$issue merge was submitted but is not confirmed merged; NOT retrying" >&2
-        release_issue "$issue"
+        excerpt_file "$merge_output" >&2
+        rm -f "$merge_output"
         return 1
       fi
+      rm -f "$merge_output"
+      delete_remote_branch "$branch"
+      cl_pushed[index]="0"
       merge_outcome="merged"
     fi
   fi
@@ -1056,7 +1065,7 @@ drain_and_exit() {
       waited=$((waited + 5))
     done
     if kill -0 "$pid" 2>/dev/null; then
-      kill "$pid" 2>/dev/null || true
+      kill_worker_tree "$pid"
     fi
     wait "$pid" 2>/dev/null || true
     abandon_worker "$index" "$reason"
@@ -1107,6 +1116,16 @@ print_summary() {
   fi
 }
 
+# Workers are backgrounded subshells whose real payload (the agent CLI) is a
+# child process: killing only the subshell PID orphans the agent, which keeps
+# running (and spending tokens) against a removed worktree. Kill the children
+# first, then the subshell.
+kill_worker_tree() {
+  local pid="$1"
+  pkill -TERM -P "$pid" 2>/dev/null || true
+  kill "$pid" 2>/dev/null || true
+}
+
 cleanup_ran="0"
 cleanup_and_report() {
   local index pid
@@ -1116,7 +1135,7 @@ cleanup_and_report() {
   for index in "${!cl_status[@]}"; do
     [[ "${cl_status[$index]}" == "running" ]] || continue
     pid="${cl_pids[$index]}"
-    kill "$pid" 2>/dev/null || true
+    kill_worker_tree "$pid"
     wait "$pid" 2>/dev/null || true
     abandon_worker "$index" "sweep interrupted"
   done
@@ -1194,6 +1213,11 @@ while [[ "$forever" == "1" || "$iteration" -lt "$limit" ]]; do
         cl_status[index]="done"
       else
         cl_status[index]="done"
+        # Local worktree and branch are always disposable on failure; the
+        # remote branch was already handled inside open_worker_pr (deleted
+        # unless a created PR owns it).
+        git worktree remove "${cl_worktrees[$index]}" --force >/dev/null 2>&1 || true
+        git branch -D "${cl_branches[$index]}" >/dev/null 2>&1 || true
         results+=("#$issue failed at the PR stage; log $log")
         drain_and_exit "PR stage failure for #$issue"
       fi

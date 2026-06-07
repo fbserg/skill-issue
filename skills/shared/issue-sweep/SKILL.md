@@ -45,7 +45,11 @@ only fix and commit. One issue per PR is an invariant.
 - No "opened PR #N" comment either: the PR's `Closes #N` cross-reference
   already appears in the issue timeline. Net notification load per issue is
   exactly one event (the PR).
-- On any failure the claim is released (assignee removed).
+- On any failure **before a PR exists** the claim is released (assignee
+  removed). Once a PR is open, the issue stays assigned on failure too: the
+  PR owns the issue, and releasing the claim while a PR is open invites a
+  duplicate PR from the next run (GitHub search-index lag makes the
+  open-PR block unreliable for minutes; the assignee is immediate).
 
 ## PR Lifecycle (draft-first)
 
@@ -204,7 +208,8 @@ worktrees) when:
 
 A failed PR-stage step never leaves an orphan: remote branches are deleted on
 post-push failures unless a created PR owns them, and a draft PR whose proof
-failed is left as a draft for a human with its claim released.
+failed is left as a draft for a human with the issue still assigned (the PR
+owns the issue from creation onward).
 
 ## Cleanup Guarantees
 
@@ -256,7 +261,7 @@ failed is left as a draft for a human with its claim released.
        require Actions enabled and not self-uploaded-checks, else demote
        verify_pr, wait for green CI, merge, read back the merge
    record result
-   release the claim on any failure
+   release the claim on any failure before a PR exists; keep it after
    continue
    ```
 
