@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-SEARCH="${1:-is:open sort:created-asc -label:blocked -label:wontfix -label:duplicate -label:needs-info -label:assigned-to-me}"
+default_skip_labels="${ISSUE_SWEEP_SKIP_LABELS:-blocked,wontfix,duplicate,needs-info,decision-needed,assigned-to-me}"
+default_search="is:open sort:created-asc"
+IFS=',' read -r -a skip_label_parts <<<"$default_skip_labels"
+for label in "${skip_label_parts[@]}"; do
+  label="${label#"${label%%[![:space:]]*}"}"
+  label="${label%"${label##*[![:space:]]}"}"
+  if [[ -n "$label" ]]; then
+    default_search+=" -label:$label"
+  fi
+done
+SEARCH="${1:-$default_search}"
 LIMIT="${ISSUE_SWEEP_LIMIT:-50}"
 SKIP_NUMBERS="${ISSUE_SWEEP_SKIP_NUMBERS:-}"
 
