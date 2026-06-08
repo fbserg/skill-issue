@@ -13,7 +13,6 @@
 ### Optional
 
 - **`advisorModel` setting** — set in Claude Code's `settings.json` to enable `advisor()` calls in `dispatch.md`. Without it, a subagent is dispatched for second opinions instead.
-- **`code-simplifier` plugin** — required by the `sweep` skill. Install from the `claude-plugins-official` marketplace in Claude Code.
 
 ## Install
 
@@ -21,7 +20,7 @@ These examples use symlinks so local edits in this repo are immediately visible
 to the agent runtime. Use `cp -R` instead if you prefer static copies.
 
 This checkout is the canonical edit point for the shipped epic, issue-sweep,
-quick-research, tidy, sweep, and zero skills plus `epic-tools`. Do not edit
+quick-research, tidy, and zero skills plus `epic-tools`. Do not edit
 installed copies under
 `~/.claude/skills`, `~/.codex/skills`, or older prototype repos.
 
@@ -34,7 +33,6 @@ ln -sfn "$PWD/skills/claude/epic-run"      ~/.claude/skills/epic-run
 ln -sfn "$PWD/skills/claude/epic-research" ~/.claude/skills/epic-research
 ln -sfn "$PWD/skills/claude/epic-retro"    ~/.claude/skills/epic-retro
 ln -sfn "$PWD/skills/claude/issue-sweep"   ~/.claude/skills/issue-sweep
-ln -sfn "$PWD/skills/claude/sweep"         ~/.claude/skills/sweep
 ln -sfn "$PWD/skills/claude/tidy"          ~/.claude/skills/tidy
 ln -sfn "$PWD/skills/claude/zero"          ~/.claude/skills/zero
 ```
@@ -89,14 +87,14 @@ Claude and Codex both have: `epic-plan`, `epic-run`, `epic-research`, `issue-swe
 
 Codex-only: `quick-research`.
 
-Claude-only: `epic-retro`, `sweep` (requires `code-simplifier` plugin).
+Claude-only: `epic-retro`.
 
 ## Uninstall
 
 ```bash
 # Remove Claude skill symlinks
 rm ~/.claude/skills/epic-plan ~/.claude/skills/epic-run ~/.claude/skills/epic-research
-rm ~/.claude/skills/epic-retro ~/.claude/skills/issue-sweep ~/.claude/skills/sweep ~/.claude/skills/tidy ~/.claude/skills/zero
+rm ~/.claude/skills/epic-retro ~/.claude/skills/issue-sweep ~/.claude/skills/tidy ~/.claude/skills/zero
 
 # Remove Codex skill symlinks
 rm ~/.codex/skills/epic-plan ~/.codex/skills/epic-run ~/.codex/skills/epic-research

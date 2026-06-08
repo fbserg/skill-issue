@@ -35,7 +35,6 @@ cd skill-issue
 | [`epic-research`](skills/claude/epic-research/SKILL.md) | Pre-plan research: three parallel agents on competitors, tech peers, and GitHub code. |
 | [`epic-retro`](skills/claude/epic-retro/SKILL.md) | Mine closed epics and PRs for skill/process improvements. |
 | [`issue-sweep`](skills/claude/issue-sweep/SKILL.md) | Claim oldest GitHub issues, fix in parallel worktrees, prove locally, and open PRs. Never merges. |
-| [`sweep`](skills/claude/sweep/SKILL.md) | Review recent commits in batches and dispatch fix agents. Requires `code-simplifier` plugin. |
 | [`tidy`](skills/claude/tidy/SKILL.md) | Anti-slop pass on changed code: delete junk, flatten ceremony, reuse existing things. |
 | [`zero`](skills/claude/zero/SKILL.md) | Aggressively checkpoint, merge, clean, and push a repo. Destructive — read before use. |
 
@@ -70,7 +69,6 @@ cd skill-issue
 ### Optional
 
 - `advisorModel` set in Claude Code settings — enables `advisor()` calls in `dispatch.md`
-- `code-simplifier` plugin from `claude-plugins-official` — required by the `sweep` skill
 
 ## Install
 
@@ -89,7 +87,6 @@ ln -sfn "$PWD/skills/claude/epic-run"      ~/.claude/skills/epic-run
 ln -sfn "$PWD/skills/claude/epic-research" ~/.claude/skills/epic-research
 ln -sfn "$PWD/skills/claude/epic-retro"    ~/.claude/skills/epic-retro
 ln -sfn "$PWD/skills/claude/issue-sweep"   ~/.claude/skills/issue-sweep
-ln -sfn "$PWD/skills/claude/sweep"         ~/.claude/skills/sweep
 ln -sfn "$PWD/skills/claude/tidy"          ~/.claude/skills/tidy
 ln -sfn "$PWD/skills/claude/zero"          ~/.claude/skills/zero
 
@@ -124,7 +121,5 @@ python3 scripts/check-install.py
 Experimental. Read each skill before using it on an important repository.
 
 `zero` is intentionally destructive — it merges everything into the default branch and pushes. Use only at a deliberate cleanup point.
-
-`sweep` requires the `code-simplifier` plugin from `claude-plugins-official`.
 
 `epic-run`'s scheduled wakeups (`ScheduleWakeup`) work only inside Claude Code's loop/cron harness. Without it, run one tick at a time manually.

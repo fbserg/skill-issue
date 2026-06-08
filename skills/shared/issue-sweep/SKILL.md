@@ -1,6 +1,6 @@
 ---
 name: issue-sweep
-description: Run GitHub issues end-to-end by picking eligible issues, claiming them, fixing each in an isolated worktree, proving the change locally, and opening PRs. PR-only: never merges.
+description: "Run GitHub issues end-to-end by picking eligible issues, claiming them, fixing each in an isolated worktree, proving the change locally, and opening PRs. PR-only: never merges."
 ---
 
 # Issue Sweep

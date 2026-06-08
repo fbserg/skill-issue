@@ -16,7 +16,7 @@ All notable changes to this project will be documented here.
 - `issue-sweep`: simplified to PR-only automation; require `proofCommand`, prove before push/PR creation, remove auto-merge/check-upload/CI-polling paths, and make `--limit` cap all touched issues
 - `epic-plan` (Claude + Codex): refactored to 7-stage flow with one-question-at-a-time grilling and inlined external research (Stages 0–7)
 - `zero`: default conflict resolution changed from auto-resolve to stop+ask; add `--auto-resolve` opt-in flag; add pre-push confirmation gate; detect default branch dynamically
-- `sweep`: rewritten to dispatch `code-simplifier` agent instead of the non-existent `/simplify` slash command; plugin dependency documented
+- Remove stale `sweep` install/check documentation after the skill was dropped from the public bundle
 - `dispatch.md`: replace `Skill({skill:"tidy"})` with reference to shipped tidy skill; make `advisor()` conditional on `advisorModel` setting; remove private `scripts/tests_for.py` path
 - `epic-retro`: remove `$HOME/projects/*` hardcoded path and fix jq filter
 - `epic-run`: trim Hard rails and add harness contract note
@@ -36,6 +36,6 @@ All notable changes to this project will be documented here.
 
 ## Initial public release (2026-05-22)
 
-- `epic-plan`, `epic-run`, `epic-retro`, `sweep`, `zero` for Claude
+- `epic-plan`, `epic-run`, `epic-retro`, `zero` for Claude
 - `epic-plan`, `epic-run`, `zero` for Codex
 - `epic-tools` CLI

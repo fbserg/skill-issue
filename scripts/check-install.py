@@ -17,7 +17,6 @@ EXPECTED_SKILLS = {
         "epic-research",
         "epic-retro",
         "issue-sweep",
-        "sweep",
         "tidy",
         "zero",
     ),
