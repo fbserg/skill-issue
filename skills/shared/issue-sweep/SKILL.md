@@ -98,7 +98,8 @@ proof output, the body says "No validation output captured."
 - Limit: 10 issues unless the user gives a limit.
 - The limit caps worker fixes/PRs. After that cap is reached, the runner may
   continue read-only preflight just long enough to mark skipped
-  `decision-needed` issues, but it must not claim or start more workers.
+  `decision-needed` issues, capped at the run's `--parallel` value. It must
+  not claim or start more workers during this post-limit triage.
 - Endless mode: explicit `--forever`, sleeping 60 seconds when idle.
 - Concurrency: 3 by default (`--parallel N`).
 - Assignee: `@me`.
@@ -221,6 +222,8 @@ owns the issue from creation onward).
   worktrees, or local branches behind.
 - Claims are recorded immediately after assignment, before worker startup, so
   an interrupt in the claim-to-worktree handoff still releases the issue.
+- Claim release bookkeeping is updated only after GitHub confirms the assignee
+  removal; failed releases are reported in the final summary.
 - Every run ends with a stdout summary: per-issue results, CI-wait timeouts,
   and a leaked-state audit (leftover worktrees under the worktree root and
   pushed branches without PRs). No GitHub summary issue, no extra

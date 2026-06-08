@@ -238,8 +238,12 @@ excerpt_file() {
 
 release_issue() {
   local issue="$1"
-  gh issue edit "$issue" --remove-assignee "$assignee" >/dev/null || true
   local index
+  if ! gh issue edit "$issue" --remove-assignee "$assignee" >/dev/null; then
+    echo "WARNING: failed to release claim for #$issue" >&2
+    claim_release_failures+=("#$issue")
+    return 0
+  fi
   for index in "${!claimed_issues[@]}"; do
     if [[ "${claimed_issues[$index]}" == "$issue" ]]; then
       claimed_released[$index]="1"
@@ -602,6 +606,7 @@ results=()
 ci_timeouts=()
 claimed_issues=()
 claimed_released=()
+claim_release_failures=()
 
 # Worker ledger: one entry per started worker, kept for the whole run so the
 # EXIT trap and the leak audit can account for every claim, branch, and
@@ -1119,6 +1124,14 @@ print_summary() {
     done
   fi
 
+  if [[ "${#claim_release_failures[@]}" -gt 0 ]]; then
+    echo
+    echo "Claim release failures:"
+    for result in "${claim_release_failures[@]}"; do
+      echo "- $result"
+    done
+  fi
+
   echo
   echo "Leaked-state audit:"
   if [[ -d "$worktree_root" ]]; then
@@ -1175,9 +1188,9 @@ trap cleanup_and_report EXIT
 trap 'exit 130' INT TERM
 
 triage_decision_candidates_after_limit() {
-  local skip issue_json issue title
+  local skip issue_json issue title triaged=0 triage_cap="$parallel"
 
-  while :; do
+  while [[ "$triaged" -lt "$triage_cap" ]]; do
     skip="${attempted[*]:-}"
     issue_json="$(ISSUE_SWEEP_SKIP_NUMBERS="$skip" ISSUE_SWEEP_SKIP_LABELS="$skip_labels" ISSUE_SWEEP_PREFER_LABELS="$prefer_labels" "$skill_dir/scripts/next_issue.sh")"
     issue="$(jq -r '.number // empty' <<<"$issue_json")"
@@ -1187,6 +1200,7 @@ triage_decision_candidates_after_limit() {
 
     title="$(jq -r '.title // ""' <<<"$issue_json")"
     attempted+=("$issue")
+    triaged=$((triaged + 1))
     echo "[post-limit] preflight issue #$issue: $title"
 
     if preflight_issue "$issue" "$title"; then
