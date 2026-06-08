@@ -1,6 +1,6 @@
 ---
 name: zero
-description: "Zero out a repo — destructive cleanup of pending work, PRs, branches, worktrees, and main push. Requires read-only inventory first plus explicit typed confirmation before any writes."
+description: "Zero out a repo — destructive cleanup of pending work, PRs, branches, worktrees, and main push. Runs a read-only inventory before writes."
 ---
 
 # /zero skill
@@ -9,19 +9,7 @@ Zero out the repo completely. Commit pending changes on `main`, merge open PRs a
 
 This command is intentionally aggressive. It is only for the user's explicit "zero" cleanup point when no other agents are expected to still be working in the repo.
 
-Default mode is read-only inventory. Do not run any Git/GitHub writer until the user confirms an execution token that includes:
-
-- repo slug;
-- default branch;
-- count of open PRs to merge;
-- count of non-main worktrees to merge/drop;
-- count of stray branches to merge/delete.
-
-Confirmation format:
-
-```text
-zero execute <owner/repo> <default-branch> prs=<N> worktrees=<N> branches=<N>
-```
+When the user explicitly asks to zero out a repo, the request itself authorizes the destructive cleanup. Always run the read-only inventory first, summarize what will be merged/deleted, then continue without requiring a second confirmation token. The cleanup is not allowed to discard work: checkpoint dirty trees, merge every real unmerged patch into `main`, and delete only after the relevant work is merged or proven patch-equivalent to `main`.
 
 ---
 
@@ -54,7 +42,7 @@ gh pr list --state open --json number,title,headRefName
 gh issue list --limit 50 --state open --json number,title
 ```
 
-Stop after inventory and report the confirmation token. Continue only after the user provides the exact token. If the user provides a mismatched token, re-run inventory and ask for the new token.
+After inventory, briefly report the counts and continue to execution. Stop and ask the user only when the inventory reveals a blocker that cannot be handled safely by this workflow, such as an active Git operation, an unresolvable product conflict, missing GitHub credentials needed for open PRs, or another sign that a separate human decision is required.
 
 ### 3. Checkpoint main
 
@@ -130,18 +118,29 @@ gh pr list --head <branch-name> --state open --json number | jq length
 ```
 If an open PR still exists after step 4: report it ("open PR #N - skipped/failed earlier"). Do not merge or drop.
 
-**c. Merge check:**
+**c. Merge classification:**
+
+Every non-main worktree must be checked. Do not treat a branch as "unmerged" solely because it is not an ancestor of `main`; squash-merged branches often have different commit IDs while their patch content is already present.
+
 ```bash
 git merge-base --is-ancestor <branch> main
+git cherry main <branch-name>
 ```
-- Already merged (exit 0): drop it.
+- Already merged (`merge-base --is-ancestor` exit 0): drop it.
   ```bash
   git worktree remove <path> --force
   git branch -d <branch-name>
   ```
   If `git branch -d` refuses only because the branch is not merged to its upstream, but `git merge-base --is-ancestor <branch-name> HEAD` succeeds, use `git branch -D <branch-name>`. The code is already in `main`; this is local metadata cleanup.
 
-- Not merged (exit 1): merge into main, then drop.
+- Patch-equivalent (`git cherry main <branch-name>` has no `+` lines): drop it as squash-merged trash.
+  ```bash
+  git worktree remove <path> --force
+  git branch -D <branch-name>
+  ```
+  This force-delete is allowed only because `git cherry` proves there is no patch content missing from `main`.
+
+- Real unmerged patch (`git cherry main <branch-name>` has one or more `+` lines): merge into main, then drop.
   ```bash
   git checkout $DEFAULT_BRANCH
   git merge <branch-name> --no-edit
@@ -157,9 +156,11 @@ Classify before acting:
 ```bash
 git rev-list --count main..<branch-name>   # ahead of main
 git rev-list --count <branch-name>..main   # behind main
+git cherry main <branch-name>              # + lines are real unmerged patches; - lines are patch-equivalent
 ```
 - `ahead=0`: delete only; nothing needs merging.
-- `ahead>0` and no open PR: merge into `main`.
+- `ahead>0`, no `+` lines in `git cherry`, and no open PR: delete only; this is squash-merged trash.
+- `ahead>0`, one or more `+` lines in `git cherry`, and no open PR: merge into `main`.
 - open PR: handle only through `gh pr merge`.
 - tracking status `[gone]`: treat as suspect until local commits are proven merged or empty.
 
@@ -178,7 +179,7 @@ git rev-list --count main..<branch-name>
 git merge-base --is-ancestor <branch-name> main
 git cherry main <branch-name>
 ```
-Delete only if `ahead=0`, or `merge-base --is-ancestor` succeeds, or `git cherry` shows no unmerged commits. Otherwise preserve it and report it as "gone upstream but unmerged locally"; do not merge or delete it without a separate explicit confirmation.
+Delete only if `ahead=0`, or `merge-base --is-ancestor` succeeds, or `git cherry` shows no `+` lines. If `git cherry` has `+` lines, the patch is real local work; merge it into `main` unless an open PR guard blocks it.
 
 If already merged into `main`, delete it:
 ```bash
@@ -186,6 +187,13 @@ git merge-base --is-ancestor <branch> main
 git branch -d <branch>
 ```
 If `git branch -d` refuses only because the branch is not merged to its upstream, but `git merge-base --is-ancestor <branch> "$DEFAULT_BRANCH"` succeeds, use `git branch -D <branch>`. The code is already in `main`; this is local metadata cleanup.
+
+If patch-equivalent to `main`, delete it:
+```bash
+git cherry main <branch-name>
+git branch -D <branch-name>
+```
+Use this only when `git cherry` has no `+` lines.
 
 If not merged, merge it into `main` one branch at a time, then delete it:
 ```bash

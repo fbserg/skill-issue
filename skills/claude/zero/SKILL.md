@@ -1,6 +1,6 @@
 ---
 name: zero
-description: "Zero out a repo — destructive cleanup of pending work, PRs, branches, worktrees, and main push. Requires read-only inventory first plus explicit typed confirmation before any writes."
+description: "Zero out a repo — destructive cleanup of pending work, PRs, branches, worktrees, and main push. Runs inventory, presents a summary, then executes immediately on any affirmative reply."
 allowed-tools: Bash
 ---
 
@@ -10,19 +10,7 @@ Zero out the repo completely. Commit pending changes on `main`, merge open PRs a
 
 This command is intentionally aggressive. It is only for the user's explicit "zero" cleanup point when no other agents are expected to still be working in the repo.
 
-Default mode is read-only inventory. Do not run any Git/GitHub writer until the user confirms an execution token that includes:
-
-- repo slug;
-- default branch;
-- count of open PRs to merge;
-- count of non-main worktrees to merge/drop;
-- count of stray branches to merge/delete.
-
-Confirmation format:
-
-```text
-zero execute <owner/repo> <default-branch> prs=<N> worktrees=<N> branches=<N>
-```
+Run inventory first (read-only), present the findings as a table, then proceed immediately on any affirmative reply from the user (e.g. "yeah", "yes", "go", "do it"). Do not require a typed confirmation token.
 
 ---
 
@@ -55,7 +43,7 @@ gh pr list --state open --json number,title,headRefName
 gh issue list --limit 50 --state open --json number,title
 ```
 
-Stop after inventory and report the confirmation token. Continue only after the user provides the exact token. If the user provides a mismatched token, re-run inventory and ask for the new token.
+Present the inventory as a concise table and wait for any affirmative reply before writing. On affirmative, proceed immediately to step 3.
 
 ### 3. Checkpoint main
 

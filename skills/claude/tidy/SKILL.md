@@ -80,3 +80,21 @@ Keep the report short. Group findings in this order:
 **Open questions** — findings that hinged on "if X is true." Phrase as a question, not a low-confidence finding.
 
 Then a one-line tally: `tidy: N fixed, M flagged`. If nothing found, say so — don't pad.
+
+## Log the run
+
+After the tally, append one JSON line to the machine-wide tidy log so future runs (and the user) can find the last sweep without git-grepping. Run exactly one append — no new tooling, no log file parsing:
+
+```bash
+SINCE=$(git log --grep='^tidy' -i --format='%h' -1 ab45a33e^ 2>/dev/null)  # prior tidy short hash; replace ab45a33e^ with HEAD on a normal run
+printf '{"ts":"%s","repo":"%s","branch":"%s","since":%s,"head":"%s","files":%d,"fixed":%d,"flagged":%d,"note":"%s"}\n' \
+  "$(date -Iseconds)" \
+  "$(basename "$(git rev-parse --show-toplevel)")" \
+  "$(git branch --show-current)" \
+  "$([ -n "$SINCE" ] && printf '"%s"' "$SINCE" || printf null)" \
+  "$(git rev-parse --short HEAD)" \
+  "$FILES" "$FIXED" "$FLAGGED" "$NOTE" \
+  >> ~/.claude/tidy-log.jsonl
+```
+
+Where `SINCE` is the short hash of the previous `tidy(...)` commit (the boundary this run started from), or `null` if this is the first logged run; `FILES`/`FIXED`/`FLAGGED` are the run's counts; `NOTE` is a short free-text summary (escape any `"` in it). `since` is bare `null` (no quotes) when there's no prior tidy.
