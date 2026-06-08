@@ -1,6 +1,13 @@
 # Team env sharing with age + GitHub SSH keys
 
-Encrypt `.env` once for every collaborator. Anyone with a GitHub SSH key and repo access can decrypt — no shared passwords, no out-of-band key exchange.
+Optional pattern for private team repos: encrypt `.env` once for every
+collaborator. Anyone with a GitHub SSH key and repo access can decrypt — no
+shared passwords, no out-of-band key exchange.
+
+Do not use this pattern for public repositories unless the encrypted file is
+intentionally public metadata and the underlying secrets can be rotated. If a
+collaborator is removed, re-encrypting is not enough; rotate the plaintext
+secrets because old ciphertext remains in git history.
 
 ## How it works
 
@@ -38,7 +45,7 @@ Usage:
     uv run scripts/secrets decrypt
     uv run scripts/secrets decrypt --print
     uv run scripts/secrets decrypt --key ~/.ssh/id_ed25519
-    uv run scripts/secrets decrypt --key-cmd "op read op://Vault/SSH/private_key"
+    uv run scripts/secrets decrypt --key-cmd op --key-arg read --key-arg op://Vault/SSH/private_key
 """
 
 from __future__ import annotations
@@ -111,9 +118,13 @@ def collect_recipients() -> list[ssh.Recipient]:
     return recipients
 
 
-def find_ssh_identity(key_path: str | None = None, key_cmd: str | None = None) -> ssh.Identity:
+def find_ssh_identity(
+    key_path: str | None = None,
+    key_cmd: str | None = None,
+    key_args: list[str] | None = None,
+) -> ssh.Identity:
     if key_cmd:
-        result = subprocess.run(key_cmd, shell=True, capture_output=True, check=True)
+        result = subprocess.run([key_cmd, *(key_args or [])], capture_output=True, check=True)
         return ssh.Identity.from_buffer(result.stdout)
 
     if key_path:
@@ -146,11 +157,17 @@ def cmd_encrypt() -> None:
     print(f"\nencrypted {ENV_FILE.name} → {AGE_FILE.name} ({len(recipients)} recipient key(s))", file=sys.stderr)
 
 
-def cmd_decrypt(*, to_stdout: bool = False, key_path: str | None = None, key_cmd: str | None = None) -> None:
+def cmd_decrypt(
+    *,
+    to_stdout: bool = False,
+    key_path: str | None = None,
+    key_cmd: str | None = None,
+    key_args: list[str] | None = None,
+) -> None:
     if not AGE_FILE.exists():
         print(f"ERROR: {AGE_FILE} not found — run 'encrypt' first", file=sys.stderr)
         sys.exit(1)
-    identity = find_ssh_identity(key_path, key_cmd)
+    identity = find_ssh_identity(key_path, key_cmd, key_args)
     plaintext = pyrage.decrypt(AGE_FILE.read_bytes(), [identity])
     if to_stdout:
         sys.stdout.buffer.write(plaintext)
@@ -167,6 +184,18 @@ def parse_flag(args: list[str], flag: str) -> str | None:
         return None
 
 
+def parse_repeated_flag(args: list[str], flag: str) -> list[str]:
+    values: list[str] = []
+    index = 0
+    while index < len(args):
+        if args[index] == flag and index + 1 < len(args):
+            values.append(args[index + 1])
+            index += 2
+            continue
+        index += 1
+    return values
+
+
 def main() -> None:
     args = sys.argv[1:]
     if not args or args[0] not in ("encrypt", "decrypt"):
@@ -180,6 +209,7 @@ def main() -> None:
                 to_stdout="--print" in args,
                 key_path=parse_flag(args, "--key"),
                 key_cmd=parse_flag(args, "--key-cmd"),
+                key_args=parse_repeated_flag(args, "--key-arg"),
             )
 
 
@@ -204,7 +234,7 @@ uv run scripts/secrets decrypt
 # or with a specific key:
 uv run scripts/secrets decrypt --key ~/.ssh/id_ed25519
 # or via 1Password:
-uv run scripts/secrets decrypt --key-cmd "op read op://Vault/SSH/private_key"
+uv run scripts/secrets decrypt --key-cmd op --key-arg read --key-arg op://Vault/SSH/private_key
 ```
 
 ## When to re-encrypt

@@ -88,7 +88,9 @@ Each child: self-contained (one session), clear AC, files likely touched. For de
 - `shared-state`: DB, daemon behavior, schemas, auth, deploy paths, public APIs, cross-project artifacts, or anything where green local tests may miss risk.
 Default to `shared-state` when uncertain.
 
-**Epic-level demo AC (`## Demo` in epic body).** Single command + expected outcome the orchestrator runs after the last merge. Forces the plan to actually deliver, not just sum up children. After all children merge, the orchestrator runs this command on `origin/<DEFAULT_BRANCH>` HEAD; non-zero exit triggers `epic-tools revert <N>`.
+For shared-state or visual work, include proof expectations in the relevant child
+issues. `/epic-run` relies on per-PR verification and CI in normal mode; it does
+not run an extra epic-level demo gate after the last merge.
 
 **Size heuristic:** files-touched > ~15 OR LOC delta > ~1000 OR > ~10 large-file reads → split. One session = one focused PR.
 
@@ -105,12 +107,6 @@ Default to `shared-state` when uncertain.
 ## Risk
 <text-only|visual|shared-state>
 
-## Demo
-<single end-to-end command + expected outcome — see Stage 4>
-
-## Test command
-<command-the-orchestrator-runs-as-Gate-A; default `pytest -q`>
-
 ## Children
 <filled after children created>
 ```
@@ -125,6 +121,12 @@ Default to `shared-state` when uncertain.
 
 ## Acceptance criteria
 - <testable bullet>
+
+## Proof
+<Required for visual/shared-state work; omit for text-only.
+Visual: screenshot/GIF showing the rendered change.
+Shared-state: before/after route, table row, transcript, or other artifact
+proving the affected surface behaves correctly.>
 
 ## Files likely touched
 - path/to/file.py

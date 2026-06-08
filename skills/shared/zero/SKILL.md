@@ -57,10 +57,14 @@ ps -ef | grep '[g]it'
 ```
 Do not remove a lock while a Git process is active. If no Git process is active and the lock is stale, remove it and retry.
 
-If `main` has staged, unstaged, or untracked changes, commit all of them first:
+If `main` has staged, unstaged, or untracked changes, inspect the diff and commit
+all of them first with a message that describes the actual change:
+```bash
+git diff --stat HEAD   # or git diff --cached --stat if already staged
+```
 ```bash
 git add -A
-git commit -m "chore: zero checkpoint main"
+git commit -m "<real message based on diff>"
 ```
 (Repeated for each checkpoint site below — the hook runs on staged files before every commit.)
 If pre-commit is configured, run it on the staged files before the first checkpoint commit. If hooks modify files, restage and rerun the relevant hook once before committing.
@@ -75,10 +79,14 @@ If the PR head branch has a local worktree, check it first:
 ```bash
 git -C <path> status --short
 ```
-If dirty, commit all changes in that worktree before merging the PR:
+If dirty, inspect and commit all changes in that worktree before merging the PR:
+```bash
+git -C <path> diff --stat HEAD
+git -C <path> log --oneline -3
+```
 ```bash
 git -C <path> add -A
-git -C <path> commit -m "chore: zero checkpoint <branch-name>"
+git -C <path> commit -m "<real message based on diff>"
 ```
 If pre-commit is configured, run it on the staged files before committing (same as Step 3).
 
@@ -104,10 +112,14 @@ Extract path and branch name from `--porcelain` output.
 ```bash
 git -C <path> status --short
 ```
-If dirty, commit all changes in that worktree before merging:
+If dirty, inspect and commit all changes in that worktree before merging:
+```bash
+git -C <path> diff --stat HEAD
+git -C <path> log --oneline -3
+```
 ```bash
 git -C <path> add -A
-git -C <path> commit -m "chore: zero checkpoint <branch-name>"
+git -C <path> commit -m "<real message based on diff>"
 ```
 If pre-commit is configured, run it on the staged files before committing (same as Step 3).
 If the commit fails, report it and stop. Do not drop the worktree.
@@ -240,7 +252,7 @@ Open issues:         list "#N title"  ← informational only, never touched
 - Never delete `main`.
 - Never `git branch -D` (force-delete) unless the branch is proven merged/empty (`ahead=0`, `merge-base --is-ancestor`, or clean `git cherry`) and `git branch -d` only refused due upstream bookkeeping.
 - Open PR branches are handled only through `gh pr merge <number> --merge --delete-branch`; if that fails, leave the PR and branch alone.
-- Dirty `main` and dirty non-main worktrees are checkpointed with `git add -A && git commit` before merging.
+- Dirty `main` and dirty non-main worktrees are checkpointed with `git add -A && git commit` before merging. Inspect the diff first and use a real commit message, not a generic checkpoint label.
 - Merge all local branches into `main` one by one unless blocked by a failed checkpoint commit, failed PR merge, or a conflict that requires a product decision.
-- Conflicts are part of the work: with `--auto-resolve`, inspect both sides, preserve the good new code, resolve, validate, commit, then continue. Without `--auto-resolve`, stop and ask the user.
+- Conflicts are part of the work: inspect both sides, preserve the good new code, resolve, validate, commit, then continue. Ask the user only if the conflict requires a product decision that cannot be inferred from code/tests.
 - Remote pushes are limited to the explicit PR merge/source-branch deletion performed by `gh pr merge --delete-branch` and the final `main` push in step 7.

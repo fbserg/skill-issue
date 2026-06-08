@@ -19,7 +19,7 @@ Before tagging and announcing a new release:
 - [ ] LICENSE copyright name is correct
 
 ## Safety
-- [ ] `zero` on a repo with a conflicting open PR stops and asks (no --auto-resolve)
+- [ ] `zero` on a repo with a conflict stops only when the conflict requires a product decision
 - [ ] `sweep` frontmatter declares `code-simplifier` plugin dependency
 - [ ] `epic-tools revert <N>` (without --yes) prompts for confirmation
 - [ ] `epic-tools cleanup <N>` (without --yes) prompts for confirmation

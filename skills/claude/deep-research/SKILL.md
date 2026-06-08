@@ -24,10 +24,11 @@ tiers every claim by evidence strength, and loops until an Opus critic says satu
 ## How to invoke
 
 ```
-Workflow({ scriptPath: "/Users/serg/projects/skill-issue/skills/claude/deep-research/workflow.js", args: "<refined question>" })
+Workflow({ scriptPath: "<this skill directory>/workflow.js", args: "<refined question>" })
 ```
 
-Weave any clarifying answers into the question string before passing it.
+Resolve `<this skill directory>` from the installed `deep-research` skill path,
+then weave any clarifying answers into the question string before passing it.
 
 ## Pipeline
 

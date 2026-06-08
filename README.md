@@ -48,7 +48,7 @@ cd skill-issue
 | [`issue-sweep`](skills/codex/issue-sweep/SKILL.md) | Claim oldest GitHub issues, fix in parallel worktrees, prove locally, and open PRs. Never merges. |
 | [`quick-research`](skills/codex/quick-research/SKILL.md) | Lightweight fan-out research for practical decisions and tradeoff answers. |
 | [`tidy`](skills/codex/tidy/SKILL.md) | Parity copy of the Claude tidy skill. |
-| [`zero`](skills/codex/zero/SKILL.md) | Same as Claude zero. |
+| [`zero`](skills/codex/zero/SKILL.md) | Shared destructive cleanup skill, same source as Claude zero. |
 
 ## Pairing skills
 

@@ -10,7 +10,13 @@ This repository contains agent skills (prompt files) and a CLI tool (`epic-tools
 
 ### `zero` skill
 
-`/zero` merges all open PRs, merges all local branches into the default branch, and pushes. It is intentionally destructive. It requires an explicit `--auto-resolve` flag to auto-resolve merge conflicts; by default it stops and asks.
+`/zero` merges open PRs, merges local branch/worktree changes into the default
+branch when they are not already merged or patch-equivalent, deletes cleaned-up
+branches/worktrees, and pushes the default branch. It is intentionally
+destructive. The skill always runs a read-only inventory first and stops only
+for blockers that cannot be handled safely by the workflow, such as active Git
+operations, failed checkpoint commits, failed PR merges, or conflicts requiring
+a product decision.
 
 **Do not run `/zero` on a repo where other agents are still working.**
 
