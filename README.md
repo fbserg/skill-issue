@@ -30,10 +30,13 @@ cd skill-issue
 
 | Skill | Description |
 |---|---|
+| [`authentic-writing`](skills/claude/authentic-writing/SKILL.md) | Route prose audits and de-slop rewrites through authenticity-check and humanizer without detector-gaming loops. |
+| [`authenticity-check`](skills/claude/authenticity-check/SKILL.md) | Upstream aihxp skill: score human authenticity and flag AI-sounding spans without rewriting. |
 | [`epic-plan`](skills/claude/epic-plan/SKILL.md) | Scope a goal into a GitHub epic + child issues, with staged research and one-at-a-time questions. |
 | [`epic-run`](skills/claude/epic-run/SKILL.md) | Execute a planned epic: fan children into isolated worktrees, verify PRs, merge. |
 | [`epic-research`](skills/claude/epic-research/SKILL.md) | Pre-plan research: three parallel agents on competitors, tech peers, and GitHub code. |
 | [`epic-retro`](skills/claude/epic-retro/SKILL.md) | Mine closed epics and PRs for skill/process improvements. |
+| [`humanizer`](skills/claude/humanizer/SKILL.md) | Upstream aihxp skill: rewrite AI-sounding prose into natural human prose while preserving facts. |
 | [`issue-sweep`](skills/claude/issue-sweep/SKILL.md) | Claim oldest GitHub issues, fix in parallel worktrees, prove locally, and open PRs. Never merges. |
 | [`tidy`](skills/claude/tidy/SKILL.md) | Anti-slop pass on changed code: delete junk, flatten ceremony, reuse existing things. |
 | [`zero`](skills/claude/zero/SKILL.md) | Aggressively checkpoint, merge, clean, and push a repo. Destructive — read before use. |
@@ -42,9 +45,12 @@ cd skill-issue
 
 | Skill | Description |
 |---|---|
+| [`authentic-writing`](skills/codex/authentic-writing/SKILL.md) | Route prose audits and de-slop rewrites through authenticity-check and humanizer without detector-gaming loops. |
+| [`authenticity-check`](skills/codex/authenticity-check/SKILL.md) | Upstream aihxp skill: score human authenticity and flag AI-sounding spans without rewriting. |
 | [`epic-plan`](skills/codex/epic-plan/SKILL.md) | Same 7-stage flow adapted for Codex workers. |
 | [`epic-run`](skills/codex/epic-run/SKILL.md) | Codex adapter for the epic-run orchestrator. |
 | [`epic-research`](skills/codex/epic-research/SKILL.md) | Parity copy of the Claude epic-research skill. |
+| [`humanizer`](skills/codex/humanizer/SKILL.md) | Upstream aihxp skill: rewrite AI-sounding prose into natural human prose while preserving facts. |
 | [`issue-sweep`](skills/codex/issue-sweep/SKILL.md) | Claim oldest GitHub issues, fix in parallel worktrees, prove locally, and open PRs. Never merges. |
 | [`quick-research`](skills/codex/quick-research/SKILL.md) | Lightweight fan-out research for practical decisions and tradeoff answers. |
 | [`tidy`](skills/codex/tidy/SKILL.md) | Parity copy of the Claude tidy skill. |
@@ -86,6 +92,9 @@ ln -sfn "$PWD/skills/claude/epic-plan"     ~/.claude/skills/epic-plan
 ln -sfn "$PWD/skills/claude/epic-run"      ~/.claude/skills/epic-run
 ln -sfn "$PWD/skills/claude/epic-research" ~/.claude/skills/epic-research
 ln -sfn "$PWD/skills/claude/epic-retro"    ~/.claude/skills/epic-retro
+ln -sfn "$PWD/skills/claude/humanizer"     ~/.claude/skills/humanizer
+ln -sfn "$PWD/skills/claude/authenticity-check" ~/.claude/skills/authenticity-check
+ln -sfn "$PWD/skills/claude/authentic-writing"  ~/.claude/skills/authentic-writing
 ln -sfn "$PWD/skills/claude/issue-sweep"   ~/.claude/skills/issue-sweep
 ln -sfn "$PWD/skills/claude/tidy"          ~/.claude/skills/tidy
 ln -sfn "$PWD/skills/claude/zero"          ~/.claude/skills/zero
@@ -93,6 +102,9 @@ ln -sfn "$PWD/skills/claude/zero"          ~/.claude/skills/zero
 ln -sfn "$PWD/skills/codex/epic-plan"      ~/.codex/skills/epic-plan
 ln -sfn "$PWD/skills/codex/epic-run"       ~/.codex/skills/epic-run
 ln -sfn "$PWD/skills/codex/epic-research"  ~/.codex/skills/epic-research
+ln -sfn "$PWD/skills/codex/humanizer"      ~/.codex/skills/humanizer
+ln -sfn "$PWD/skills/codex/authenticity-check" ~/.codex/skills/authenticity-check
+ln -sfn "$PWD/skills/codex/authentic-writing"  ~/.codex/skills/authentic-writing
 ln -sfn "$PWD/skills/codex/issue-sweep"    ~/.codex/skills/issue-sweep
 ln -sfn "$PWD/skills/codex/quick-research" ~/.codex/skills/quick-research
 ln -sfn "$PWD/skills/codex/tidy"           ~/.codex/skills/tidy

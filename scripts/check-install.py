@@ -12,18 +12,24 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_SKILLS = {
     "claude": (
+        "authentic-writing",
+        "authenticity-check",
         "epic-plan",
         "epic-run",
         "epic-research",
         "epic-retro",
+        "humanizer",
         "issue-sweep",
         "tidy",
         "zero",
     ),
     "codex": (
+        "authentic-writing",
+        "authenticity-check",
         "epic-plan",
         "epic-run",
         "epic-research",
+        "humanizer",
         "issue-sweep",
         "quick-research",
         "tidy",

@@ -19,8 +19,8 @@
 These examples use symlinks so local edits in this repo are immediately visible
 to the agent runtime. Use `cp -R` instead if you prefer static copies.
 
-This checkout is the canonical edit point for the shipped epic, issue-sweep,
-quick-research, tidy, and zero skills plus `epic-tools`. Do not edit
+This checkout is the canonical edit point for the shipped prose, epic,
+issue-sweep, quick-research, tidy, and zero skills plus `epic-tools`. Do not edit
 installed copies under
 `~/.claude/skills`, `~/.codex/skills`, or older prototype repos.
 
@@ -32,6 +32,9 @@ ln -sfn "$PWD/skills/claude/epic-plan"     ~/.claude/skills/epic-plan
 ln -sfn "$PWD/skills/claude/epic-run"      ~/.claude/skills/epic-run
 ln -sfn "$PWD/skills/claude/epic-research" ~/.claude/skills/epic-research
 ln -sfn "$PWD/skills/claude/epic-retro"    ~/.claude/skills/epic-retro
+ln -sfn "$PWD/skills/claude/humanizer"     ~/.claude/skills/humanizer
+ln -sfn "$PWD/skills/claude/authenticity-check" ~/.claude/skills/authenticity-check
+ln -sfn "$PWD/skills/claude/authentic-writing"  ~/.claude/skills/authentic-writing
 ln -sfn "$PWD/skills/claude/issue-sweep"   ~/.claude/skills/issue-sweep
 ln -sfn "$PWD/skills/claude/tidy"          ~/.claude/skills/tidy
 ln -sfn "$PWD/skills/claude/zero"          ~/.claude/skills/zero
@@ -44,6 +47,9 @@ mkdir -p ~/.codex/skills
 ln -sfn "$PWD/skills/codex/epic-plan"     ~/.codex/skills/epic-plan
 ln -sfn "$PWD/skills/codex/epic-run"      ~/.codex/skills/epic-run
 ln -sfn "$PWD/skills/codex/epic-research" ~/.codex/skills/epic-research
+ln -sfn "$PWD/skills/codex/humanizer"     ~/.codex/skills/humanizer
+ln -sfn "$PWD/skills/codex/authenticity-check" ~/.codex/skills/authenticity-check
+ln -sfn "$PWD/skills/codex/authentic-writing"  ~/.codex/skills/authentic-writing
 ln -sfn "$PWD/skills/codex/issue-sweep"    ~/.codex/skills/issue-sweep
 ln -sfn "$PWD/skills/codex/quick-research" ~/.codex/skills/quick-research
 ln -sfn "$PWD/skills/codex/tidy"           ~/.codex/skills/tidy
@@ -73,6 +79,8 @@ epic-tools --help
 # Skill files are accessible and point at this checkout
 ls ~/.claude/skills/epic-plan/SKILL.md
 ls ~/.codex/skills/epic-run/SKILL.md
+ls ~/.claude/skills/humanizer/SKILL.md
+ls ~/.codex/skills/authentic-writing/SKILL.md
 python3 scripts/check-install.py
 ```
 
@@ -83,7 +91,7 @@ Open Claude Code in any repo and type `/epic-plan "hello world"` — you should 
 
 ## Skill and Codex parity
 
-Claude and Codex both have: `epic-plan`, `epic-run`, `epic-research`, `issue-sweep`, `tidy`, `zero`.
+Claude and Codex both have: `authentic-writing`, `authenticity-check`, `epic-plan`, `epic-run`, `epic-research`, `humanizer`, `issue-sweep`, `tidy`, `zero`.
 
 Codex-only: `quick-research`.
 
@@ -94,10 +102,12 @@ Claude-only: `epic-retro`.
 ```bash
 # Remove Claude skill symlinks
 rm ~/.claude/skills/epic-plan ~/.claude/skills/epic-run ~/.claude/skills/epic-research
-rm ~/.claude/skills/epic-retro ~/.claude/skills/issue-sweep ~/.claude/skills/tidy ~/.claude/skills/zero
+rm ~/.claude/skills/epic-retro ~/.claude/skills/humanizer ~/.claude/skills/authenticity-check ~/.claude/skills/authentic-writing
+rm ~/.claude/skills/issue-sweep ~/.claude/skills/tidy ~/.claude/skills/zero
 
 # Remove Codex skill symlinks
 rm ~/.codex/skills/epic-plan ~/.codex/skills/epic-run ~/.codex/skills/epic-research
+rm ~/.codex/skills/humanizer ~/.codex/skills/authenticity-check ~/.codex/skills/authentic-writing
 rm ~/.codex/skills/issue-sweep ~/.codex/skills/quick-research ~/.codex/skills/tidy ~/.codex/skills/zero
 
 # Remove epic-tools
