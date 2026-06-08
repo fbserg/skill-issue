@@ -3,19 +3,13 @@ name: authenticity-check
 description: >-
   Score how authentically a piece of text reads as the work of a real human
   author, and flag the specific spans that read as AI-generated,
-  AI-templated, or generically derivative. This is a diagnostic: it returns
-  an authenticity band, a 0-100 score, and span-level flags with reasons. It
-  never rewrites, edits, or "fixes" the prose; rewriting is the humanizer
-  skill's job, and the split is deliberate. Use this whenever a user wants to
-  know if text is authentic, whether a draft reads like AI or like a bot,
-  how human a passage sounds, which parts sound machine-written, or whether
-  their own draft still sounds like them. Reach for it on evaluative cues
-  like "is this AI," "does this read like a person," "rate the AI-ness of
-  this," "score how human this is," "audit this for AI tells," or "check if
-  this still sounds like my voice," even when the user does not name this
-  skill. Do not trigger this skill on transformative requests (humanize,
-  de-slop, de-AI, rewrite, fix, make it sound like X); those belong to the
-  separate humanizer skill.
+  AI-templated, or generically derivative. This diagnostic returns an
+  authenticity band, a 0-100 score, and span-level flags with reasons; it
+  never rewrites or edits prose. Use when a user asks if text is authentic,
+  AI-written, bot-like, human-sounding, machine-written, or still in their
+  voice. Do not trigger this skill on transformative requests such as
+  humanize, de-slop, de-AI, rewrite, fix, or make it sound like X; those
+  belong to the separate humanizer skill.
 allowed-tools: Read, Glob, Grep
 compatibility: claude-code, cursor, codex, antigravity, gemini-cli, pi-coder, opencode, copilot, windsurf, cline, continue, zed, aider
 metadata:
