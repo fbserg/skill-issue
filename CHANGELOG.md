@@ -13,6 +13,7 @@ All notable changes to this project will be documented here.
 ### Changed
 - README and install docs now match the shipped skill set and avoid treating Markdown as an install script
 - `check-install.py` now verifies every shipped Claude/Codex skill symlink, including `issue-sweep` and `quick-research`
+- `issue-sweep`: simplified to PR-only automation; require `proofCommand`, prove before push/PR creation, remove auto-merge/check-upload/CI-polling paths, and make `--limit` cap all touched issues
 - `epic-plan` (Claude + Codex): refactored to 7-stage flow with one-question-at-a-time grilling and inlined external research (Stages 0–7)
 - `zero`: default conflict resolution changed from auto-resolve to stop+ask; add `--auto-resolve` opt-in flag; add pre-push confirmation gate; detect default branch dynamically
 - `sweep`: rewritten to dispatch `code-simplifier` agent instead of the non-existent `/simplify` slash command; plugin dependency documented

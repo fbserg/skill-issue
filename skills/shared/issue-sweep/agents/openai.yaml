@@ -1,4 +1,4 @@
 interface:
   display_name: "Issue Sweep"
-  short_description: "Preflight, fix, and open draft-first PRs for eligible GitHub issues"
-  default_prompt: "Use $issue-sweep to preflight the oldest eligible GitHub issues, escalate structural or ambiguous ones with a decision-needed comment, and fix bounded issues in isolated worktrees. Workers only commit; the orchestrator pushes branches, opens draft PRs, proves the change in the worktree, and marks PRs ready. Never merge: merging requires the per-run --merge-after-pr flag, admin/maintain permission on the repo, and green CI."
+  short_description: "Claim, fix, prove, and open PRs for eligible GitHub issues"
+  default_prompt: "Use $issue-sweep to claim the oldest eligible GitHub issues, escalate structural or ambiguous ones with a decision-needed comment, and fix bounded issues in isolated worktrees. Workers only commit; the orchestrator proves each change in the worktree before pushing the branch and opening a PR. Never merge."

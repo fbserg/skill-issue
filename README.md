@@ -34,7 +34,7 @@ cd skill-issue
 | [`epic-run`](skills/claude/epic-run/SKILL.md) | Execute a planned epic: fan children into isolated worktrees, verify PRs, merge. |
 | [`epic-research`](skills/claude/epic-research/SKILL.md) | Pre-plan research: three parallel agents on competitors, tech peers, and GitHub code. |
 | [`epic-retro`](skills/claude/epic-retro/SKILL.md) | Mine closed epics and PRs for skill/process improvements. |
-| [`issue-sweep`](skills/claude/issue-sweep/SKILL.md) | Claim oldest GitHub issues, fix in parallel worktrees, and open draft-first PRs (merge requires --merge-after-pr, repo admin/maintain, and green CI). |
+| [`issue-sweep`](skills/claude/issue-sweep/SKILL.md) | Claim oldest GitHub issues, fix in parallel worktrees, prove locally, and open PRs. Never merges. |
 | [`sweep`](skills/claude/sweep/SKILL.md) | Review recent commits in batches and dispatch fix agents. Requires `code-simplifier` plugin. |
 | [`tidy`](skills/claude/tidy/SKILL.md) | Anti-slop pass on changed code: delete junk, flatten ceremony, reuse existing things. |
 | [`zero`](skills/claude/zero/SKILL.md) | Aggressively checkpoint, merge, clean, and push a repo. Destructive — read before use. |
@@ -46,7 +46,7 @@ cd skill-issue
 | [`epic-plan`](skills/codex/epic-plan/SKILL.md) | Same 7-stage flow adapted for Codex workers. |
 | [`epic-run`](skills/codex/epic-run/SKILL.md) | Codex adapter for the epic-run orchestrator. |
 | [`epic-research`](skills/codex/epic-research/SKILL.md) | Parity copy of the Claude epic-research skill. |
-| [`issue-sweep`](skills/codex/issue-sweep/SKILL.md) | Claim oldest GitHub issues, fix in parallel worktrees, and open draft-first PRs (merge requires --merge-after-pr, repo admin/maintain, and green CI). |
+| [`issue-sweep`](skills/codex/issue-sweep/SKILL.md) | Claim oldest GitHub issues, fix in parallel worktrees, prove locally, and open PRs. Never merges. |
 | [`quick-research`](skills/codex/quick-research/SKILL.md) | Lightweight fan-out research for practical decisions and tradeoff answers. |
 | [`tidy`](skills/codex/tidy/SKILL.md) | Parity copy of the Claude tidy skill. |
 | [`zero`](skills/codex/zero/SKILL.md) | Same as Claude zero. |
