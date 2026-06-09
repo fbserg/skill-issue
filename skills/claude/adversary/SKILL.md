@@ -40,7 +40,7 @@ never edits.
    PROMPT
    )
 
-   $(cat /tmp/adversary-$RUN-input.md)"
+   $(cat /tmp/adversary-$RUN-input.md)" </dev/null
    ```
 
    Run it in the background with a 600s timeout if the session should stay free; otherwise
