@@ -123,8 +123,9 @@ CI check source: REST check-runs
 ## §3  Dispatch + collect
 
 Slots = `7 - count(in-flight)`. (7 = practical concurrency cap; avoids shared-helper conflicts.) Dispatch up to that many `ready` children in one
-message as parallel `Agent` calls with worktree isolation, background mode, and
-bypass permissions. Each child bootstraps its worktree (uv/poetry/npm/yarn +
+message as parallel `Agent` calls with worktree isolation, background mode,
+bypass permissions, and `model: "sonnet"` (always explicit — omitting it
+inherits the orchestrator's Opus). Each child bootstraps its worktree (uv/poetry/npm/yarn +
 pre-commit) as Step 0 before any work; see `dispatch.md`. Pass only a short
 prompt:
 
@@ -164,7 +165,7 @@ duplicate squash commits from repeated merge calls on the same PR.
 
 Pending CI in normal mode stays in-flight; failed CI labels the child failed.
 
-For conflicted PRs, dispatch one rebase subagent per PR per tick. It rebases the
+For conflicted PRs, dispatch one rebase subagent (`model: "sonnet"`) per PR per tick. It rebases the
 existing head branch onto `origin/<DEFAULT_BRANCH>`, resolves conflicts so all
 changes survive, force-pushes with lease, waits for green CI on the new SHA, and
 merges via the same CI-green REST fallback if needed.

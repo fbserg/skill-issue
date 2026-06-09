@@ -150,6 +150,8 @@ Topic-specific: `gh label list | grep epic:` for existing convention. Create `ep
 
 One line: The run command: `/epic-run <epic-num>` (or `/loop /epic-run <epic-num>` for unattended runs if your harness supports scheduled wakeups).
 
+For risky epics (deletions, migrations, multi-file behavior changes), suggest a `/adversary` cross-model pass on the plan before `/epic-run`.
+
 ## Rules
 
 - **Don't invent scope.** "Audit backups" means backups, not "and clean up the dashboard while we're here."

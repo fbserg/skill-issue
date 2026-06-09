@@ -110,6 +110,11 @@ case "$agent" in
     ;;
 esac
 
+# Subagents are Sonnet max — never let claude workers inherit the default (Opus).
+if [[ "$agent" == "claude" && -z "$model" ]]; then
+  model="sonnet"
+fi
+
 command -v gh >/dev/null
 command -v git >/dev/null
 command -v jq >/dev/null
@@ -470,7 +475,13 @@ load_config
 
 git fetch origin "$pr_base_branch" >/dev/null
 mkdir -p "$worktree_root"
-run_lock_dir="$worktree_root/.run-lock"
+# Lock is repo-scoped at a fixed path, NOT under $worktree_root: parallel
+# launchers with distinct ISSUE_SWEEP_WORKTREE_ROOT values must still collide
+# here, or the same issue gets classified by every launcher at once.
+repo_slug="$(git remote get-url origin | sed -E 's#.*[:/]([^/]+/[^/.]+)(\.git)?$#\1#' | tr '/' '-')"
+lock_root="${ISSUE_SWEEP_LOCK_ROOT:-$HOME/.codex/locks}"
+mkdir -p "$lock_root"
+run_lock_dir="$lock_root/issue-sweep-${repo_slug}.run-lock"
 if ! mkdir "$run_lock_dir" 2>/dev/null; then
   echo "another local issue-sweep run is active: $run_lock_dir" >&2
   exit 1
