@@ -1,6 +1,6 @@
 # Claude Code Hooks
 
-Five production-tested hooks for Claude Code. Drop them in, wire up `settings.json`, ship with less foot-shooting.
+Six production-tested hooks for Claude Code. Drop them in, wire up `settings.json`, ship with less foot-shooting.
 
 ## Index
 
@@ -11,8 +11,9 @@ Five production-tested hooks for Claude Code. Drop them in, wire up `settings.js
 | [`settings-guard`](settings-guard/) | `PreToolUse` | `Edit\|Write` | Block invalid fields (`mcpServers`, `disabledSkills`) in `settings.json`. |
 | [`session-context`](session-context/) | `SessionStart` | _(none)_ | Inject current branch + last 5 commits into every session's context. |
 | [`confetti`](confetti/) | `Stop` | _(none)_ | Fire Raycast confetti after a successful deploy. macOS + Raycast required. |
+| [`proof-gate`](proof-gate/) | `Stop` | _(none)_ | Block "done" sign-offs while the repo has uncommitted code or unpushed commits. |
 
-## Quick install (all five)
+## Quick install (all six)
 
 ```jsonc
 // .claude/settings.json
@@ -40,6 +41,9 @@ Five production-tested hooks for Claude Code. Drop them in, wire up `settings.js
     "Stop": [
       {
         "hooks": [{ "type": "command", "command": "/path/to/hooks/claude/confetti/confetti-gate.sh" }]
+      },
+      {
+        "hooks": [{ "type": "command", "command": "/path/to/hooks/claude/proof-gate/proof-gate.sh" }]
       }
     ]
   }
@@ -47,7 +51,3 @@ Five production-tested hooks for Claude Code. Drop them in, wire up `settings.js
 ```
 
 Replace `/path/to/` with the absolute path to this repo clone.
-
-## Patterns worth stealing
-
-**The proof-gate pattern** — a `Stop` hook that blocks Claude from declaring "done" while the repo has unpushed production code. The idea: on `Stop`, check `git log origin/main..HEAD --oneline` in the project directory; if commits exist and the project has a deploy path, emit a `permissionDecision: "deny"` with a message like "you have N unpushed commits — run push-main or tell me this is intentional." This enforces the "ship the whole feature" norm without relying on Claude remembering to check. The implementation is project-entangled (depends on knowing your deploy command and what counts as "production") so it's not shipped here, but the hook skeleton is identical to `session-context.sh` on the output side and `confetti-gate.sh` on the marker-check side.
