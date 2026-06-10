@@ -5,229 +5,119 @@ description: "Zero out a repo — destructive cleanup of pending work, PRs, bran
 
 # /zero skill
 
-Zero out the repo completely. Commit pending changes on `main`, merge open PRs and delete their source branches, commit and merge every non-main worktree into `main`, merge every stray local branch into `main`, drop worktrees, delete branches, push `main`, and report open issues.
+Zero out the repo completely: commit pending changes on `main`, merge open PRs and delete their source branches, commit and merge every non-main worktree and stray local branch into `main`, drop worktrees, delete branches, push `main`, report open issues.
 
-This command is intentionally aggressive. It is only for the user's explicit "zero" cleanup point when no other agents are expected to still be working in the repo.
+This is intentionally aggressive and only for the user's explicit "zero" cleanup point when no other agents are still working in the repo. The request itself authorizes the destructive cleanup: run the read-only inventory, summarize what will be merged/deleted, then continue without a second confirmation. The cleanup must never discard work — checkpoint dirty trees, merge every real unmerged patch, delete only what is merged or proven patch-equivalent to `main`.
 
-When the user explicitly asks to zero out a repo, the request itself authorizes the destructive cleanup. Always run the read-only inventory first, summarize what will be merged/deleted, then continue without requiring a second confirmation token. The cleanup is not allowed to discard work: checkpoint dirty trees, merge every real unmerged patch into `main`, and delete only after the relevant work is merged or proven patch-equivalent to `main`.
+---
+
+## Shared procedures
+
+### CHECKPOINT(path) — commit a dirty tree
+
+Used on `main` and on any dirty worktree before merging it.
+
+```bash
+git -C <path> status --short
+```
+If clean, done. If dirty:
+```bash
+git -C <path> diff --stat HEAD     # inspect; also: git -C <path> log --oneline -3
+git -C <path> add -A
+git -C <path> commit -m "<real message based on diff>"
+```
+- Use a real message describing the actual change, never a generic checkpoint label.
+- If pre-commit is configured, run it on the staged files before the commit. If hooks modify files, restage and rerun the relevant hook once.
+- If `.git/index.lock` exists, check `ps -ef | grep '[g]it'` first; remove the lock only if no Git process is live, then retry.
+- If the commit fails: report it, do not drop that worktree/branch, continue with the rest.
+
+### CLASSIFY(branch) — merged / squash-trash / real work
+
+Never treat a branch as unmerged solely because it is not an ancestor of `main`; squash-merges change commit IDs while the patch content is already in `main`.
+
+```bash
+git rev-list --count main..<branch>        # ahead count
+git merge-base --is-ancestor <branch> main # exit 0 = ancestor
+git cherry main <branch>                   # '+' lines = real unmerged patches
+```
+- **Merged** (`ahead=0` or ancestor): delete with `git branch -d`. If `-d` refuses only due to upstream bookkeeping but the ancestor check succeeds, `git branch -D` is allowed — it's metadata cleanup.
+- **Squash-trash** (`ahead>0` but no `+` lines in `git cherry`): `git branch -D`. Force-delete is allowed only because `git cherry` proves no patch content is missing from `main`.
+- **Real work** (one or more `+` lines): merge into `main`, then delete. If the repo documents an integrate recipe (e.g. `just integrate <branch>` in CLAUDE.md), use it instead of raw merge — repos that hook-block raw merges on main require it. Otherwise:
+  ```bash
+  git checkout $DEFAULT_BRANCH
+  git merge <branch> --no-edit
+  git branch -d <branch>
+  ```
+  On conflicts: resolve them — read both sides, keep all good new behavior, drop duplicated/obsolete code, run the narrowest relevant validation, then `git add -A && git commit --no-edit`. Ask the user only if the conflict needs a product decision that cannot be inferred from code/tests. Do not delete the branch until the merge commit succeeds.
+- Upstream `[gone]` is suspect until proven merged/empty by the checks above.
 
 ---
 
 ## Execution
 
-### 1. Preamble
+### 1. Preamble + inventory
+
+Do not scan for active Codex/Claude sessions before zeroing. There are often unrelated
+agent processes with CWDs inside the repo, and their presence alone is not evidence
+that they are writing the checkout being zeroed. Instead, block only on concrete
+repo mutation state: an active Git operation in any worktree, `.git/index.lock`
+owned by a live Git process, or a repo-specific ship/deploy lock (e.g.
+`~/.heartwood/main-ship.lockdir`) held by a live pid. Report those blockers before
+discovering them later through phantom git state.
+
+Then:
 
 ```bash
-git fetch --prune --all
-git worktree prune
+git fetch --prune --all && git worktree prune
 ```
-
-### 2. Inventory
-
-Collect state in parallel only for read-only commands. Never run Git writers in parallel with any other Git command in the same repo. Git writers include `checkout`, `add`, `commit`, `merge`, `branch -d/-D`, `worktree remove`, `reset`, `stash`, and `push`.
+Then collect state. Read-only commands may run in parallel; never run Git writers (`checkout`, `add`, `commit`, `merge`, `branch -d/-D`, `worktree remove`, `reset`, `stash`, `push`) in parallel with any other Git command in the same repo.
 
 ```bash
 DEFAULT_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||' || echo "main")
-
-# worktree list in porcelain form — maps branch refs to paths
 git worktree list --porcelain
-
-# all local branches except the default branch, with upstream tracking status
 git branch --format='%(refname:short) %(upstream:track)' | grep -v "^$DEFAULT_BRANCH"
-
-# open PRs
 gh pr list --state open --json number,title,headRefName
-
-# open issues
 gh issue list --limit 50 --state open --json number,title
 ```
 
-After inventory, briefly report the counts and continue to execution. Stop and ask the user only when the inventory reveals a blocker that cannot be handled safely by this workflow, such as an active Git operation, an unresolvable product conflict, missing GitHub credentials needed for open PRs, or another sign that a separate human decision is required.
+Briefly report the counts and continue. Stop and ask only on a blocker this workflow can't handle safely (active Git operation, unresolvable product conflict, missing GitHub credentials with open PRs).
 
-### 3. Checkpoint main
+### 2. Checkpoint main
 
-Before merging anything into `main`, make sure `main` itself is clean. From the main worktree:
-```bash
-git checkout $DEFAULT_BRANCH
-git status --short
-```
-If `.git/index.lock` exists, check for a live Git process before continuing. Use `epic-tools epic-lock-status` if available, or check inline:
-```bash
-ps -ef | grep '[g]it'
-```
-Do not remove a lock while a Git process is active. If no Git process is active and the lock is stale, remove it and retry.
+`git checkout $DEFAULT_BRANCH`, then CHECKPOINT(main worktree).
 
-If `main` has staged, unstaged, or untracked changes, inspect the diff and commit
-all of them first with a message that describes the actual change:
-```bash
-git diff --stat HEAD   # or git diff --cached --stat if already staged
-```
-```bash
-git add -A
-git commit -m "<real message based on diff>"
-```
-(Repeated for each checkpoint site below — the hook runs on staged files before every commit.)
-If pre-commit is configured, run it on the staged files before the first checkpoint commit. If hooks modify files, restage and rerun the relevant hook once before committing.
-If there is nothing to commit, continue.
+### 3. Open PRs
 
-### 4. Open PRs
+For each open PR:
+1. If its head branch has a local worktree, CHECKPOINT it first.
+2. `gh pr merge <number> --merge --delete-branch`
+   - Success: `git fetch --prune --all`, then delete any matching local branch via CLASSIFY (it should now be merged).
+   - Failure: report as skipped with the `gh` error. Do not close it manually or delete its source branch.
 
-For each open PR from inventory:
+Use the repo's configured merge requirements; no `--admin` unless the user explicitly asks.
 
-**a. Dirty PR worktree checkpoint:**
-If the PR head branch has a local worktree, check it first:
-```bash
-git -C <path> status --short
-```
-If dirty, inspect and commit all changes in that worktree before merging the PR:
-```bash
-git -C <path> diff --stat HEAD
-git -C <path> log --oneline -3
-```
-```bash
-git -C <path> add -A
-git -C <path> commit -m "<real message based on diff>"
-```
-If pre-commit is configured, run it on the staged files before committing (same as Step 3).
+### 4. Non-main worktrees
 
-**b. Merge PR and delete source branch:**
-```bash
-gh pr merge <number> --merge --delete-branch
-```
-- Success: count the PR as merged. Run `git fetch --prune --all`, then delete any matching local branch if it still exists and is now merged into `main`.
-  ```bash
-  git merge-base --is-ancestor <branch-name> main && git branch -d <branch-name>
-  ```
-- Failure: report the PR as skipped with the `gh` error reason. Do not close it manually and do not delete its source branch.
+For each worktree where `branch != refs/heads/main` (path + branch from `--porcelain` output):
+1. CHECKPOINT(path). If the checkpoint commit fails, report and skip this worktree.
+2. Open-PR guard: `gh pr list --head <branch> --state open --json number | jq length` — if a PR is still open after step 3, report "open PR #N — skipped/failed earlier" and do not merge or drop.
+3. CLASSIFY(branch). Once the branch is merged or proven trash:
+   ```bash
+   git worktree remove <path> --force
+   ```
+   then delete the branch per CLASSIFY rules.
 
-Use the repository's configured merge requirements. Do not use `--admin` unless the user explicitly asks.
+### 5. Stray local branches
 
-### 5. Non-main worktrees
+For each local branch with no worktree: apply the same open-PR guard, then CLASSIFY(branch), one branch at a time.
 
-For each worktree where `branch != refs/heads/main`:
+### 6. Push main
 
-Extract path and branch name from `--porcelain` output.
+Prefer the repository's documented push/deploy command from CLAUDE.md or README (e.g. `just push-main`); otherwise `git push origin main`.
 
-**a. Checkpoint uncommitted changes:**
-```bash
-git -C <path> status --short
-```
-If dirty, inspect and commit all changes in that worktree before merging:
-```bash
-git -C <path> diff --stat HEAD
-git -C <path> log --oneline -3
-```
-```bash
-git -C <path> add -A
-git -C <path> commit -m "<real message based on diff>"
-```
-If pre-commit is configured, run it on the staged files before committing (same as Step 3).
-If the commit fails, report it and stop. Do not drop the worktree.
+If there were skips or failures, still push completed `main` work unless that would publish an incomplete merge or broken conflict resolution. Report any push failure with the command output.
 
-**b. Open PR guard:**
-```bash
-gh pr list --head <branch-name> --state open --json number | jq length
-```
-If an open PR still exists after step 4: report it ("open PR #N - skipped/failed earlier"). Do not merge or drop.
-
-**c. Merge classification:**
-
-Every non-main worktree must be checked. Do not treat a branch as "unmerged" solely because it is not an ancestor of `main`; squash-merged branches often have different commit IDs while their patch content is already present.
-
-```bash
-git merge-base --is-ancestor <branch> main
-git cherry main <branch-name>
-```
-- Already merged (`merge-base --is-ancestor` exit 0): drop it.
-  ```bash
-  git worktree remove <path> --force
-  git branch -d <branch-name>
-  ```
-  If `git branch -d` refuses only because the branch is not merged to its upstream, but `git merge-base --is-ancestor <branch-name> HEAD` succeeds, use `git branch -D <branch-name>`. The code is already in `main`; this is local metadata cleanup.
-
-- Patch-equivalent (`git cherry main <branch-name>` has no `+` lines): drop it as squash-merged trash.
-  ```bash
-  git worktree remove <path> --force
-  git branch -D <branch-name>
-  ```
-  This force-delete is allowed only because `git cherry` proves there is no patch content missing from `main`.
-
-- Real unmerged patch (`git cherry main <branch-name>` has one or more `+` lines): merge into main, then drop.
-  ```bash
-  git checkout $DEFAULT_BRANCH
-  git merge <branch-name> --no-edit
-  ```
-  - Success: drop worktree + branch as above.
-  - Conflicts: resolve them. Read both sides, keep all good new behavior from both branches, remove duplicated or obsolete code, run the narrowest relevant validation, then `git add -A && git commit --no-edit`. Only ask the user if the conflict requires a product decision that cannot be inferred from code/tests.
-
-### 6. Stray local branches
-
-For each local branch not associated with a worktree (from step 2 inventory):
-
-Classify before acting:
-```bash
-git rev-list --count main..<branch-name>   # ahead of main
-git rev-list --count <branch-name>..main   # behind main
-git cherry main <branch-name>              # + lines are real unmerged patches; - lines are patch-equivalent
-```
-- `ahead=0`: delete only; nothing needs merging.
-- `ahead>0`, no `+` lines in `git cherry`, and no open PR: delete only; this is squash-merged trash.
-- `ahead>0`, one or more `+` lines in `git cherry`, and no open PR: merge into `main`.
-- open PR: handle only through `gh pr merge`.
-- tracking status `[gone]`: treat as suspect until local commits are proven merged or empty.
-
-**a. Open PR guard:**
-```bash
-gh pr list --head <branch-name> --state open --json number | jq length
-```
-If an open PR still exists after step 4: report it ("open PR #N - skipped/failed earlier"). Do not merge or delete it outside `gh pr merge`.
-
-**b. Merge or delete:**
-
-If tracking is `[gone]`, prove it is safe before deleting:
-```bash
-# %(upstream:track) outputs [gone] when remote ref was deleted (catches squash-merges)
-git rev-list --count main..<branch-name>
-git merge-base --is-ancestor <branch-name> main
-git cherry main <branch-name>
-```
-Delete only if `ahead=0`, or `merge-base --is-ancestor` succeeds, or `git cherry` shows no `+` lines. If `git cherry` has `+` lines, the patch is real local work; merge it into `main` unless an open PR guard blocks it.
-
-If already merged into `main`, delete it:
-```bash
-git merge-base --is-ancestor <branch> main
-git branch -d <branch>
-```
-If `git branch -d` refuses only because the branch is not merged to its upstream, but `git merge-base --is-ancestor <branch> "$DEFAULT_BRANCH"` succeeds, use `git branch -D <branch>`. The code is already in `main`; this is local metadata cleanup.
-
-If patch-equivalent to `main`, delete it:
-```bash
-git cherry main <branch-name>
-git branch -D <branch-name>
-```
-Use this only when `git cherry` has no `+` lines.
-
-If not merged, merge it into `main` one branch at a time, then delete it:
-```bash
-git checkout $DEFAULT_BRANCH
-git merge <branch-name> --no-edit
-git branch -d <branch-name>
-```
-- Success: count it as merged and deleted.
-- Conflicts: resolve them. Read both sides, keep all good new behavior from both branches, remove duplicated or obsolete code, run the narrowest relevant validation, then `git add -A && git commit --no-edit`. Only ask the user if the conflict requires a product decision that cannot be inferred from code/tests. Do not delete the branch until the merge commit succeeds.
-
-### 7. Push main
-
-After all possible merges, deletions, and conflict resolutions are complete, push `main`.
-
-Prefer the repository's documented push/deploy command from CLAUDE.md or README when one exists. Otherwise use:
-```bash
-git push origin main
-```
-
-If there were skipped PRs, blocked branches, unresolved conflicts, or failed checkpoint commits, still push completed `main` work unless doing so would publish an incomplete merge or broken conflict resolution. Report any push failure with the command output.
-
-### 8. Summary report
+### 7. Summary report
 
 ```
 PRs merged:          N  (or "none")
@@ -236,13 +126,13 @@ Branches merged:     N  (or "none")
 Worktrees dropped:   N  (or "none")
 Branches deleted:    N  (or "none")
 Main pushed:         yes/no + command used
-Skipped (commit failed): list names + reason
-Skipped (PR failed): list "#N branch-name: reason"
-Skipped (open PR):   list "#N branch-name" only if still open after PR merge attempt
-Conflicts resolved:  list branches + files, if any
-Unmerged branches:   list names + commit count, only if blocked by conflict or failed PR
-Open PRs remaining:  list "#N title"
-Open issues:         list "#N title"  ← informational only, never touched
+Skipped (commit failed): names + reason
+Skipped (PR failed): "#N branch: reason"
+Skipped (open PR):   "#N branch" only if still open after merge attempt
+Conflicts resolved:  branches + files, if any
+Unmerged branches:   names + commit count, only if blocked
+Open PRs remaining:  "#N title"
+Open issues:         "#N title"  ← informational only, never touched
 ```
 
 ---
@@ -250,9 +140,8 @@ Open issues:         list "#N title"  ← informational only, never touched
 ## Guardrails
 
 - Never delete `main`.
-- Never `git branch -D` (force-delete) unless the branch is proven merged/empty (`ahead=0`, `merge-base --is-ancestor`, or clean `git cherry`) and `git branch -d` only refused due upstream bookkeeping.
-- Open PR branches are handled only through `gh pr merge <number> --merge --delete-branch`; if that fails, leave the PR and branch alone.
-- Dirty `main` and dirty non-main worktrees are checkpointed with `git add -A && git commit` before merging. Inspect the diff first and use a real commit message, not a generic checkpoint label.
-- Merge all local branches into `main` one by one unless blocked by a failed checkpoint commit, failed PR merge, or a conflict that requires a product decision.
-- Conflicts are part of the work: inspect both sides, preserve the good new code, resolve, validate, commit, then continue. Ask the user only if the conflict requires a product decision that cannot be inferred from code/tests.
-- Remote pushes are limited to the explicit PR merge/source-branch deletion performed by `gh pr merge --delete-branch` and the final `main` push in step 7.
+- `git branch -D` only when CLASSIFY proves merged/empty (ahead=0, ancestor, or clean `git cherry`).
+- Open PR branches are touched only via `gh pr merge --delete-branch`; if that fails, leave PR and branch alone.
+- Every dirty tree is CHECKPOINTed (inspected diff, real message) before any merge.
+- Conflicts are part of the work — resolve, validate, commit, continue; ask only on product decisions.
+- Remote pushes are limited to `gh pr merge --delete-branch` effects and the final `main` push.
