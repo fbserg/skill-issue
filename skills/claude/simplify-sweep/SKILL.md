@@ -23,12 +23,15 @@ If absent, sweep everything since the last logged run.
 
 ## 2. Batch
 
-- Under ~2000 changed lines: one batch.
+- Under ~1500 changed lines: one batch.
 - Larger: **balance batches by churn size, not by area.** Compute per-directory
   churn (`git diff --shortstat <range> -- <dir>`), then pack directories into
-  batches of ~1500–2000 lines each — split a big area by subdirectory, merge
-  small areas together. Equal-sized batches finish together; one giant area batch
-  makes the whole sweep wait on it. Keep each batch's file set disjoint.
+  batches of ~1000 lines (500 floor — below that the run's fixed orientation
+  cost dominates; 1500 ceiling — above that recall visibly drops, the agent
+  reads ~5× the diff in surrounding context). Split a big area by subdirectory,
+  merge small areas together. Equal-sized batches finish together; one giant
+  area batch makes the whole sweep wait on it. Keep each batch's file set
+  disjoint.
 - Skip generated files entirely (repo's Do-Not-Edit table); they get regenerated,
   never hand-cleaned.
 
