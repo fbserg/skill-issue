@@ -128,6 +128,20 @@ epic-tools --help
 python3 scripts/check-install.py
 ```
 
+## Hooks
+
+Five production-tested Claude Code hooks live in [`hooks/claude/`](hooks/claude/).
+
+| Hook | What it does |
+|---|---|
+| [`edit-guard`](hooks/claude/edit-guard/) | Warn/block Fable/Opus from piling up direct code edits — keeps expensive models as orchestrators. |
+| [`git-no-bypass`](hooks/claude/git-no-bypass/) | Block `--no-verify` and `core.hooksPath` overrides so pre-commit/push hooks can't be skipped silently. |
+| [`settings-guard`](hooks/claude/settings-guard/) | Block invalid fields (`mcpServers`, `disabledSkills`) from landing in `settings.json`. |
+| [`session-context`](hooks/claude/session-context/) | Inject current branch + last 5 commits into every session automatically. |
+| [`confetti`](hooks/claude/confetti/) | Fire Raycast confetti after a successful deploy. macOS + Raycast only. |
+
+See [`hooks/claude/README.md`](hooks/claude/README.md) for the combined `settings.json` snippet and a note on the proof-gate pattern.
+
 ## Status
 
 Experimental. Read each skill before using it on an important repository.
