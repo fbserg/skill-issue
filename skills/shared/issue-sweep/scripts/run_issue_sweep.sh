@@ -20,6 +20,8 @@ max_open_prs="3"
 prefer_labels="${ISSUE_SWEEP_PREFER_LABELS:-}"
 decision_label="${ISSUE_SWEEP_DECISION_LABEL:-decision-needed}"
 skip_labels="${ISSUE_SWEEP_SKIP_LABELS:-blocked,wontfix,duplicate,needs-info,decision-needed}"
+tier2_route="decision"
+preflight_tier=""
 run_lock_dir=""
 
 usage() {
@@ -38,6 +40,8 @@ Optional repo config: .issue-sweep.json
   skipLabels           labels excluded from issue selection
   preferLabels         labels tried first when picking the next issue
   maxOpenPRs           pause opening new PRs while this many sweep PRs are open
+  tier2Route           routing for tier-2 issues: decision (default) | direct |
+                       resolve-issue (decision comment suggests /resolve-issue)
 EOF
 }
 
@@ -158,6 +162,7 @@ load_config() {
     skip_labels="$(jq -r --arg fallback "$skip_labels" 'if (.skipLabels? | type) == "array" then .skipLabels | join(",") else (.skipLabels // $fallback) end' "$config_path")"
     prefer_labels="$(jq -r --arg fallback "$prefer_labels" 'if (.preferLabels? | type) == "array" then .preferLabels | join(",") else (.preferLabels // $fallback) end' "$config_path")"
     max_open_prs="$(jq -r --arg fallback "$max_open_prs" '.maxOpenPRs // $fallback' "$config_path")"
+    tier2_route="$(jq -r --arg fallback "$tier2_route" '.tier2Route // $fallback' "$config_path")"
   elif [[ -n "${ISSUE_SWEEP_CONFIG:-}" ]]; then
     echo "ISSUE_SWEEP_CONFIG does not exist: $config_path" >&2
     exit 2
@@ -193,6 +198,16 @@ load_config() {
   if [[ -n "${ISSUE_SWEEP_MAX_OPEN_PRS:-}" ]]; then
     max_open_prs="$ISSUE_SWEEP_MAX_OPEN_PRS"
   fi
+  if [[ -n "${ISSUE_SWEEP_TIER2_ROUTE:-}" ]]; then
+    tier2_route="$ISSUE_SWEEP_TIER2_ROUTE"
+  fi
+  case "$tier2_route" in
+    decision|direct|resolve-issue) ;;
+    *)
+      echo "tier2Route must be decision, direct, or resolve-issue: $tier2_route" >&2
+      exit 2
+      ;;
+  esac
   if [[ -z "$pr_base_branch" ]]; then
     pr_base_branch="$default_branch"
   fi
@@ -362,10 +377,19 @@ $issue_json
 Inspect the repository read-only as needed. Return only JSON with this shape:
 {
   "route": "direct" | "decision_needed",
+  "tier": 1 | 2 | 3,
   "reason": "one concise sentence",
   "worker_context": "concise implementation guidance if route is direct",
   "human_reason": "concise human handoff reason if route is decision_needed"
 }
+
+Tier signals (complexity of the fix, independent of route):
+- tier 1: one code area, fully specified requirements, roughly a sub-200-line
+  diff with no design decisions left open.
+- tier 2: touches 2-4 loosely coupled areas, requirements are clear but the
+  change needs coordination across files or a small amount of design judgment.
+- tier 3: open questions remain, the change alters a shared interface (widely
+  imported module, public API, schema), or it spans subsystems.
 
 Use direct only for small, obvious fixes with clear acceptance criteria.
 Use decision_needed for ambiguous product intent, public API/schema/data
@@ -410,14 +434,15 @@ $details"
 
   gh issue comment "$issue" --body "$body" >/dev/null
   release_issue "$issue"
-  results+=("#$issue marked $decision_label: $title")
+  results+=("#$issue marked $decision_label${preflight_tier:+ (tier $preflight_tier)}: $title")
 }
 
 preflight_issue() {
   local issue="$1"
   local title="$2"
-  local issue_json classification_file route reason human_reason
+  local issue_json classification_file route reason human_reason tier
 
+  preflight_tier=""
   preflight_context_file="$(mktemp)"
   if [[ "$preflight_enabled" != "true" ]]; then
     printf 'Preflight disabled.\n' >"$preflight_context_file"
@@ -436,11 +461,44 @@ preflight_issue() {
   route="$(jq -r '.route // ""' "$classification_file")"
   reason="$(jq -r '.reason // ""' "$classification_file")"
   human_reason="$(jq -r '.human_reason // ""' "$classification_file")"
+  tier="$(jq -r '.tier // ""' "$classification_file")"
+  case "$tier" in
+    1|2|3) preflight_tier="$tier" ;;
+    *) tier="" ;;
+  esac
+
+  # A valid tier is authoritative over the classifier's own route: tier 1 runs
+  # the worker, tier 3 always escalates, tier 2 follows tier2Route.
+  if [[ -n "$tier" ]]; then
+    case "$tier" in
+      1) route="direct" ;;
+      2)
+        if [[ "$tier2_route" == "direct" ]]; then
+          route="direct"
+        else
+          route="decision_needed"
+          human_reason="Tier 2 (multi-area change): ${human_reason:-$reason}"
+          if [[ "$tier2_route" == "resolve-issue" ]]; then
+            human_reason+="
+
+Suggested: run \`/resolve-issue $issue\` — a plan/implement/test/review pipeline sized for this tier."
+          fi
+        fi
+        ;;
+      3)
+        route="decision_needed"
+        human_reason="Tier 3 (open questions or shared-interface blast radius): ${human_reason:-$reason}"
+        ;;
+    esac
+  fi
 
   case "$route" in
     direct)
       {
         printf 'Preflight route: direct\n'
+        if [[ -n "$tier" ]]; then
+          printf 'Tier: %s\n' "$tier"
+        fi
         printf 'Reason: %s\n' "$reason"
         printf '\nWorker context:\n'
         jq -r '.worker_context // ""' "$classification_file"
@@ -515,6 +573,7 @@ cl_contexts=()
 cl_status=()
 cl_pushed=()
 cl_pr=()
+cl_tiers=()
 
 remember_claim() {
   local issue="$1"
@@ -549,10 +608,23 @@ issue per PR is an invariant. Run the narrowest useful validation. Commit the
 fix on the current branch. Do not push, do not open a PR, do not merge, and do
 not close the issue; the orchestrator pushes the branch and opens the PR.
 
+Test discipline (required whenever the change alters behavior; skip only for
+pure docs/chore changes):
+- Add at least one test named for the boundary it exercises, following the
+  pattern test_<area>_issue${issue}_<behavior> adapted to the repo's language
+  and test conventions. Assert the contract through real collaborators where
+  that is cheap; mock only genuinely external dependencies.
+- Negative control: after the new tests pass, temporarily invert the core of
+  your fix, confirm the new tests fail, then restore the fix and confirm they
+  pass again. This proves the tests assert the contract rather than merely
+  executing code.
+
 Commit message format (the orchestrator builds the PR title and body from it):
 - Subject: "type(#$issue): short imperative description" where type is one of
   fix/feat/docs/chore/refactor/test; keep it under 60 characters.
 - Body: 1-3 plain bullet lines, each starting with "- ", saying what changed.
+- For behavior changes, one additional body line recording the mutation check:
+  "Negative control: reverting <guard> fails N/M new tests."
 - Final trailer line: "Co-Authored-By: $coauthor_trailer"
 
 Repository conventions (follow these where they apply):
@@ -627,6 +699,7 @@ start_worker() {
   cl_status+=("running")
   cl_pushed+=("0")
   cl_pr+=("")
+  cl_tiers+=("$preflight_tier")
   worker_index=$((${#cl_pids[@]} - 1))
 }
 
@@ -635,10 +708,27 @@ build_pr_body() {
   local worktree="$2"
   local evidence="$3"
   local base subject bullets files_table total
+  local neg_control acceptance acceptance_section=""
 
   base="$(git -C "$worktree" merge-base "origin/$pr_base_branch" HEAD)"
   subject="$(git -C "$worktree" log -1 --pretty=%s)"
   bullets="$(git -C "$worktree" log -1 --pretty=%b | grep -E '^- ' | grep -vi 'co-authored-by' | head -3 || true)"
+  neg_control="$(git -C "$worktree" log -1 --pretty=%b | grep -iE '^negative control:' | head -1 || true)"
+  if [[ -n "$neg_control" ]]; then
+    evidence+="
+- $neg_control"
+  fi
+  # Checkbox lines stated in the issue body become a reviewer checklist.
+  acceptance="$(gh issue view "$issue" --json body --jq .body 2>/dev/null |
+    grep -E '^[[:space:]]*[-*] \[[ xX]\] ' | head -20 |
+    sed -E 's/^[[:space:]]*[-*] \[[ xX]\]/- [ ]/' || true)"
+  if [[ -n "$acceptance" ]]; then
+    acceptance_section="## Acceptance criteria
+
+$acceptance
+
+"
+  fi
   if [[ -z "$bullets" ]]; then
     bullets="- $subject"
   fi
@@ -672,7 +762,7 @@ $files_table
 
 $evidence
 
-## Intentionally unchanged
+$acceptance_section## Intentionally unchanged
 
 Nothing outside the files listed above; this PR addresses only #$issue.
 
@@ -773,7 +863,7 @@ open_worker_pr() {
 
   git worktree remove "$worktree" --force >/dev/null || true
   git branch -D "$branch" >/dev/null 2>&1 || true
-  results+=("#$issue opened PR #$pr_number ($commit)")
+  results+=("#$issue opened PR #$pr_number ($commit)${cl_tiers[$index]:+ [tier ${cl_tiers[$index]}]}")
   return 0
 }
 
