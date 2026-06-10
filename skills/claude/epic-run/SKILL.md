@@ -137,7 +137,7 @@ Substitutions:
   EPIC_TOOLS=<absolute path to bin/epic-tools> MODE=<normal|manual-merge>
 ```
 
-Set `TIDY=yes` to run a tidy pass (3+ likely-touched files, new logic, refactor, or feature work). Default no.
+`TIDY` is retired and ignored by children. After all child PRs merge, the orchestrator MUST (strongly recommended, skip only on user request) run `/simplify-sweep <merge-base>..HEAD` over the epic's combined range — headless Sonnet `/simplify` per area batch — then review, commit, and log per that skill.
 
 Each child must print:
 

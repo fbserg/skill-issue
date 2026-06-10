@@ -55,9 +55,8 @@ If `gh` hits `GraphQL: API rate limit already exceeded`, use REST:
 2. Read every file listed in "Files likely touched" before editing.
 3. Implement only this issue. Run focused tests only, e.g.
    `<PYTHON> -m pytest -q tests/test_<area>.py` or the equivalent focused test command for the changed files. Never run the full tree.
-4. If `<TIDY>=yes`, dispatch a tidy review subagent (Sonnet) before committing — never invoke the tidy skill inline; a hook
-   blocks writer-grading-self. Give the subagent the diff scope and the lens doc at `skills/claude/tidy/SKILL.md`, apply its
-   high-confidence fixes, and re-run focused tests if anything changed. Skip when `<TIDY>=no`.
+4. Per-child tidy passes are retired (`<TIDY>` is ignored): the orchestrator runs `/simplify-sweep` over the epic's
+   combined merged range after integration. Don't clean code beyond your own diff.
 5. `git diff --stat`; reject foreign files. Commit once with `git commit -m/-F`;
    message references `(#<child>)`. Never amend or open an editor.
 6. `git push -u origin <branch>`.
