@@ -84,43 +84,12 @@ See [docs/install.md](docs/install.md) for full instructions.
 
 `skill-issue` is the canonical source for these skills and `epic-tools`. Edit
 the files in this checkout, then run `python3 scripts/check-install.py` to catch
-any local install that points at an older copy.
+any local install that points at an older copy. Run `python3 scripts/check-links.py`
+to verify that all relative markdown links in the repo resolve on disk.
 
 ```bash
 # Quick install (symlinks — edits to the repo are immediately live)
-mkdir -p ~/.claude/skills ~/.codex/skills ~/.local/bin
-
-# Claude-only skills
-ln -sfn "$PWD/skills/claude/adversary"      ~/.claude/skills/adversary
-ln -sfn "$PWD/skills/claude/deep-research"  ~/.claude/skills/deep-research
-ln -sfn "$PWD/skills/claude/epic-plan"      ~/.claude/skills/epic-plan
-ln -sfn "$PWD/skills/claude/epic-research"  ~/.claude/skills/epic-research
-ln -sfn "$PWD/skills/claude/epic-retro"     ~/.claude/skills/epic-retro
-ln -sfn "$PWD/skills/claude/epic-run"       ~/.claude/skills/epic-run
-ln -sfn "$PWD/skills/claude/resolve-issue"  ~/.claude/skills/resolve-issue
-ln -sfn "$PWD/skills/claude/simplify-sweep" ~/.claude/skills/simplify-sweep
-
-# Codex-only skills
-ln -sfn "$PWD/skills/codex/epic-plan"       ~/.codex/skills/epic-plan
-ln -sfn "$PWD/skills/codex/epic-research"   ~/.codex/skills/epic-research
-ln -sfn "$PWD/skills/codex/epic-run"        ~/.codex/skills/epic-run
-ln -sfn "$PWD/skills/codex/quick-research"  ~/.codex/skills/quick-research
-ln -sfn "$PWD/skills/codex/tidy"            ~/.codex/skills/tidy
-
-# Shared skills (installed for both)
-ln -sfn "$PWD/skills/shared/authentic-writing"   ~/.claude/skills/authentic-writing
-ln -sfn "$PWD/skills/shared/authenticity-check"  ~/.claude/skills/authenticity-check
-ln -sfn "$PWD/skills/shared/humanizer"           ~/.claude/skills/humanizer
-ln -sfn "$PWD/skills/shared/issue-sweep"         ~/.claude/skills/issue-sweep
-ln -sfn "$PWD/skills/shared/zero"                ~/.claude/skills/zero
-
-ln -sfn "$PWD/skills/shared/authentic-writing"   ~/.codex/skills/authentic-writing
-ln -sfn "$PWD/skills/shared/authenticity-check"  ~/.codex/skills/authenticity-check
-ln -sfn "$PWD/skills/shared/humanizer"           ~/.codex/skills/humanizer
-ln -sfn "$PWD/skills/shared/issue-sweep"         ~/.codex/skills/issue-sweep
-ln -sfn "$PWD/skills/shared/zero"                ~/.codex/skills/zero
-
-ln -sfn "$PWD/tools/epic-tools/bin/epic-tools" ~/.local/bin/epic-tools
+./scripts/install.sh
 ```
 
 Confirm `~/.local/bin` is on `PATH`, then verify:
