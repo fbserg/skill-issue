@@ -64,6 +64,10 @@ Closes #N
 
 ## Test evidence
 <lines from proof output, e.g. "6340 passed, 13 skipped">
+<the worker's "Negative control: ..." commit-body line, when present>
+
+## Acceptance criteria        (only when the issue body contains checkboxes)
+<the issue's checkbox lines, unchecked, as a reviewer checklist>
 
 ## Intentionally unchanged
 <scope boundary>
@@ -71,6 +75,18 @@ Closes #N
 
 Local log paths never appear in PR bodies. If no counts are greppable from the
 proof output, the body says "No validation output captured."
+
+## Worker Test Discipline
+
+For any behavior-changing fix (not pure docs/chore), the worker must:
+
+- Add at least one test named for the boundary it exercises
+  (`test_<area>_issue<N>_<behavior>`, adapted to the repo's conventions),
+  asserting the contract through real collaborators where cheap.
+- Run a negative control: temporarily invert the fix, confirm the new tests
+  fail, restore it, confirm they pass. The result is recorded as a commit-body
+  line (`Negative control: reverting <guard> fails N/M new tests.`) and
+  surfaces in the PR's Test evidence section.
 
 ## Defaults And Config
 
@@ -102,7 +118,8 @@ at a local file).
   "decisionLabel": "decision-needed",
   "skipLabels": ["blocked", "wontfix", "duplicate", "needs-info", "decision-needed"],
   "preferLabels": ["review:minimal", "review:low"],
-  "maxOpenPRs": 3
+  "maxOpenPRs": 3,
+  "tier2Route": "decision"
 }
 ```
 
@@ -117,6 +134,7 @@ ISSUE_SWEEP_DECISION_LABEL=decision-needed
 ISSUE_SWEEP_SKIP_LABELS=blocked,wontfix,duplicate,needs-info,decision-needed
 ISSUE_SWEEP_PREFER_LABELS=review:minimal,review:low
 ISSUE_SWEEP_MAX_OPEN_PRS=3
+ISSUE_SWEEP_TIER2_ROUTE=decision
 ISSUE_SWEEP_DRAIN_TIMEOUT=300
 ```
 
@@ -128,6 +146,21 @@ Preflight is one read-only classifier:
 - `decision_needed`: ambiguous or structural work. Add the decision label, post
   one concise findings comment at most once, release the claim, and keep
   sweeping.
+
+The classifier also scores a complexity tier, which is authoritative over its
+own route when present:
+
+- Tier 1 — one area, fully specified, roughly sub-200-line diff → `direct`.
+- Tier 2 — 2–4 loosely coupled areas, clear requirements → routed by the
+  `tier2Route` config key: `"decision"` (default, escalate), `"direct"` (run
+  the worker), or `"resolve-issue"` (escalate, and the decision comment
+  suggests running `/resolve-issue <N>` — the sweep never invokes it itself).
+- Tier 3 — open questions, shared interfaces, cross-subsystem →
+  `decision_needed`.
+
+The tier appears in decision comments and in the final report so the sweep's
+output explains why it skipped. A missing or invalid tier falls back to the
+classifier's route.
 
 `research`, malformed output, and unsupported routes are treated as
 `decision_needed`. Escalate for ambiguous product intent, public API/schema or
