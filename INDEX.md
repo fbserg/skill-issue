@@ -7,6 +7,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 - `skills/claude/` — skills installed into `~/.claude/skills/`
 - `skills/codex/` — skills installed into `~/.codex/skills/`
 - `skills/shared/` — skills symlinked into both `~/.claude/skills/` and `~/.codex/skills/`
+- `agents/` — named subagent types with pinned model/effort, installed into `~/.claude/agents/`
 - `hooks/claude/` — Claude Code hooks (PreToolUse / Stop event handlers)
 - `tools/epic-tools/` — CLI used by epic-run and epic-retro for GitHub operations
 - `scripts/` — repo maintenance scripts
@@ -86,3 +87,15 @@ Combined `settings.json` snippet: `hooks/claude/README.md`
 | `docs/install.md` | Full install instructions with symlink commands for Claude, Codex, and hooks. |
 | `docs/env-sharing.md` | How to share environment config across Claude and Codex installs. |
 | `docs/publication-checklist.md` | Checklist for publishing new skills or hooks to this repo. |
+| `docs/subagent-model-effort.md` | How to pin model AND effort for subagents via named agent types — built-ins inherit session effort; `model:` alone is not enough. Ships with `agents/`. |
+
+---
+
+## Agents (`agents/`)
+
+| Name | Model / effort | TLDR |
+|---|---|---|
+| bulk | haiku / low | Mechanical fan-out: bulk reads, summaries, transforms. |
+| worker | sonnet / medium | Default delegate for implementation, review, research with writes. |
+| explore-mid | sonnet / medium | Read-only research fan-out when depth matters. |
+| opus-worker | opus / medium | Escalation only, for a single subtask Sonnet already failed on. |
