@@ -74,6 +74,7 @@ Combined `settings.json` snippet: `hooks/claude/README.md`
 | Name | Path | TLDR |
 |---|---|---|
 | epic-tools | `tools/epic-tools/bin/epic-tools` | CLI for GitHub operations used by epic-run and epic-retro (PR verification, issue claiming, plan-to-epic). |
+| claude-spend | `tools/claude-spend/spend.py` | Claude Code per-project spend analyzer (per-session/per-skill token+cost rollup, cache-tier aware); stolen from hong (https://github.com/hyang0129/dot-claude). |
 | check-install | `scripts/check-install.py` | Verify local symlinks point at this repo's copies, not stale older versions. |
 | check-links | `scripts/check-links.py` | Doc-link drift guard: verify every relative markdown link in tracked .md files resolves on disk. |
 | install | `scripts/install.sh` | Symlink all skills and epic-tools into the right runtime dirs. Idempotent. |

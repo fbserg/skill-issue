@@ -5,6 +5,7 @@ All notable changes to this project will be documented here.
 ## Unreleased
 
 ### Added
+- `tools/claude-spend/spend.py`: Claude Code per-project spend analyzer — per-session/per-skill token+cost rollup, cache-tier aware, long-context surcharge detection; stolen from hong (https://github.com/hyang0129/dot-claude)
 - `epic-research` skill (Claude + Codex): pre-plan research with three parallel agent lanes
 - `quick-research` skill (Codex): lightweight fan-out research for practical decisions
 - `tidy` skill (Claude + Codex): anti-slop pass on changed code
