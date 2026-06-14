@@ -29,7 +29,7 @@ The two load-bearing lines are `model:` and `effort:` — frontmatter pins both 
 | `bulk` | haiku / low | Mechanical fan-out: bulk reads, summaries, transforms. High volume, low judgment. |
 | `worker` | sonnet / medium | Default delegate: implementation, review, research with writes. |
 | `explore-mid` | sonnet / medium | Read-only research fan-out when depth matters (tools restricted to read/search). |
-| `opus-worker` | opus / medium | Escalation only — a single stuck subtask after Sonnet failed. Never first attempts, never blanket fan-outs. |
+| `opus-worker` | opus / medium | Two narrow uses: (1) escalation — a single stuck subtask after Sonnet failed; (2) a single high-leverage **convergence step** (final synthesis, judge-panel verdict, one critical fix) where one call carries the result. Never first attempts, never blanket fan-outs. |
 
 Restrict tools where it helps, e.g. read-only research:
 
@@ -47,7 +47,7 @@ tools: Bash, Glob, Grep, Read, WebFetch, WebSearch, LSP, ToolSearch
   ```
 
 - **Headless caveat:** `claude --agent X -p` does **NOT** apply frontmatter effort — the pin only works for subagent spawns from a live session.
-- **Don't blanket-upgrade a fan-out to Opus.** Escalate one stuck subtask via `opus-worker`; never re-run Sonnet on the same failure and never start at Opus.
+- **Don't blanket-upgrade a fan-out to Opus.** `opus-worker` is for exactly one call: either escalating a single stuck subtask, or running a single convergence step (synthesis, panel verdict, one critical fix) where one call carries the whole result. Never re-run Sonnet on the same failure, never start a fresh task at Opus, never use it for per-item grading fan-outs.
 - **System prompts end with a return-contract.** Subagent final messages go to the orchestrator, not a human — instruct them to return raw findings/results, and forbid them from spawning their own subagents.
 
 ## Verifying what actually ran

@@ -99,4 +99,4 @@ Combined `settings.json` snippet: `hooks/claude/README.md`
 | bulk | haiku / low | Mechanical fan-out: bulk reads, summaries, transforms. |
 | worker | sonnet / medium | Default delegate for implementation, review, research with writes. |
 | explore-mid | sonnet / medium | Read-only research fan-out when depth matters. |
-| opus-worker | opus / medium | Escalation only, for a single subtask Sonnet already failed on. |
+| opus-worker | opus / medium | One Opus call only: escalate a single subtask Sonnet failed on, or run a single convergence step (synthesis, panel verdict). |
