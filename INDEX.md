@@ -61,6 +61,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | confetti | `hooks/claude/confetti/confetti-gate.sh` | Stop | Fire Raycast confetti after a successful deploy/push. macOS + Raycast only. |
 | edit-guard | `hooks/claude/edit-guard/edit_guard.py` | PreToolUse | Warn at 3 / hard-block at 8 direct edits per session on Fable/Opus models. |
 | git-no-bypass | `hooks/claude/git-no-bypass/git-no-bypass.sh` | PreToolUse | Block `--no-verify` and `core.hooksPath` overrides in git commands. |
+| rtk-rewrite | `hooks/claude/rtk-rewrite/rtk-rewrite.sh` | PreToolUse | Rewrite verbose Bash commands through `rtk` to compress tool output. Needs `brew install rtk`. |
 | proof-gate | `hooks/claude/proof-gate/proof-gate.sh` | Stop | Block "done" sign-offs while uncommitted code or unpushed commits exist. |
 | session-context | `hooks/claude/session-context/session-context.sh` | Start | Inject current branch + recent commits into every session automatically. |
 | settings-guard | `hooks/claude/settings-guard/settings-guard.sh` | PreToolUse | Block writes to settings.json that contain invalid fields. |
