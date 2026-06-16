@@ -88,7 +88,7 @@ Combined `settings.json` snippet: `hooks/claude/README.md`
 | File | TLDR |
 |---|---|
 | `docs/install.md` | Full install instructions with symlink commands for Claude, Codex, and hooks. |
-| `docs/env-sharing.md` | How to share environment config across Claude and Codex installs. |
+| `docs/env-sharing.md` | Encrypt a repo's `.env` for all GitHub collaborators using age + their SSH public keys. |
 | `docs/publication-checklist.md` | Checklist for publishing new skills or hooks to this repo. |
 | `docs/subagent-model-effort.md` | How to pin model AND effort for subagents via named agent types — built-ins inherit session effort; `model:` alone is not enough. Ships with `agents/`. |
 
