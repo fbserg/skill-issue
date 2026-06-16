@@ -15,7 +15,7 @@ secrets because old ciphertext remains in git history.
 
 1. Fetch all push/admin collaborators' public keys from GitHub
 2. Encrypt `.env` to all of them → `.env.age`
-3. Commit `.env.age` and `.env.age.recipients` (shows the recipient set in diffs); keep `.env` in `.gitignore`
+3. Commit `.env.age` and `.env.age.recipients` (shows the recipient set in diffs); keep `.env*` in `.gitignore`
 4. Each collaborator decrypts with their own SSH private key
 
 No key rotation needed when someone joins — re-encrypt with updated collaborator list. Remove someone → re-encrypt without their key and rotate the secrets.
@@ -29,6 +29,8 @@ curl -fsSL https://raw.githubusercontent.com/fbserg/skill-issue/main/tools/secre
   -o ~/.local/bin/secrets && chmod +x ~/.local/bin/secrets
 ```
 
+**Caveat:** this curl one-liner pulls from `main` with no checksum — inspect the script before `chmod +x`, or pin a specific commit SHA in the URL (replace `main` with the full SHA). The inline dependency ranges (`pyrage>=1.2`, `httpx>=0.28`) float: `uv` resolves them fresh from PyPI on each run. Acceptable for a private team tool; pin the versions in the script header if you need reproducible builds.
+
 Or just symlink it if you have the repo checked out:
 
 ```bash
@@ -40,8 +42,8 @@ Dependencies install automatically via `uv` (the shebang uses `uv run --script`)
 ## Usage
 
 ```bash
-# One-time: add .env to .gitignore before encrypting
-echo ".env" >> .gitignore
+# One-time: add .env* to .gitignore before encrypting (.env.bak is also plaintext)
+echo '.env*' >> .gitignore
 
 # Encrypt for all push/admin collaborators
 secrets encrypt
@@ -62,8 +64,11 @@ secrets decrypt --key-cmd op --key-arg read --key-arg op://Vault/SSH/private_key
 # Print plaintext to stdout (pipe to another tool):
 secrets decrypt --print
 
-# CI: skip the interactive recipient confirmation
+# CI: skip interactive confirmation (off-TTY requires --yes)
 secrets encrypt --yes
+
+# CI: when the recipient set has changed, also pass --accept-recipient-change
+secrets encrypt --yes --accept-recipient-change
 
 # Encrypt even if some collaborators have no GitHub SSH key (they won't decrypt)
 secrets encrypt --allow-missing
@@ -82,6 +87,7 @@ Re-encrypting without rotating doesn't revoke access — the old ciphertext is s
 ## Threat model
 
 - **Recipient set is the trust root (most important).** Recipients are resolved live from `github.com/<user>.keys` every encrypt. A collaborator who adds an attacker-controlled key — or whose account is compromised — silently becomes able to decrypt on the next encrypt+commit. Defense: the `encrypt` confirmation table + the committed `.env.age.recipients` manifest + the drift warning make any change reviewable. Review manifest diffs like you review code, and use branch protection on `.env.age`.
+- **Manifest fingerprints are reviewer-verifiable, not cryptographic proof.** The manifest now contains canonical OpenSSH SHA256 fingerprints (the same format `ssh-keygen -lf` prints). A reviewer CAN verify a fingerprint against GitHub: `ssh-keygen -lf <(curl -fsSL https://github.com/<login>.keys)`. However, pyrage does not expose a way to enumerate the actual recipient keys baked into `.env.age`, so the manifest is reviewer-verifiable evidence of the *intended* recipients — not cryptographic proof of the ciphertext's real recipients. Treat the manifest diff as a code-review surface, backed by branch protection.
 - **`affiliation=all` over-inclusion.** On an *org* repo, GitHub's collaborator list can include org members who have access via default org permissions, not just directly-added people. The confirmation table shows exactly who will be a recipient — read it before confirming. (The script scopes to push/admin collaborators, but verify the list on org repos.)
 - **No sender authentication.** age multi-recipient ciphertext is integrity-protected against outsiders, but ANY recipient can re-encrypt a forged `.env.age` that every other recipient will decrypt without warning. Treat a decrypted `.env` as only as trustworthy as the least-trusted collaborator; require reviewed/signed commits for `.env.age`.
 - **Anyone with write access can re-encrypt** to a new recipient set; the only signal is the manifest diff. This is why the manifest must be committed and reviewed.
@@ -101,6 +107,8 @@ Re-encrypting without rotating doesn't revoke access — the old ciphertext is s
 **Bot accounts** — logins ending in `[bot]` (e.g. `dependabot[bot]`) are automatically excluded from the recipient list.
 
 **Missing-key safety** — if any collaborator has no usable GitHub SSH key, `encrypt` refuses by default. Pass `--allow-missing` to proceed anyway (those people cannot decrypt).
+
+**Sub-2048 RSA keys** — if a collaborator's RSA key is smaller than 2048 bits, it will be skipped with a warning rather than crashing. They fall into the missing-key path and `--allow-missing` governs whether encrypt proceeds.
 
 ## Alternatives
 
