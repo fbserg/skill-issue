@@ -13,6 +13,7 @@ All notable changes to this project will be documented here.
 - `skills/shared/` directory with canonical shared skill files
 
 ### Changed
+- `resolve-issue`: incorporate Workflow-tool orchestration patterns. New "spine vs. fan-out" model — sequential judgment-bearing phases stay Agent calls, while the genuine fan-out phases run through the Workflow tool. Step 3 review is now a parallel 3-lens panel (correctness / security & robustness / tests-actually-assert) with cross-lens dedup; Step 1 gains an optional tier-3 plan panel (2–3 angle-diverse planners → synthesis). Model rule extended to cover `agentType: "worker"` on Workflow `agent()` calls. Verified the panel pattern end-to-end against a synthetic buggy diff (caught planted logic + injection bugs, deduped the cross-lens overlap)
 - README and install docs now match the shipped skill set and avoid treating Markdown as an install script
 - `check-install.py` now verifies every shipped Claude/Codex skill symlink, including `issue-sweep` and `quick-research`
 - `issue-sweep`: simplified to PR-only automation; require `proofCommand`, prove before push/PR creation, remove auto-merge/check-upload/CI-polling paths, and make `--limit` cap all touched issues
