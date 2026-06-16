@@ -25,6 +25,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | epic-research | `skills/claude/epic-research/SKILL.md` | Pre-plan research: three parallel agents on competitors, tech peers, and GitHub code; output feeds epic-plan. |
 | epic-retro | `skills/claude/epic-retro/SKILL.md` | Mine closed epic PRs and followup issues for ranked improvements to epic-plan/epic-run. |
 | epic-run | `skills/claude/epic-run/SKILL.md` | Execute a planned epic: fan children into isolated worktrees, verify PRs, merge in dependency order. |
+| issue-do | `skills/claude/issue-do/SKILL.md` | Run one GitHub issue end-to-end: orchestrator plans, Sonnet executor implements in an isolated worktree, independent reviewer verifies. One topic in, one verified PR out. Never merges. |
 | resolve-issue | `skills/claude/resolve-issue/SKILL.md` | Heavyweight pipeline for tier 2-3 GitHub issues: assess → plan → implement → test → review → PR. Never merges. |
 | simplify-sweep | `skills/claude/simplify-sweep/SKILL.md` | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 

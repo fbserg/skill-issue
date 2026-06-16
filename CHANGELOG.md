@@ -5,6 +5,7 @@ All notable changes to this project will be documented here.
 ## Unreleased
 
 ### Added
+- `issue-do` skill (Claude): single-issue end-to-end runner — orchestrator plans, Sonnet executor implements in an isolated worktree, independent reviewer verifies; one verified PR out. Moved from a loose `~/.claude/skills/` copy into the repo and symlinked, matching the other skills.
 - `tools/claude-spend/spend.py`: Claude Code per-project spend analyzer — per-session/per-skill token+cost rollup, cache-tier aware, long-context surcharge detection; stolen from hong (https://github.com/hyang0129/dot-claude)
 - `epic-research` skill (Claude + Codex): pre-plan research with three parallel agent lanes
 - `quick-research` skill (Codex): lightweight fan-out research for practical decisions
