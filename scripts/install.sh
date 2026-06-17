@@ -61,7 +61,17 @@ echo "epic-tools:"
 echo "  ~/.local/bin/epic-tools -> $epic_tools_src"
 
 echo ""
+
+# ── gmail-tools ───────────────────────────────────────────────────────────────
+gmail_tools_src="${REPO_ROOT}/tools/gmail-tools/bin/gmail-tools"
+gmail_tools_dst="${HOME}/.local/bin/gmail-tools"
+ln -sfn "$gmail_tools_src" "$gmail_tools_dst"
+echo "gmail-tools:"
+echo "  ~/.local/bin/gmail-tools -> $gmail_tools_src"
+
+echo ""
 echo "Done. Confirm ~/.local/bin is on PATH, then verify:"
 echo "  epic-tools --help"
+echo "  gmail-tools --help   # needs uv installed"
 echo ""
 echo "To install hooks, see: ${REPO_ROOT}/hooks/claude/README.md"

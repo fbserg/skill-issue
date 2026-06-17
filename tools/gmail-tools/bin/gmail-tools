@@ -1,0 +1,743 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "google-api-python-client>=2.0",
+#     "google-auth>=2.0",
+#     "google-auth-oauthlib>=1.0",
+# ]
+# ///
+"""gmail-tools — a deliberately draft-only Gmail CLI.
+
+This tool can search, read, label, and draft email. It can NEVER send. Every
+Gmail API resource is wrapped in a proxy (``NoSendGmailService``) that raises on
+any ``send`` endpoint, so the only way mail leaves the mailbox is a human
+reviewing a draft and sending it from Gmail. There is no flag to override this.
+
+Configuration (env vars, with neutral defaults):
+
+    GMAIL_TOOLS_TOKEN        OAuth token cache   (default ~/.gmail-tools/credentials.json)
+    GMAIL_TOOLS_OAUTH_KEYS   OAuth client keys   (default ~/.gmail-tools/oauth-keys.json)
+
+First-time setup:
+
+    1. In Google Cloud, create an OAuth client of type "Desktop app" and
+       download the JSON. Save it to ~/.gmail-tools/oauth-keys.json.
+    2. Run `gmail-tools auth` to authorize and cache a token.
+    3. Verify with `gmail-tools auth-check`.
+
+See the README in this tool's directory for the full walkthrough.
+"""
+
+import argparse
+import base64
+import html as html_lib
+import json
+import mimetypes
+import os
+import re
+import sys
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
+
+TOKEN_PATH = os.path.expanduser(
+    os.environ.get("GMAIL_TOOLS_TOKEN", "~/.gmail-tools/credentials.json")
+)
+KEYS_PATH = os.path.expanduser(
+    os.environ.get("GMAIL_TOOLS_OAUTH_KEYS", "~/.gmail-tools/oauth-keys.json")
+)
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.modify",
+    "https://www.googleapis.com/auth/gmail.settings.basic",
+]
+
+
+class NoSendGmailService:
+    """Proxy a Gmail API resource while blocking every direct send endpoint."""
+
+    def __init__(self, wrapped):
+        self._wrapped = wrapped
+
+    def __getattr__(self, name):
+        if name == "send":
+            raise RuntimeError(
+                "Direct email sending is disabled. Create a draft only; a human must review and send it in Gmail."
+            )
+
+        attr = getattr(self._wrapped, name)
+        if not callable(attr):
+            return attr
+
+        def call_without_send(*args, **kwargs):
+            result = attr(*args, **kwargs)
+            if _should_wrap_gmail_result(result):
+                return NoSendGmailService(result)
+            return result
+
+        return call_without_send
+
+
+def _should_wrap_gmail_result(value) -> bool:
+    if value is None or isinstance(value, (str, bytes, int, float, bool, dict, list, tuple, set)):
+        return False
+    return any(hasattr(value, name) for name in ("execute", "users", "messages", "drafts", "threads", "labels", "send"))
+
+
+def _service():
+    if not os.path.exists(TOKEN_PATH):
+        raise SystemExit(
+            f"Error: no OAuth token at {TOKEN_PATH}. Run `gmail-tools auth` first "
+            "(see the tool README for Google Cloud setup)."
+        )
+    if not os.path.exists(KEYS_PATH):
+        raise SystemExit(
+            f"Error: no OAuth client keys at {KEYS_PATH}. Download a Desktop OAuth "
+            "client JSON from Google Cloud and save it there (or set GMAIL_TOOLS_OAUTH_KEYS)."
+        )
+    token = json.load(open(TOKEN_PATH))
+    keys = json.load(open(KEYS_PATH))["installed"]
+    creds = Credentials(
+        token=token.get("access_token"),
+        refresh_token=token["refresh_token"],
+        token_uri=keys["token_uri"],
+        client_id=keys["client_id"],
+        client_secret=keys["client_secret"],
+    )
+    if not creds.valid:
+        creds.refresh(Request())
+        # Write back so the token stays fresh
+        token["access_token"] = creds.token
+        json.dump(token, open(TOKEN_PATH, "w"))
+    return NoSendGmailService(build("gmail", "v1", credentials=creds))
+
+
+def cmd_auth(args):
+    if not os.path.exists(KEYS_PATH):
+        raise SystemExit(
+            f"Error: no OAuth client keys at {KEYS_PATH}. Download a Desktop OAuth "
+            "client JSON from Google Cloud and save it there (or set GMAIL_TOOLS_OAUTH_KEYS)."
+        )
+    keys = json.load(open(KEYS_PATH))
+    flow = InstalledAppFlow.from_client_config(keys, SCOPES)
+    kwargs = {"port": args.port, "prompt": "consent"}
+    if args.email:
+        kwargs["login_hint"] = args.email
+    creds = flow.run_local_server(**kwargs)
+    payload = {
+        "access_token": creds.token,
+        "refresh_token": creds.refresh_token,
+        "scope": " ".join(SCOPES),
+        "token_type": "Bearer",
+    }
+    if creds.expiry:
+        payload["expiry_date"] = int(creds.expiry.timestamp() * 1000)
+    os.makedirs(os.path.dirname(TOKEN_PATH), exist_ok=True)
+    with open(TOKEN_PATH, "w") as f:
+        json.dump(payload, f, indent=2)
+    print(f"Wrote Gmail credentials to {TOKEN_PATH}")
+
+
+def search_messages(query, max_results=20):
+    svc = _service()
+    res = svc.users().messages().list(
+        userId="me", q=query, maxResults=max_results
+    ).execute()
+    msgs = res.get("messages", [])
+    out = []
+    for m in msgs:
+        full = svc.users().messages().get(
+            userId="me", id=m["id"], format="metadata",
+            metadataHeaders=["Subject", "From", "Date"],
+        ).execute()
+        hdrs = {h["name"].lower(): h["value"] for h in full["payload"]["headers"]}
+        out.append({
+            "id": m["id"],
+            "threadId": m["threadId"],
+            "subject": hdrs.get("subject", ""),
+            "from": hdrs.get("from", ""),
+            "date": hdrs.get("date", ""),
+            "snippet": full.get("snippet", ""),
+        })
+    return out
+
+
+def cmd_search(args):
+    print(json.dumps(search_messages(args.query, args.max), indent=2))
+
+
+def auth_check(query="in:inbox", max_results=1):
+    svc = _service()
+    result = svc.users().messages().list(
+        userId="me",
+        q=query,
+        maxResults=max_results,
+    ).execute()
+    return {
+        "ok": True,
+        "token_path": TOKEN_PATH,
+        "query": query,
+        "result_count": len(result.get("messages", [])),
+    }
+
+
+def cmd_auth_check(args):
+    try:
+        print(json.dumps(auth_check(args.query, args.max), indent=2))
+    except Exception as e:
+        print(json.dumps({"ok": False, "error": str(e)}, indent=2))
+        sys.exit(1)
+
+
+def _extract_body(payload):
+    """Prefer text/plain; recurse into multipart."""
+    mime = payload.get("mimeType", "")
+    if mime == "text/plain":
+        data = payload.get("body", {}).get("data")
+        if data:
+            return base64.urlsafe_b64decode(data).decode("utf-8", errors="replace")
+    for part in payload.get("parts", []):
+        result = _extract_body(part)
+        if result:
+            return result
+    return ""
+
+
+def _iter_parts(payload):
+    yield payload
+    for part in payload.get("parts", []):
+        yield from _iter_parts(part)
+
+
+def _headers(message):
+    return {h["name"].lower(): h["value"] for h in message.get("payload", {}).get("headers", [])}
+
+
+def _attachment_metadata(message):
+    hdrs = _headers(message)
+    out = []
+    for part in _iter_parts(message.get("payload", {})):
+        filename = part.get("filename") or ""
+        body = part.get("body", {})
+        attachment_id = body.get("attachmentId")
+        if not filename or not attachment_id:
+            continue
+        out.append({
+            "message_id": message["id"],
+            "attachment_id": attachment_id,
+            "filename": filename,
+            "mime_type": part.get("mimeType", ""),
+            "size": body.get("size", 0),
+            "from": hdrs.get("from", ""),
+            "date": hdrs.get("date", ""),
+            "subject": hdrs.get("subject", ""),
+        })
+    return out
+
+
+def _get_thread_for_ref(svc, ref):
+    try:
+        return svc.users().threads().get(userId="me", id=ref, format="full").execute()
+    except HttpError as e:
+        if getattr(e.resp, "status", None) not in {400, 404}:
+            raise
+
+    message = svc.users().messages().get(
+        userId="me",
+        id=ref,
+        format="metadata",
+    ).execute()
+    return svc.users().threads().get(userId="me", id=message["threadId"], format="full").execute()
+
+
+def _trim_latest(messages, latest):
+    if latest is None:
+        return messages
+    return messages[-latest:] if latest > 0 else []
+
+
+def _preview(text, max_chars=500):
+    one_line = " ".join((text or "").split())
+    return one_line if len(one_line) <= max_chars else one_line[: max_chars - 3].rstrip() + "..."
+
+
+def _shape_thread_message(msg, *, compact=False):
+    hdrs = _headers(msg)
+    body = _extract_body(msg["payload"])
+    if compact:
+        return {
+            "id": msg["id"],
+            "threadId": msg.get("threadId", ""),
+            "from": hdrs.get("from", ""),
+            "date": hdrs.get("date", ""),
+            "subject": hdrs.get("subject", ""),
+            "body_preview": _preview(body),
+            "attachments": _attachment_metadata(msg),
+        }
+    return {
+        "id": msg["id"],
+        "threadId": msg.get("threadId", ""),
+        "from": hdrs.get("from", ""),
+        "to": hdrs.get("to", ""),
+        "date": hdrs.get("date", ""),
+        "subject": hdrs.get("subject", ""),
+        "body": body,
+    }
+
+
+def get_thread(thread_ref, *, latest=None, compact=False):
+    svc = _service()
+    thread = _get_thread_for_ref(svc, thread_ref)
+    messages = []
+    for msg in _trim_latest(thread.get("messages", []), latest):
+        messages.append(_shape_thread_message(msg, compact=compact))
+    return messages
+
+
+def cmd_thread(args):
+    print(json.dumps(get_thread(args.thread_ref, latest=args.latest, compact=args.compact), indent=2))
+
+
+def list_attachments(thread_id):
+    svc = _service()
+    thread = svc.users().threads().get(userId="me", id=thread_id, format="full").execute()
+    out = []
+    for msg in thread.get("messages", []):
+        out.extend(_attachment_metadata(msg))
+    return out
+
+
+def cmd_attachments(args):
+    print(json.dumps(list_attachments(args.thread_id), indent=2))
+
+
+def _attachment_filename(message, attachment_id):
+    for part in _iter_parts(message.get("payload", {})):
+        body = part.get("body", {})
+        if body.get("attachmentId") == attachment_id:
+            return part.get("filename", "")
+    return ""
+
+
+def save_attachment(message_id, attachment_id, out_path):
+    svc = _service()
+    message = svc.users().messages().get(
+        userId="me",
+        id=message_id,
+        format="full",
+    ).execute()
+    filename = _attachment_filename(message, attachment_id)
+    result = svc.users().messages().attachments().get(
+        userId="me",
+        messageId=message_id,
+        id=attachment_id,
+    ).execute()
+    data = base64.urlsafe_b64decode(result["data"].encode("utf-8"))
+    with open(out_path, "wb") as f:
+        f.write(data)
+    return {"path": out_path, "filename": filename, "bytes": len(data)}
+
+
+def cmd_save_attachment(args):
+    print(json.dumps(save_attachment(args.message_id, args.attachment_id, args.out), indent=2))
+
+
+def _primary_signature_html() -> str:
+    svc = _service()
+    result = svc.users().settings().sendAs().list(userId="me").execute()
+    primary = next((s for s in result.get("sendAs", []) if s.get("isPrimary")), {})
+    return primary.get("signature", "") or ""
+
+
+def _html_to_plain(html_str: str) -> str:
+    """De-tag HTML to readable plain text, converting breaks/blocks to newlines."""
+    s = re.sub(r"(?i)<br\s*/?>", "\n", html_str)
+    s = re.sub(r"(?i)</(p|div|tr|li|h[1-6]|table)>", "\n", s)
+    s = re.sub(r"<[^>]+>", "", s)
+    s = html_lib.unescape(s)
+    s = re.sub(r"[ \t]+\n", "\n", s)
+    s = re.sub(r"\n{3,}", "\n\n", s)
+    return s.strip()
+
+
+def _plain_to_html(text: str) -> str:
+    """Wrap a plain-text body in Gmail-style <div> lines (full-width, reflows)."""
+    lines = []
+    for line in text.split("\n"):
+        if line.strip() == "":
+            lines.append("<div><br></div>")
+        else:
+            lines.append(f"<div>{html_lib.escape(line)}</div>")
+    return f'<div dir="ltr">{"".join(lines)}</div>'
+
+
+def cmd_signature(args):
+    try:
+        print(_html_to_plain(_primary_signature_html()))
+    except HttpError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def cmd_draft(args):
+    # Validate attachments before any Gmail API work so bad input fails fast and offline.
+    for path in args.attach or []:
+        if not os.path.exists(path):
+            print(f"Error: attachment not found: {path}", file=sys.stderr)
+            sys.exit(1)
+
+    svc = _service()
+
+    # House style = multipart/alternative (plain + Gmail-style HTML). Never bare
+    # text/plain — that renders as a cramped, hard-wrapped box in some clients.
+    if args.html:
+        html_body = args.body
+        plain_body = _html_to_plain(args.body)
+    else:
+        html_body = _plain_to_html(args.body)
+        plain_body = args.body
+
+    if args.append_signature:
+        try:
+            sig_html = _primary_signature_html()
+            if sig_html:
+                html_body += (
+                    '<br><span class="gmail_signature_prefix">-- </span><br>'
+                    f'<div class="gmail_signature">{sig_html}</div>'
+                )
+                plain_body += "\n\n-- \n" + _html_to_plain(sig_html)
+        except HttpError as e:
+            print(f"Warning: could not fetch signature: {e}", file=sys.stderr)
+
+    body_part = MIMEMultipart("alternative")
+    body_part.attach(MIMEText(plain_body, "plain", "utf-8"))
+    body_part.attach(MIMEText(html_body, "html", "utf-8"))
+
+    if args.attach:
+        msg = MIMEMultipart("mixed")
+        msg.attach(body_part)
+        for path in args.attach:
+            with open(path, "rb") as f:
+                data = f.read()
+            filename = os.path.basename(path)
+            ctype, _ = mimetypes.guess_type(filename)
+            subtype = ctype.split("/", 1)[1] if ctype else "octet-stream"
+            part = MIMEApplication(data, _subtype=subtype, Name=filename)
+            part["Content-Disposition"] = f'attachment; filename="{filename}"'
+            msg.attach(part)
+    else:
+        msg = body_part
+
+    msg["To"] = args.to
+    msg["Subject"] = args.subject
+    if args.from_addr:
+        msg["From"] = args.from_addr
+
+    # Thread reply headers — reply to the most recent message, set once
+    # (assigning msg[key] repeatedly appends duplicate headers).
+    if args.thread_id:
+        try:
+            thread = svc.users().threads().get(
+                userId="me", id=args.thread_id, format="metadata",
+                metadataHeaders=["Message-ID"],
+            ).execute()
+            last_mid = ""
+            for m in thread.get("messages", []):
+                for h in m.get("payload", {}).get("headers", []):
+                    if h["name"].lower() == "message-id":
+                        last_mid = h["value"]
+                        break
+            if last_mid:
+                msg["In-Reply-To"] = last_mid
+                msg["References"] = last_mid
+        except HttpError:
+            pass
+
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+    draft_body = {"message": {"raw": raw}}
+    if args.thread_id:
+        draft_body["message"]["threadId"] = args.thread_id
+
+    result = svc.users().drafts().create(userId="me", body=draft_body).execute()
+    print(json.dumps({"draft_id": result["id"]}, indent=2))
+
+
+def list_drafts(subject_q: str = "", max_results: int = 20) -> list:
+    """Return matching drafts with message_id, subject, and to fields.
+
+    ``subject_q`` is a case-insensitive substring matched against the subject;
+    an empty string returns all drafts (up to ``max_results``).
+    """
+    svc = _service()
+    q = f'in:drafts subject:"{subject_q}"' if subject_q else "in:drafts"
+    result = svc.users().messages().list(userId="me", q=q, maxResults=max_results).execute()
+    msgs = result.get("messages", [])
+    drafts = []
+    for msg in msgs:
+        msg_detail = svc.users().messages().get(
+            userId="me", id=msg["id"], format="metadata",
+            metadataHeaders=["Subject", "To"],
+        ).execute()
+        headers = {h["name"].lower(): h["value"] for h in msg_detail.get("payload", {}).get("headers", [])}
+        drafts.append({
+            "message_id": msg["id"],
+            "subject": headers.get("subject", ""),
+            "to": headers.get("to", ""),
+        })
+    return drafts
+
+
+def cmd_list_drafts(args):
+    print(json.dumps(list_drafts(args.subject_q, args.max), indent=2))
+
+
+def delete_draft_by_subject(subject_q: str) -> dict:
+    """Delete all drafts whose subject contains subject_q (case-insensitive)."""
+    svc = _service()
+    q = f'in:drafts subject:"{subject_q}"'
+    result = svc.users().messages().list(userId="me", q=q, maxResults=50).execute()
+    msgs = result.get("messages", [])
+    if not msgs:
+        return {"deleted": 0, "subject_q": subject_q}
+
+    # Each message in the DRAFT label has a draft resource; map message id → draft id.
+    drafts_page = svc.users().drafts().list(userId="me").execute()
+    all_drafts = drafts_page.get("drafts", [])
+    msg_id_to_draft_id = {d["message"]["id"]: d["id"] for d in all_drafts if "message" in d}
+
+    deleted = 0
+    deleted_ids = []
+    for msg in msgs:
+        draft_id = msg_id_to_draft_id.get(msg["id"])
+        if draft_id:
+            svc.users().drafts().delete(userId="me", id=draft_id).execute()
+            deleted += 1
+            deleted_ids.append(draft_id)
+
+    return {"deleted": deleted, "draft_ids": deleted_ids, "subject_q": subject_q}
+
+
+def _confirm(prompt: str, assume_yes: bool) -> bool:
+    if assume_yes:
+        return True
+    try:
+        reply = input(f"{prompt} [y/N] ").strip().lower()
+    except EOFError:
+        return False
+    return reply in {"y", "yes"}
+
+
+def cmd_delete_draft(args):
+    if not _confirm(f"Delete all drafts matching subject {args.subject_q!r}?", args.yes):
+        print("Aborted.", file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps(delete_draft_by_subject(args.subject_q), indent=2))
+
+
+def get_message_id(thread_id):
+    svc = _service()
+    thread = svc.users().threads().get(
+        userId="me", id=thread_id, format="metadata",
+        metadataHeaders=["Message-ID"],
+    ).execute()
+    messages = thread.get("messages", [])
+    # Newest-first: iterate reversed
+    for msg in reversed(messages):
+        for h in msg.get("payload", {}).get("headers", []):
+            if h["name"].lower() == "message-id":
+                return h["value"]
+    return ""
+
+
+def cmd_message_id(args):
+    print(get_message_id(args.thread_id))
+
+
+def apply_label(thread_id, label_name):
+    svc = _service()
+    # Resolve label name → ID
+    labels = svc.users().labels().list(userId="me").execute().get("labels", [])
+    label = next((l for l in labels if l["name"] == label_name), None)
+    if not label:
+        # Create it
+        label = svc.users().labels().create(
+            userId="me", body={"name": label_name}
+        ).execute()
+    svc.users().threads().modify(
+        userId="me", id=thread_id,
+        body={"addLabelIds": [label["id"]]},
+    ).execute()
+    return {"ok": True, "label_id": label["id"]}
+
+
+def cmd_label(args):
+    print(json.dumps(apply_label(args.thread_id, args.label)))
+
+
+def list_labels():
+    svc = _service()
+    labels = svc.users().labels().list(userId="me").execute().get("labels", [])
+    out = []
+    for l in labels:
+        full = svc.users().labels().get(userId="me", id=l["id"]).execute()
+        out.append({
+            "id": full["id"],
+            "name": full["name"],
+            "type": full.get("type", ""),
+            "threadsTotal": full.get("threadsTotal", 0),
+            "threadsUnread": full.get("threadsUnread", 0),
+            "messagesTotal": full.get("messagesTotal", 0),
+        })
+    out.sort(key=lambda x: (x["type"] != "user", x["name"].lower()))
+    return out
+
+
+def cmd_labels(args):
+    print(json.dumps(list_labels(), indent=2))
+
+
+def _resolve_label(svc, name):
+    labels = svc.users().labels().list(userId="me").execute().get("labels", [])
+    return next((l for l in labels if l["name"] == name), None)
+
+
+def delete_label(name):
+    svc = _service()
+    label = _resolve_label(svc, name)
+    if not label:
+        raise SystemExit(f"Error: label not found: {name}")
+    if label.get("type") == "system":
+        raise SystemExit(f"Error: refusing to delete system label: {name}")
+    svc.users().labels().delete(userId="me", id=label["id"]).execute()
+    return {"deleted": name}
+
+
+def cmd_delete_label(args):
+    if not _confirm(f"Delete user label {args.name!r}? (emails untouched)", args.yes):
+        print("Aborted.", file=sys.stderr)
+        sys.exit(1)
+    print(json.dumps(delete_label(args.name)))
+
+
+def rename_label(old, new):
+    svc = _service()
+    label = _resolve_label(svc, old)
+    if not label:
+        raise SystemExit(f"Error: label not found: {old}")
+    if label.get("type") == "system":
+        raise SystemExit(f"Error: refusing to rename system label: {old}")
+    svc.users().labels().patch(
+        userId="me", id=label["id"], body={"name": new}
+    ).execute()
+    return {"renamed": old, "to": new}
+
+
+def cmd_rename_label(args):
+    print(json.dumps(rename_label(args.old, args.new)))
+
+
+def main():
+    p = argparse.ArgumentParser(
+        description="Draft-only Gmail CLI (search, read, label, draft — never send).",
+        epilog=(
+            "Examples:\n"
+            "  gmail-tools auth\n"
+            "  gmail-tools search 'is:unread in:inbox' --max 10\n"
+            "  gmail-tools thread <thread-id> --latest 3\n"
+            "  gmail-tools draft --to a@b.com --subject 'Hi' --body 'Hello' --append-signature\n"
+            "  gmail-tools delete-draft 'Hi' --yes\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    s = sub.add_parser("search", help="Search emails")
+    s.add_argument("query")
+    s.add_argument("--max", type=int, default=20)
+
+    ac = sub.add_parser("auth-check", help="Refresh token and verify Gmail search works")
+    ac.add_argument("--query", default="in:inbox")
+    ac.add_argument("--max", type=int, default=1)
+
+    t = sub.add_parser("thread", help="Get a thread by thread ID or message ID")
+    t.add_argument("thread_ref")
+    t.add_argument("--latest", type=int, default=None, metavar="N", help="Return only the latest N messages")
+    t.add_argument("--compact", action="store_true", help="Return sender/date/subject/body preview/attachments only")
+
+    a = sub.add_parser("attachments", help="List thread attachments")
+    a.add_argument("thread_id")
+
+    sa = sub.add_parser("save-attachment", help="Save one message attachment")
+    sa.add_argument("message_id")
+    sa.add_argument("attachment_id")
+    sa.add_argument("--out", required=True)
+
+    sub.add_parser("signature", help="Print plain-text primary signature")
+
+    d = sub.add_parser("draft", help="Create a draft (never sends)")
+    d.add_argument("--to", required=True)
+    d.add_argument("--subject", required=True)
+    d.add_argument("--body", required=True)
+    d.add_argument("--thread-id")
+    d.add_argument("--from-addr")
+    d.add_argument("--html", action="store_true", help="Treat --body as HTML")
+    d.add_argument("--append-signature", action="store_true")
+    d.add_argument("--attach", action="append", default=[], metavar="PATH")
+
+    mi = sub.add_parser("message-id", help="Print Message-ID header for a thread")
+    mi.add_argument("thread_id")
+
+    l = sub.add_parser("label", help="Apply label to thread (creates it if missing)")
+    l.add_argument("thread_id")
+    l.add_argument("label")
+
+    sub.add_parser("labels", help="List user labels with thread/message counts")
+
+    dl = sub.add_parser("delete-label", help="Delete a user label (emails untouched)")
+    dl.add_argument("name")
+    dl.add_argument("--yes", action="store_true", help="Skip the confirmation prompt")
+
+    rl = sub.add_parser("rename-label", help="Rename a user label")
+    rl.add_argument("old")
+    rl.add_argument("new")
+
+    au = sub.add_parser("auth", help="Authorize Gmail OAuth and cache a local token")
+    au.add_argument("--email", help="Optional login hint (pre-fills the account chooser)")
+    au.add_argument("--port", type=int, default=0)
+
+    ld = sub.add_parser("list-drafts", help="List drafts (optionally filtered by subject substring)")
+    ld.add_argument("--subject-q", default="", metavar="SUBJECT_SUBSTR", help="Subject substring to filter by")
+    ld.add_argument("--max", type=int, default=20)
+
+    dd = sub.add_parser("delete-draft", help="Delete all drafts matching a subject substring")
+    dd.add_argument("subject_q", metavar="SUBJECT_SUBSTR", help="Subject substring to match for deletion")
+    dd.add_argument("--yes", action="store_true", help="Skip the confirmation prompt")
+
+    args = p.parse_args()
+    {
+        "search": cmd_search,
+        "auth-check": cmd_auth_check,
+        "thread": cmd_thread,
+        "attachments": cmd_attachments,
+        "save-attachment": cmd_save_attachment,
+        "signature": cmd_signature,
+        "draft": cmd_draft,
+        "message-id": cmd_message_id,
+        "label": cmd_label,
+        "labels": cmd_labels,
+        "delete-label": cmd_delete_label,
+        "rename-label": cmd_rename_label,
+        "auth": cmd_auth,
+        "list-drafts": cmd_list_drafts,
+        "delete-draft": cmd_delete_draft,
+    }[args.cmd](args)
+
+
+if __name__ == "__main__":
+    main()

@@ -72,6 +72,7 @@ cd skill-issue
 - Git
 - GitHub CLI (`gh`) authenticated: `gh auth login`
 - Python 3.10+ for `epic-tools`
+- [`uv`](https://docs.astral.sh/uv/) for `gmail-tools` (auto-installs its Google deps on first run)
 - Claude Code and/or Codex with local skill directory support
 
 ### Optional
@@ -106,6 +107,23 @@ The `epic-tools` CLI lives at `tools/epic-tools/bin/epic-tools`. It's used by `e
 epic-tools --help
 python3 scripts/check-install.py
 ```
+
+## gmail-tools
+
+A deliberately **draft-only** Gmail CLI at `tools/gmail-tools/bin/gmail-tools`:
+search, read threads, manage labels, download attachments, and compose drafts —
+but **never send**. A no-send proxy makes the send endpoint structurally
+impossible to call, so it's safe to hand to an agent: the worst it can do is queue
+a draft for your review. Needs [`uv`](https://docs.astral.sh/uv/) (Google
+dependencies install on first run via inline script metadata) and a Google Cloud
+OAuth client.
+
+```
+gmail-tools auth
+gmail-tools search "is:unread in:inbox" --max 10
+```
+
+See [`tools/gmail-tools/README.md`](tools/gmail-tools/README.md) for OAuth setup and the full subcommand list.
 
 ## Hooks
 

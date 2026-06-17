@@ -5,6 +5,7 @@ All notable changes to this project will be documented here.
 ## Unreleased
 
 ### Added
+- `tools/gmail-tools/bin/gmail-tools`: a deliberately draft-only Gmail CLI (search, read, label, attachments, multipart drafts) — a no-send proxy makes the send endpoint structurally impossible to call, so it's safe to hand to an agent. `uv` inline-deps, env-driven OAuth config.
 - `issue-do` skill (Claude): single-issue end-to-end runner — orchestrator plans, Sonnet executor implements in an isolated worktree, independent reviewer verifies; one verified PR out. Moved from a loose `~/.claude/skills/` copy into the repo and symlinked, matching the other skills.
 - `tools/claude-spend/spend.py`: Claude Code per-project spend analyzer — per-session/per-skill token+cost rollup, cache-tier aware, long-context surcharge detection; stolen from hong (https://github.com/hyang0129/dot-claude)
 - `epic-research` skill (Claude + Codex): pre-plan research with three parallel agent lanes
