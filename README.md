@@ -140,6 +140,15 @@ Six production-tested Claude Code hooks live in [`hooks/claude/`](hooks/claude/)
 
 See [`hooks/claude/README.md`](hooks/claude/README.md) for the combined `settings.json` snippet.
 
+## Credits
+
+The `authenticity-check` and `humanizer` skills (and the `authentic-writing` wrapper)
+are vendored from [aihxp](https://github.com/aihxp)'s Scriveno project
+([authenticity-check](https://github.com/aihxp/authenticity-check),
+[humanizer](https://github.com/aihxp/humanizer)) and used under the MIT License.
+Each vendored skill keeps its original `LICENSE` (copyright preserved as required);
+everything else here is MIT under [`LICENSE`](LICENSE).
+
 ## Status
 
 Experimental. Read each skill before using it on an important repository.
