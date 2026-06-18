@@ -9,6 +9,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 - `skills/shared/` — skills symlinked into both `~/.claude/skills/` and `~/.codex/skills/`
 - `agents/` — named subagent types with pinned model/effort, installed into `~/.claude/agents/`
 - `hooks/claude/` — Claude Code hooks (PreToolUse / Stop event handlers)
+- `config/CLAUDE.md` — reference `CLAUDE.md` operating rules (sanitized); copy into a project or `~/.claude/`
 - `tools/epic-tools/` — CLI used by epic-run and epic-retro for GitHub operations
 - `scripts/` — repo maintenance scripts
 - `docs/` — install guide, env sharing, publication checklist
