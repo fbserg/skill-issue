@@ -1,6 +1,6 @@
 ---
 name: resolve-issue
-description: "Heavyweight pipeline for tier 2-3 GitHub issues: assess, plan, implement, write boundary tests, run a multi-lens + blocker-verified review cycle, finalize a ready PR. Role-separated subagents exchange typed handoffs; the orchestrator never reads code. Never merges. Use when an issue is too big for /issue-do or issue-sweep, or when a sweep decision comment suggested /resolve-issue <N>."
+description: "Heavyweight pipeline for tier 2-3 GitHub issues: assess, plan, implement, write boundary tests, run a multi-lens + blocker-verified review cycle, finalize a ready PR. Role-separated subagents exchange typed handoffs; the orchestrator never reads code. Never merges. Use when an issue is too big for /issue-do, or when /issue routed here. Re-run as /resolve-issue --resume <N> to continue an in-flight pipeline (existing draft PR + plan comment) instead of restarting."
 ---
 
 # Resolve Issue
@@ -70,6 +70,28 @@ failed and decide whether to retry with a sharper prompt or stop with BLOCKER.
 
 Scratch files, when a phase needs them, live under `/tmp/resolve-issue-<N>/`.
 
+## Inputs & pre-flight
+
+**Called with `--resume <N>`?** Jump to **Resume** below — do not re-run Step 0–2.
+
+**Called with an `ASSESSMENT` block** (from `/issue`, which already assessed and
+claimed)? Treat it as Step 0's output verbatim — `TIER`, `IMPACT_SET`,
+`BASE_BRANCH`, `ACCEPTANCE_CRITERIA`, `SHARED_INTERFACE_HIT`, `OPEN_QUESTIONS` —
+and skip straight to Step 1. Don't re-assess; the router paid for that already.
+
+**Called bare (`/resolve-issue <N>`)?** Run the pre-flight below, then Step 0.
+
+Pre-flight (every entry except `--resume`):
+- **Concurrent-run guard** — `gh pr list --search "issue-<N>" --state all` (REST
+  fallback `gh api 'search/issues?q=repo:<R>+is:pr+issue-<N>'`). A draft PR with
+  a resolve-issue plan comment → switch to **Resume**. A ready PR → surface and
+  stop. Without this guard two runs race and clobber the same branch.
+- **Claim** — `gh issue edit <N> --add-assignee @me`, unless the router already
+  did (`ASSESSMENT` present) or the issue is assigned to another user (then
+  surface and stop). Assignment is the claim — no label, no comment. The
+  implementer releases it (`--remove-assignee @me`) on any failure before a PR
+  exists; once the draft PR is open the PR owns the issue.
+
 ## Step 0 — Assess (read-only subagent)
 
 Spawn a read-only assessor: fetch the issue and all comments (`gh issue view
@@ -107,9 +129,23 @@ framework-idiomatic — then one synthesis subagent picks the strongest spine an
 grafts the runners-up's edge-case catches into a single `PLAN`. Tier 2 uses the
 single planner above; the space isn't wide enough to pay for a panel.
 
+**Optional prior-art lane.** When an open question is "what's the standard way to
+do this" rather than "how does our code work," add one web/docs research agent to
+the panel (the epic-research pattern — competitor approaches, library idioms,
+`gh search code`). Codebase research answers *how X works here*; this answers
+*how X is done well elsewhere*. Skip it when every open question is purely
+internal — research depth tracks the question, not a fixed budget.
+
 Sanity-check the plan against the assessment yourself (does it cover the
 impact set? does anything contradict the rationale?). Weak plan → one revision
 round with specific objections, not a silent acceptance.
+
+**Plan-comment-as-claim.** Once the `PLAN` is settled, post it as an issue
+comment (`gh api repos/<R>/issues/<N>/comments -f body=...`) **before** the
+implementer creates the branch. This is a zero-cost scope-confirm and
+human-redirect point — if the scope is wrong, a human catches it at the comment,
+before any code is written — and it durably records the plan so a later
+`--resume` can read it back. Carry the comment URL forward as `PLAN_COMMENT`.
 
 **Implementer subagent**: works in a worktree on branch `fix/issue-<N>-<slug>`
 (create via `git worktree add`). Implements the plan — **code only, no
@@ -165,6 +201,12 @@ Handoff: `TEST_IDS` (ID → one-line contract each), `NEGATIVE_CONTROL`
 3. **Fixer subagent** (fresh context, only if findings remain): address each
    finding or explicitly decline nits with a reason. Commits and pushes.
    Handoff: `RESOLVED` (per finding ID: fixed / declined + reason).
+   **Opus escalation:** if a *blocker* survives a second fix cycle — the same
+   finding came back after Sonnet already tried once — run that one finding's fix
+   on an `opus-worker` subagent (`agentType: "opus-worker"`) before spending
+   another cycle. Sonnet failing twice on the same defect is exactly what
+   opus-worker exists for; don't burn cycle three on a third identical Sonnet
+   attempt. Stay on Sonnet for everything else.
 4. **Intent validator** (read-only): diff pre-review HEAD vs post-fix HEAD;
    confirm changes address the findings and nothing else drifted (no scope
    creep, no quietly weakened tests). Handoff: `INTENT_OK` (yes/no + drift
@@ -173,6 +215,11 @@ Handoff: `TEST_IDS` (ID → one-line contract each), `NEGATIVE_CONTROL`
 Run more cycles only if blockers remain after the first; cap at three, then
 BLOCKER. The final review of the last cycle is read-only — whatever it finds
 is reported, never fixed in this run.
+
+A cap-out is not a dead end — it's a pause. Before reporting BLOCKER, capture a
+**`CONTINUATION`** block (remaining blocker finding IDs + one-line each, the
+branch, `PR_URL`, `PLAN_COMMENT`, and the last green step) and post it as an
+issue comment so a second attempt can pick up exactly there. See **Resume**.
 
 ## Step 4 — Finalize
 
@@ -197,12 +244,37 @@ PR body sections:
 - **Merge instructions** — per repo convention (squash vs merge, from
   CONTRIBUTING/CLAUDE.md), as instructions for the human; never executed
 
-Handoff: `STATE` (READY | BLOCKER), `PR_URL`, `CHECKS`, `BLOCKER_DETAIL`.
+Handoff: `STATE` (READY | BLOCKER), `PR_URL`, `CHECKS`, `BLOCKER_DETAIL`, and
+`CONTINUATION` (when BLOCKER — the resume block from Step 3, posted as an issue
+comment).
+
+## Resume (`/resolve-issue --resume <N>`)
+
+A big issue may take two attempts; the first ends at BLOCKER with a draft PR,
+a branch, a plan comment, and a `CONTINUATION` comment already on GitHub. GitHub
+is the source of truth — no local ledger. To continue:
+
+1. Read state from GitHub: the draft PR (`gh pr view`), the `PLAN_COMMENT`, and
+   the latest `CONTINUATION` comment (remaining blocker IDs + last green step).
+2. Re-create the worktree from the existing branch
+   (`git worktree add <dir> <branch>`) — never start a fresh branch.
+3. **Re-enter at the step the continuation names** — almost always Step 3's
+   fixer, scoped to the remaining `CONTINUATION` finding IDs only. Don't redo
+   assess/plan/implement; the draft PR already holds that work.
+4. Run the Step 3 cycle (fix → verify → intent-validate) on the remaining
+   findings, then Step 4 finalize. The three-cycle cap counts fresh for this
+   attempt. Escalate a twice-failed blocker to `opus-worker` as in Step 3.
+
+If no draft PR / branch exists for `<N>`, there's nothing to resume — tell the
+user and run normally.
 
 ## Final report
 
 Report to the user: tier and rationale, PR URL and state, every acceptance
 criterion pass/fail (nothing hidden — a failed criterion is reported, not
 omitted), test IDs with the negative-control result, review findings and
-resolutions, and anything UNCOVERED or declined. Then clean up the worktree
-(`git worktree remove`) — the branch and PR remain.
+resolutions, and anything UNCOVERED or declined. On BLOCKER, point at the
+`CONTINUATION` comment and name the one-line resume command
+(`/resolve-issue --resume <N>`). Then clean up the worktree
+(`git worktree remove`) — the branch and PR remain (the resume re-creates the
+worktree from the branch).

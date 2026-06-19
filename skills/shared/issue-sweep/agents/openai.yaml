@@ -1,4 +1,0 @@
-interface:
-  display_name: "Issue Sweep"
-  short_description: "Claim, fix, prove, and open PRs for eligible GitHub issues"
-  default_prompt: "Use $issue-sweep to claim the oldest eligible GitHub issues, escalate structural or ambiguous ones with a decision-needed comment, and fix bounded issues in isolated worktrees. Workers only commit; the orchestrator proves each change in the worktree before pushing the branch and opening a PR. Never merge."

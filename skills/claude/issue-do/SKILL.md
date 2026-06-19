@@ -34,7 +34,15 @@ optional `## Out of scope`, `## Files likely touched`. Capture issue number.
 - Concurrent-run guard: `gh pr list --search "issue-<N>" --state all` → a PR
   genuinely for this issue exists → surface and stop. (If GraphQL 401s, use
   REST: `gh api 'search/issues?q=repo:<R>+is:pr+issue-<N>'`.)
+- **Claim:** `gh issue edit <N> --add-assignee @me` — unless `/issue` already
+  claimed (an `ASSESSMENT` block was passed in) or the issue is assigned to
+  another user (then surface and stop). Assignment is the claim. The executor
+  releases it (`--remove-assignee @me`) if it fails before opening a PR.
+- **Router handoff:** if called with an `ASSESSMENT` block (from `/issue`), use
+  its `IMPACT_SET` / `BASE_BRANCH` / `ACCEPTANCE_CRITERIA` as the starting point
+  for Plan — don't re-derive what the router already established.
 - `DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name)`
+  (or `BASE_BRANCH` from the assessment).
 - `SUFFIX=$(openssl rand -hex 4)`
 - No orch worktree — main checkout is fine for a one-shot. Subagents run in
   isolated worktrees.
@@ -59,8 +67,12 @@ Routing verdict, made from the plan:
 - **Single lane** (one coherent change set, sequential edits) → Step 5a.
 - **2+ independent lanes** inside the issue (separable file sets, no shared
   implicit choices) → Step 5b.
-- **Actually multi-session / design still open** → stop, report, suggest
-  /epic-plan.
+- **Actually multi-session / design still open** → don't discard the work.
+  You've already paid for the plan and the explore conclusions; post them as an
+  issue comment framed as an epic-plan seed (the deliverable breakdown you found,
+  the files in scope, the open design question), release the claim
+  (`gh issue edit <N> --remove-assignee @me`), then stop and suggest
+  `/epic-plan <N>`. The next session starts from your breakdown, not from zero.
 
 ### 5a. Execute — single lane
 
@@ -72,13 +84,19 @@ One subagent (`model: "sonnet"`, `isolation: "worktree"`,
 - replace `epic-<N>-<child>-<slug>` references → above
 - replace `(#<child>)` in PR title → `(#<N>)`
 - omit WAIT_FOR (no deps in single-issue mode)
-- TIDY=yes unless trivial (typo/comment/version-bump)
+- omit TIDY — `dispatch.md` ignores it; run `/simplify-sweep` over the merged
+  range post-merge if cleanup is wanted
 - **Replace the `## Issue scope` block with the pinned plan**, framed as:
   "Execute this plan verbatim. Deviations require STATUS=fail
   REASON=plan-conflict with what you found — do not improvise a different
   design."
 
-Wait for the STATUS= line.
+Wait for the STATUS= line. **Silence is not success:** an executor that returns
+empty or goes idle without a `STATUS=ok PR=...` line has not delivered — confirm
+on GitHub whether a branch/PR actually landed (`gh pr list --search
+"issue-<N>"`) before deciding, and never infer completion from a quiet agent.
+The PR the executor opens must already be green (its proof step ran the tests);
+a red PR is a failed run, not a reviewable one.
 
 ### 5b. Execute — multi-lane (Workflow)
 
@@ -100,9 +118,12 @@ read-only — never the executor, never its worktree):
 - Output: `VERDICT=pass` or `VERDICT=fail` with blocking findings.
 
 On fail: send findings back to the executor (SendMessage to the same agent,
-context intact) for one fix round, then re-review. Second fail → stop,
-report findings, leave the PR open with a comment listing them. Never loop
-more than twice.
+context intact) for one fix round, then re-review. Second fail → before giving
+up, escalate the remaining blocking findings to a fresh `opus-worker` subagent
+(`agentType: "opus-worker"`, its own worktree) for one convergence pass, then
+re-review once. Sonnet failing the same finding twice is the signal to escalate,
+not to retry. Still failing → stop, report findings, leave the PR open with a
+comment listing them. Never more than two Sonnet rounds + one Opus pass.
 
 ### 7. Report
 
@@ -111,9 +132,12 @@ Under 100 words.
 
 ## Notes
 
-- One-shot. Fuzzy/multi-session → /epic-plan.
-- All subagents are Sonnet, explicitly (`model: "sonnet"`). The orchestrator
-  never delegates design decisions or review verdicts to the executor.
+- One-shot. Fuzzy/multi-session → /epic-plan. Don't know the tier? Start at
+  `/issue <N>` — it assesses, claims, and routes here or up the ladder.
+- Subagents are Sonnet by default (`model: "sonnet"`); the only escalation is a
+  single `opus-worker` pass after Sonnet fails the same review finding twice
+  (Step 6). The orchestrator never delegates design decisions or review verdicts
+  to the executor.
 - Subagents inherit bypassPermissions; honor repo CLAUDE.md.
 - PR-only: orchestrator owns merge actions; executor and reviewer never
   merge, push to main, or close issues.
