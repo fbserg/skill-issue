@@ -54,11 +54,13 @@ candidate file, `git grep -l` its module/symbol names and count importers (a
 widely imported file is a shared-interface hit).
 
 **Tier (size):**
-- **Tier 1** — one area, fully specified, roughly sub-200-line diff.
+- **Tier 1** — *clearly* small: one area, fully specified, obviously sub-200-line diff, no open questions. The bar for tier 1 is "no reasonable doubt it's small," not "probably small."
 - **Tier 2** — 2–4 loosely coupled areas, clear requirements.
 - **Tier 3** — open questions, shared-interface change, or cross-subsystem work.
 - **Epic** — multiple separable deliverables, multi-session, or depends on
   in-flight work.
+
+**Round up when borderline.** The costs are asymmetric: a *small* issue sent to the heavier rung just wastes a few subagent calls, but a *big* issue under-served by `issue-do` gets a shallow fix and a rejected PR — the expensive mistake. So when the tier is genuinely ambiguous between **1 and 2**, pick **tier 2** (resolve-issue); only drop to tier 1 when the issue clears the "no reasonable doubt it's small" bar above. This bias stops at the epic boundary — don't escalate a single-PR issue all the way to epic-plan without real multi-session / multi-deliverable signals.
 
 **Confidence (the Devin-style gate):** how sure the assessor is that it
 understands what's being asked *and* how to do it — **high / med / low** with a
@@ -91,6 +93,8 @@ to operator memory. The executor you dispatch releases the claim
 once a PR is open the issue stays assigned because the PR owns it.
 
 ## Step 4 — Route, carrying the assessment forward
+
+When the assessment landed on a clean tier, route by it. When it was borderline, you already rounded up in Step 1 — so the default lean is `resolve-issue`, and `issue-do` is reserved for the unambiguously small. Don't second-guess a clear tier-1 into resolve-issue either; the bias is a tie-breaker for genuine ambiguity, not a blanket upgrade.
 
 Dispatch the executor that fits `TIER`. Pass the **entire Step-1 handoff** as
 its `ASSESSMENT` input so it treats the tier, impact set, base branch, and

@@ -73,7 +73,7 @@ cd skill-issue
 | You have | Use |
 |---|---|
 | An issue but aren't sure how big it is | `/issue <N>` — assesses tier + confidence, claims it, routes for you |
-| Tier 1: one area, fully specified, ~sub-200-line diff | `/issue-do <N>` |
+| Tier 1: *clearly* small — one area, fully specified, obviously sub-200-line | `/issue-do <N>` (the router reserves this for the unambiguously small; borderline issues round up to resolve-issue) |
 | Tier 2–3: multi-area, open questions, or a shared-interface change | `/resolve-issue <N>` (continue a stalled run with `/resolve-issue --resume <N>`) |
 | Epic: multi-session, multiple deliverables, or deps on in-flight work | `/epic-plan <N>` → `/epic-run <N>` |
 
