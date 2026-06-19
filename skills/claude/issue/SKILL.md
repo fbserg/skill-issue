@@ -46,17 +46,13 @@ No number yet, and a fuzzy symptom isn't dispatchable — scope it first.
 
 ## Single (`/issue <N>`)
 
-Concurrency/resume guard, then dispatch:
-
-- `gh pr list --search "issue-<N>" --state all` (REST fallback
-  `gh api 'search/issues?q=repo:<R>+is:pr+issue-<N>'`).
-  - **Ready PR** for this issue → surface and stop.
-  - **Draft PR with a resolve-issue plan comment** → the pipeline is mid-flight
-    → dispatch **`/resolve-issue --resume <N>`** and stop.
-  - **Assigned to another user** → surface and stop.
-- Otherwise → dispatch **`/resolve-issue <N>`**. It assesses, claims, and runs
-  the right-sized pipeline; if its assessor finds a true epic it stops and points
-  at `/epic-plan` — relay that. Don't pre-assess; the executor owns it.
+Dispatch **`/resolve-issue <N>`** and relay what it returns — don't pre-guard or
+pre-assess here, the executor owns both. Its pre-flight runs the canonical
+concurrency/resume guard: a plan comment or draft PR for `<N>` → it switches to
+`--resume`; a ready PR or an issue assigned to another user → it surfaces and
+stops. It then assesses, claims, and runs the right-sized pipeline; if its
+assessor finds a true epic it stops and points at `/epic-plan`. Relay the
+terminal state verbatim.
 
 ## Batch (multiple issues)
 
@@ -70,10 +66,13 @@ concurrent (the project's cadence).
   - `oldest N` → add `--search "sort:created-asc"`.
   - `mine` / `assigned` → add `--assignee @me`. `label:X` → add `--label X`.
     Modifiers stack.
-- **Guard each** with the Single concurrency/resume check: a ready PR → drop it
-  (note `skipped: ready PR`); a draft PR → route that lane to `--resume <N>`.
-- **Fan out** ≤4 concurrent lane subagents (`agentType: "worker"`,
-  `model: "sonnet"`). Each lane is **explicitly the orchestrator of
+- **Guard each** with the same canonical check resolve-issue runs at pre-flight,
+  because the batch routes lanes *before* spawning: a plan comment or draft PR →
+  route that lane to `--resume <N>`; a ready PR → drop it (note `skipped: ready
+  PR`); neither → fresh `/resolve-issue <N>`.
+- **Fan out** ≤4 concurrent lane subagents (`agentType: "worker"` — Sonnet at
+  `effort: medium`; the agent type carries the model, no separate `model:` needed).
+  Each lane is **explicitly the orchestrator of
   `/resolve-issue` for its one issue** — it runs the resolve-issue skill end to
   end in isolation (its own worktree, its own phase subagents; this is the
   sanctioned exception to "subagents don't delegate") and returns that issue's
