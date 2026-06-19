@@ -20,7 +20,6 @@ EXPECTED_SKILLS = {
         "epic-retro",
         "humanizer",
         "issue",
-        "issue-do",
         "resolve-issue",
         "tidy",
         "zero",

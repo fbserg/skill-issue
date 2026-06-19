@@ -20,7 +20,7 @@ These examples use symlinks so local edits in this repo are immediately visible
 to the agent runtime. Use `cp -R` instead if you prefer static copies.
 
 This checkout is the canonical edit point for the shipped prose, epic, issue
-(router + issue-do + resolve-issue), quick-research, tidy, and zero skills plus
+(front door + resolve-issue), quick-research, tidy, and zero skills plus
 `epic-tools`. Do not edit installed copies under
 `~/.claude/skills`, `~/.codex/skills`, or older prototype repos.
 
@@ -36,7 +36,6 @@ ln -sfn "$PWD/skills/claude/humanizer"     ~/.claude/skills/humanizer
 ln -sfn "$PWD/skills/claude/authenticity-check" ~/.claude/skills/authenticity-check
 ln -sfn "$PWD/skills/claude/authentic-writing"  ~/.claude/skills/authentic-writing
 ln -sfn "$PWD/skills/claude/issue"         ~/.claude/skills/issue
-ln -sfn "$PWD/skills/claude/issue-do"      ~/.claude/skills/issue-do
 ln -sfn "$PWD/skills/claude/resolve-issue" ~/.claude/skills/resolve-issue
 ln -sfn "$PWD/skills/claude/tidy"          ~/.claude/skills/tidy
 ln -sfn "$PWD/skills/claude/zero"          ~/.claude/skills/zero
@@ -96,7 +95,7 @@ Claude and Codex both have: `authentic-writing`, `authenticity-check`, `epic-pla
 
 Codex-only: `quick-research`.
 
-Claude-only: `epic-retro`, `issue` (router), `issue-do`, `resolve-issue`.
+Claude-only: `epic-retro`, `issue` (front door), `resolve-issue`.
 
 ## Uninstall
 
@@ -104,7 +103,7 @@ Claude-only: `epic-retro`, `issue` (router), `issue-do`, `resolve-issue`.
 # Remove Claude skill symlinks
 rm ~/.claude/skills/epic-plan ~/.claude/skills/epic-run ~/.claude/skills/epic-research
 rm ~/.claude/skills/epic-retro ~/.claude/skills/humanizer ~/.claude/skills/authenticity-check ~/.claude/skills/authentic-writing
-rm ~/.claude/skills/issue ~/.claude/skills/issue-do ~/.claude/skills/resolve-issue
+rm ~/.claude/skills/issue ~/.claude/skills/resolve-issue
 rm ~/.claude/skills/tidy ~/.claude/skills/zero
 
 # Remove Codex skill symlinks

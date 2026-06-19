@@ -35,9 +35,8 @@ cd skill-issue
 | [`epic-research`](skills/claude/epic-research/SKILL.md) | Pre-plan research: three parallel agents on competitors, tech peers, and GitHub code. |
 | [`epic-retro`](skills/claude/epic-retro/SKILL.md) | Mine closed epics and PRs for ranked skill/process improvements. |
 | [`epic-run`](skills/claude/epic-run/SKILL.md) | Execute a planned epic: fan children into isolated worktrees, verify PRs, merge in dependency order. |
-| [`issue`](skills/claude/issue/SKILL.md) | Front door for one issue: assess tier + confidence, claim it, route to issue-do / resolve-issue / epic-plan carrying the assessment forward. Re-runnable; resumes in-flight work. Never merges. |
-| [`issue-do`](skills/claude/issue-do/SKILL.md) | Run one issue end-to-end: orchestrator plans, a Sonnet executor implements in an isolated worktree, an independent reviewer verifies. One topic in, one verified PR out. Never merges. |
-| [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | Heavyweight pipeline for tier 2-3 issues: assess → plan → implement → test → review → PR. Never merges. |
+| [`issue`](skills/claude/issue/SKILL.md) | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by tier. Never writes code, never merges. |
+| [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | Self-scaling pipeline for one issue: light path for tier-1, full assess→plan→implement→test→review for tier 2-3, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
 | [`simplify-sweep`](skills/claude/simplify-sweep/SKILL.md) | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 
 ### Codex (`skills/codex/`)
@@ -72,12 +71,12 @@ cd skill-issue
 
 | You have | Use |
 |---|---|
-| An issue but aren't sure how big it is | `/issue <N>` — assesses tier + confidence, claims it, routes for you |
-| Tier 1: *clearly* small — one area, fully specified, obviously sub-200-line | `/issue-do <N>` (the router reserves this for the unambiguously small; borderline issues round up to resolve-issue) |
-| Tier 2–3: multi-area, open questions, or a shared-interface change | `/resolve-issue <N>` (continue a stalled run with `/resolve-issue --resume <N>`) |
-| Epic: multi-session, multiple deliverables, or deps on in-flight work | `/epic-plan <N>` → `/epic-run <N>` |
+| An issue number | `/issue <N>` — hands it to `/resolve-issue`, which self-scales by tier |
+| A rough idea (no issue yet) | `/issue <free text>` — scopes it, files the issue, then dispatches |
+| Multiple issues | `/issue last 5` or `/issue 42 43 44` — fans out ≤4 concurrent `/resolve-issue` lanes |
+| A true epic (multi-session, multiple deliverables) | `/epic-plan <N>` → `/epic-run <N>` |
 
-Claiming (assign yourself), plan-comment-before-branch, and PR-only delivery are built into every rung — you never merge your own PR.
+Claiming (assign yourself), plan-comment-before-branch, and PR-only delivery are built in — you never merge your own PR.
 
 ## Requirements
 

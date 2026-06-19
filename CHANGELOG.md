@@ -15,6 +15,7 @@ All notable changes to this project will be documented here.
 - `skills/shared/` directory with canonical shared skill files
 
 ### Changed
+- `issue` family collapsed to "always-resolve": `/issue` is now a thin front door (scope a rough idea, or dispatch one issue / a ≤4-concurrent batch to `/resolve-issue`) with no triage of its own; `/resolve-issue` self-scales by tier — a light path for tier-1 (single planner → one reviewer), the full pipeline for tier 2-3, and a stop-with-`/epic-plan` for a true epic — and gains two robustness invariants on its code-writing subagents (worktree-or-abort before any write; verbatim in-worktree gates from a repo `## Issue lane overrides` block before READY).
 - `resolve-issue`: redesign from first principles — sequential by default with three fan-outs, each pinned to a named failure mode rather than added for parallelism's sake. (1) Tier-3 plan panel: 2–3 stance-diverse planners → synthesis, only when the solution space is genuinely contested (counters a plan that dead-ends). (2) Review panel: three perspective-diverse lenses (correctness / security & robustness / tests-actually-assert) run concurrently, then deduped (counters the blind spot a single reviewer gets when three concerns compete). (3) Blocker verification: one skeptic refutes each blocker before the fixer runs, so the fixer never "fixes" a phantom bug. Finalize gains a completeness gate — READY is forbidden on unrun/red checks or any unproven criterion. Fan-outs run as concurrent Agent calls (work headless); the Workflow tool is an optional accelerator, never required. No private agent-type identifiers; HANDOFF stays the single protocol. Mechanism (parallel lenses + structured output) smoke-tested earlier against a synthetic diff; not yet exercised against a real tier-3 issue.
 - README and install docs now match the shipped skill set and avoid treating Markdown as an install script
 - `check-install.py` now verifies every shipped Claude/Codex skill symlink, including the issue router family (`issue` / `issue-do` / `resolve-issue`) and `quick-research`
@@ -36,6 +37,7 @@ All notable changes to this project will be documented here.
 - LICENSE: change copyright from "Serg" to "skill-issue contributors"
 
 ### Removed
+- `issue-do` skill — folded into `/resolve-issue`'s self-scaling tier-1 light path; it was never symlinked, so nothing installed it.
 - Empty `grill-me/` directories (skill was never included)
 - Empty `codex/epic-plan/references/` directory
 - Extra `agents/README.md` from the Codex `epic-plan` skill package

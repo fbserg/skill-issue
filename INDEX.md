@@ -26,9 +26,8 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | epic-research | `skills/claude/epic-research/SKILL.md` | Pre-plan research: three parallel agents on competitors, tech peers, and GitHub code; output feeds epic-plan. |
 | epic-retro | `skills/claude/epic-retro/SKILL.md` | Mine closed epic PRs and followup issues for ranked improvements to epic-plan/epic-run. |
 | epic-run | `skills/claude/epic-run/SKILL.md` | Execute a planned epic: fan children into isolated worktrees, verify PRs, merge in dependency order. |
-| issue | `skills/claude/issue/SKILL.md` | Front door for one issue: assess tier + confidence, claim, route to issue-do / resolve-issue / epic-plan with the assessment carried forward. Re-runnable; resumes in-flight work. Never merges. |
-| issue-do | `skills/claude/issue-do/SKILL.md` | Run one GitHub issue end-to-end: orchestrator plans, Sonnet executor implements in an isolated worktree, independent reviewer verifies. One topic in, one verified PR out. Never merges. |
-| resolve-issue | `skills/claude/resolve-issue/SKILL.md` | Heavyweight pipeline for tier 2-3 GitHub issues: assess → plan → implement → test → review → PR. Never merges. |
+| issue | `skills/claude/issue/SKILL.md` | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by tier. Never writes code, never merges. |
+| resolve-issue | `skills/claude/resolve-issue/SKILL.md` | Self-scaling pipeline for one issue: light path for tier-1, full assess→plan→implement→test→review for tier 2-3, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
 | simplify-sweep | `skills/claude/simplify-sweep/SKILL.md` | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 
 ---
