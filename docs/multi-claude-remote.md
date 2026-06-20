@@ -173,14 +173,42 @@ done
 
 ### 5. The local one-word command
 
-Put this on your PATH as `NAME` (e.g. symlink into `~/.local/bin`):
+Keep the launcher dumb and put the connection details in a sibling **`NAME.env`**
+so editing host/port/key never means touching the script.
+
+**Naming convention (follow it for every instance):** the env file is
+`NAME.env`, and every variable in it is prefixed `<NAME-uppercased>_` —
+`BMAC_HOST`, `CMAC_PICKER`, etc. One glance tells you which instance a variable
+belongs to, and two instances' envs can never shadow each other. The fixed keys
+are `<N>_HOST`, `<N>_PORT`, `<N>_USER`, `<N>_KEY`, `<N>_PICKER`. (Do **not**
+invent an unrelated prefix — an early instance used `SZIL_*` cloned from its
+template and it was pure confusion; the prefix must echo the command name.)
+
+`NAME.env` (next to the launcher, and/or in `~/projects/NAME/`):
+
+```bash
+NAME_HOST="REMOTE"          # Tailscale IP / MagicDNS name
+NAME_PORT="22"
+NAME_USER="USER"
+NAME_KEY="$HOME/.ssh/KEY"
+NAME_PICKER="/Users/USER/.claude-profiles/NAME-pick.sh"
+```
+
+`NAME` launcher — put it on your PATH (e.g. symlink into `~/.local/bin`):
 
 ```bash
 #!/usr/bin/env bash
 set -euo pipefail
-exec ssh -t -i ~/.ssh/KEY \
+SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+for cfg in "$SELF_DIR/NAME.env" "$HOME/projects/NAME/NAME.env"; do
+  [ -f "$cfg" ] && { . "$cfg"; break; }
+done
+: "${NAME_HOST:?NAME.env not found or NAME_HOST unset}"
+: "${NAME_PORT:=22}" "${NAME_USER:=USER}" "${NAME_KEY:=$HOME/.ssh/KEY}"
+: "${NAME_PICKER:=/Users/USER/.claude-profiles/NAME-pick.sh}"
+exec ssh -t -p "$NAME_PORT" -i "$NAME_KEY" \
   -o ServerAliveInterval=30 -o ServerAliveCountMax=4 \
-  USER@REMOTE 'exec bash ~/.claude-profiles/NAME-pick.sh'
+  "${NAME_USER}@${NAME_HOST}" "exec bash ${NAME_PICKER}"
 ```
 
 `ssh -t` forces a TTY so the remote picker (fzf / select / read) is interactive.
@@ -287,15 +315,13 @@ else
 fi
 ```
 
-### Local `NAME` command (on your machine, on PATH)
+### Local `NAME` command + `NAME.env` (on your machine, on PATH)
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-exec ssh -t -i ~/.ssh/KEY \
-  -o ServerAliveInterval=30 -o ServerAliveCountMax=4 \
-  USER@REMOTE 'exec bash ~/.claude-profiles/NAME-pick.sh'
-```
+See **step 5** for the full pair: a thin launcher that sources `NAME.env` and
+execs `ssh -t … NAME-pick.sh`, plus the `NAME.env` file whose keys are all
+prefixed `<NAME-uppercased>_` (`NAME_HOST`, `NAME_PORT`, `NAME_USER`, `NAME_KEY`,
+`NAME_PICKER`). The prefix must echo the command name — don't reuse a template's
+unrelated prefix.
 
 ---
 
