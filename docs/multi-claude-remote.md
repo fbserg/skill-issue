@@ -158,13 +158,14 @@ JSON
 
 ### 4. Drop the two remote scripts and a dependency
 
-Two optional deps sharpen this, both with graceful fallbacks:
+Two optional deps sharpen this:
 - **`fzf`** — fuzzy picker *and* the live per-session preview; without it the
   picker falls back to a numbered `select` menu (no preview).
-- **`mosh`** — resilient transport that survives sleep, IP changes and flaky
-  phone networks; without it (locally) the launcher falls back to `ssh -t`.
+- **`mosh`** — opt-in resilient transport (`NAME_TRANSPORT=mosh`) for sleep / IP
+  changes / flaky phone networks. ssh -t is the default because a blocked-UDP
+  mosh hangs hard; only opt in where UDP 60000-61000 actually reaches the box.
 
-Install on the box (fzf + mosh-server) and your laptop (mosh): `brew install fzf mosh`.
+Install fzf on the box and your laptop; mosh on both only if you opt in: `brew install fzf` (+ `mosh` when wanted).
 
 See **Starters** below for `NAME-launch.sh` (sets `CLAUDE_CONFIG_DIR`, execs
 claude) and `NAME-pick.sh` (the selector). Create the dir, deploy, mark
@@ -213,11 +214,13 @@ done
 : "${NAME_HOST:?NAME.env not found or NAME_HOST unset}"
 : "${NAME_PORT:=22}" "${NAME_USER:=USER}" "${NAME_KEY:=$HOME/.ssh/KEY}"
 : "${NAME_PICKER:=/Users/USER/.claude-profiles/NAME-pick.sh}"
+: "${NAME_TRANSPORT:=ssh}"
 : "${NAME_MOSH_SERVER:=/opt/homebrew/bin/mosh-server}"
 
-# Prefer mosh (survives sleep / IP changes / flaky phone networks); fall back to
-# ssh -t where mosh isn't installed locally. Both drop into the remote picker.
-if command -v mosh >/dev/null 2>&1; then
+# ssh by DEFAULT (robust everywhere, incl. over Tailscale). Opt into mosh with
+# NAME_TRANSPORT=mosh — but ONLY where UDP 60000-61000 reaches the box, or mosh
+# hangs. A broken mosh must never be the default, or it locks you out.
+if [ "$NAME_TRANSPORT" = "mosh" ] && command -v mosh >/dev/null 2>&1; then
   exec mosh --server="$NAME_MOSH_SERVER" --ssh="ssh -p $NAME_PORT -i $NAME_KEY" \
     "${NAME_USER}@${NAME_HOST}" -- bash "$NAME_PICKER"
 fi
@@ -271,9 +274,11 @@ forces one), so fzf / select / read work either way.
 - **In-memory creds.** A running instance caches its token at launch. After you
   change its `.credentials.json`, restart that session to pick it up.
 - **Symlinked settings are shared writes** (see step 1).
-- **mosh needs UDP** (ports 60000–61000). Fine over Tailscale / LAN; on a network
-  that blocks UDP it hangs — that's when the `ssh -t` fallback matters (rename or
-  uninstall local mosh to force ssh).
+- **mosh is opt-in, ssh is default.** mosh needs UDP 60000–61000 reachable to the
+  box; if those are dropped (some Tailscale paths, UDP-blocking wifi) mosh hangs
+  with "Nothing received from server on UDP port …". Because a present-but-blocked
+  mosh would otherwise lock you out, the launcher uses ssh unless you set
+  `NAME_TRANSPORT=mosh`. Verify UDP works before opting in.
 - **bash 3.2.** macOS ships ancient bash. Keep remote scripts 3.2-safe — no
   `mapfile`, no arrays — so they run under the system shell. (The picker's
   unquoted `$sessions` is deliberate word-splitting; tmux session names with
@@ -375,8 +380,8 @@ REMOTE
 See **step 5** for the full pair: a thin launcher that sources `NAME.env` and
 execs `ssh -t … NAME-pick.sh`, plus the `NAME.env` file whose keys are all
 prefixed `<NAME-uppercased>_` (`NAME_HOST`, `NAME_PORT`, `NAME_USER`, `NAME_KEY`,
-`NAME_PICKER`, `NAME_MOSH_SERVER`). The prefix is just the connection name,
-uppercased.
+`NAME_PICKER`, `NAME_TRANSPORT`, `NAME_MOSH_SERVER`). The prefix is just the
+connection name, uppercased. `NAME_TRANSPORT` is `ssh` (default) or `mosh`.
 
 ---
 
