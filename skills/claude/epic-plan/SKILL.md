@@ -1,163 +1,148 @@
 ---
 name: epic-plan
-description: Scope a feature, audit, or cleanup into a GitHub epic with child issues. Use when user invokes /epic-plan TOPIC to turn an idea into a runnable epic. Pairs with /epic-run which executes the epic.
+description: Scope a feature, audit, or cleanup into a GitHub epic of child issues that execute via /issue → /resolve-issue. Front-loads wide parallel research, runs a multi-lens adversarial review of the decomposition before anything is created, and re-enters from GitHub state. Use when the user invokes /epic-plan TOPIC, or when a task is too big for one issue — multiple deliverables or multiple sessions. Not for a single issue (use /issue) or a one-PR change (use /resolve-issue).
 ---
 
-Turn a topic into a GitHub epic (tracking issue + child issues) ready for `/epic-run`.
+Turn a topic into a GitHub epic: a tracking issue plus child issues, each sized for one
+`/resolve-issue` session. The value is in the research and the review — not the paperwork. Spend
+tokens up front, lock the guardrails, then let `/issue` execute. **Do not create any issue until the
+user says go.**
 
-**Required:** GitHub CLI (`gh`) authenticated.
+The expensive judgment is front-loaded on purpose: research and a decomposition review are the
+cheapest place to be wrong. Cheaper, faster models execute the children later, inside the guardrails
+this skill freezes into the epic.
 
-## Stage 0 — Topic capture
+## Roles
 
-User invokes `/epic-plan "<topic>"`. No questions yet. Record the topic.
+- **Research** → concurrent `explore-mid` agents (one message, several `Agent` calls).
+- **Plan review** → concurrent `opus-worker` critics. Opus judges, Sonnet builds.
+- A Workflow may stand in for the fan-outs if available — not required; concurrent `Agent` calls are
+  the baseline.
 
-## Stage 1 — Scoping grill
+## Re-entry gate
 
-Ask **one question at a time** with a recommended answer. After each answer, decide whether the next question is still needed. Stop when decision branches are resolved.
+GitHub is the checkpoint store; this skill keeps no local ledger. On invocation:
 
-Questions to draw from (ask only what matters for this topic):
+- **Given an existing epic number** (`/epic-plan 47`, or a tracker URL) → read the tracker body,
+  labels, and comments. Resume from the recorded phase: each phase posts a tracker comment tagged
+  `<!-- epic-plan: <phase> -->`. A human comment or a `needs-revision` label is a loop-back signal —
+  re-enter at the phase it targets (usually research or review), don't restart.
+- **Given a topic** → new epic. Continue below.
+- **The topic is really one issue** (single deliverable, one session) → stop and hand to `/issue`.
+- **Trivially small epic** (2–3 obvious children, no unknowns) → skip Phases 2 and 4; grill briefly,
+  decompose, materialize.
 
-- What does success look like, concretely? (passing test, metric, user-visible behavior)
-  *Recommended: [state what the most obvious AC would be]*
-- What's explicitly **out** of scope?
-  *Recommended: [state the nearest adjacent thing an agent might add]*
-- Which terms are ambiguous? Pin definitions now.
-  *Recommended: [state the most natural interpretation]*
-- What existing code/skill/tool already does some of this?
-  *Recommended: [grep for it; if found, answer yourself instead of asking]*
-- What's the failure mode if we ship the obvious version?
-  *Recommended: [state the most likely way the happy path skips a hard case]*
-- One epic or actually two?
-  *Recommended: [state one if the goal is coherent; two if there are independent themes]*
-- Should any child be split or merged with another? (ask after seeing the draft)
-  *Recommended: [state your judgment]*
-- Is the ordering correct given file-overlap constraints? (ask after seeing the draft)
-  *Recommended: [state the right order]*
-- Any child that's secretly a sibling epic? (ask after seeing the draft)
-  *Recommended: [name it if so, else "no"]*
+## Phase 1 — Scope and lock the contract
 
-**Codebase-answerable questions:** before asking, `grep` or `Explore` for the answer. If the codebase answers it, state the finding and move on — don't ask.
+Grill only where it changes the decomposition. Generate the questions the topic actually raises — no
+fixed checklist — and ask one at a time with a recommended answer. Answer anything the codebase can
+answer (fan out an `Explore` agent) instead of asking.
 
-If the user says "you decide," state assumptions explicitly so they can be challenged.
+Refuse to proceed on vague scope. If success criteria, boundaries, or key terms are still `TBD`, pin
+them now. The output of this phase is a short **contract** — the non-negotiables that constrain every
+child:
 
-## Stage 2 — Local research
+- **Definition of done** — concretely (passing test, metric, user-visible behavior).
+- **Out of scope** — name the nearest adjacent thing an agent would wrongly pull in.
+- **Constraints** — stack, conventions, interfaces that must not change.
 
-After Stage 1: targeted research on the repo. Surface concise findings (works / broken / missing / dead).
+This contract goes verbatim into the tracker body so executors inherit it.
+
+## Phase 2 — Wide research (front-loaded)
+
+Fan out self-contained research briefs in one message. Each brief states its objective, allowed tools,
+an output cap (≤600 words), and a stop condition — agents share no state. Default lanes, scaled to the
+topic (drop or add as warranted):
+
+- **Codebase recon** — what already exists, reusable patterns, entry points, cross-process consumers,
+  non-obvious tests.
+- **Repo history / prior art** — closed epics, `epic-followups` / `epic-unfinished` issues, related
+  skills, where the repo is heading.
+- **External landscape** — how others solve this (web). Only when the surface is user-facing or the
+  domain is unclear.
 
 ```bash
 git log --oneline -20
 gh issue list --label epic-followups,epic-unfinished --state open --json number,title,body --limit 30
 ```
 
-Walk relevant files, grep for affected symbols, check live state when the topic touches a live system (run the test suite, profile, check last cron run). Surface what's working, what's broken, and what's missing. Don't draft yet.
+Read the digests; spawn **one** targeted gap wave only if a real gap surfaced. Synthesize a tight brief:
+works / broken / missing / prior-art / recommendation. If >5 stale followup/unfinished issues surface,
+offer a grab-bag epic instead.
 
-If >5 unaddressed followup/unfinished issues surface, propose a "grab-bag" epic (`/epic-plan "grab-bag: clean out followups"`).
+## Phase 3 — Decompose into a child DAG
 
-## Stage 3 — External research (optional)
+Draft the children as a dependency graph. Each child:
 
-If the landscape is unclear and this affects a user-facing surface, suggest `/epic-research <topic>` before drafting. Otherwise proceed directly to Stage 4.
+- Self-contained, one `/resolve-issue` session, one focused PR.
+- Carries scope, **machine-checkable** acceptance criteria, `depends-on` (by ordinal: `Child 2`),
+  files likely touched, and a one-word risk (`text-only` | `visual` | `shared-state`; default
+  `shared-state` when unsure — it drives proof expectations downstream).
+- Sized to fit: files-touched > ~15, LOC delta > ~1000, or >~10 large reads → split.
 
-## Stage 4 — Draft the plan in chat
+Order matters: file-overlapping children are sequential — encode it in `depends-on`. A child that needs
+its own decomposition is a sibling epic, not a silent sub-orchestrator — surface it.
 
-Use the canonical plan-file format so the output is directly usable with `epic-tools plan-to-epic`:
+## Phase 4 — Multi-lens plan review (the core)
+
+Review the **decomposition**, not code. Fan out four critics concurrently, each on the *same* draft,
+each role-locked ("your job is to find flaws, not validate"), none seeing another's output — diverse
+lenses, never four identical refuters:
+
+| Lens | Hunts for |
+|---|---|
+| **Completeness** | Missing journey, failure mode, or child the contract implies. |
+| **Dependency-ordering** | A child consuming an artifact a later child produces; cycles; file-overlap that should serialize. |
+| **Scope / altitude** | Two-job children to split; over-decomposition to merge; invented scope to cut. |
+| **Premortem** | "This epic shipped and failed. Reconstruct exactly how." The failure the author can't see. |
+
+Synthesize in one pass — no loops:
+
+1. Collect the union of findings; dedup by area.
+2. Flagged by **2+ lenses → blocker**; by one → advisory.
+3. **One skeptic re-check per blocker** (`opus-worker`): "Critic claims X. Is it real? Show evidence."
+   Upheld blockers stand; refuted ones drop to advisory.
+4. Revise the decomposition once against the upheld blockers (advisories are nudges).
+
+Show the user the raw upheld-blocker list, the advisories, and the revised plan. Never a vague "looks
+good." This is the gate the user approves.
+
+## Phase 5 — Materialize (direct `gh`, idempotent)
+
+Only after the user says go. Re-runnable without duplicating: before creating anything, search for an
+existing tracker/child by a stable marker and skip what already exists.
+
+- **Tracker** — `gh issue create --label epic --title "Epic: <topic>"`. Body carries `## Goal`, the
+  frozen `## Contract` (done / out-of-scope / constraints), and a `## Children` checklist filled after
+  the children exist.
+- **Children** — one issue each, labeled `epic:<slug>` (create the label if absent). Body: scope,
+  machine-checkable acceptance, `Depends on #N`, files likely touched, and **proof expectations** for
+  `visual`/`shared-state` work (screenshot/GIF, or before/after artifact). End each with `Part of #<tracker>`.
+- Each materialize step posts a tracker comment tagged `<!-- epic-plan: materialize -->` so a resumed
+  run knows it ran.
+
+Labels: `gh label create epic --color 5319e7 ...` if missing; `gh label list | grep epic:` for the
+slug convention.
+
+## Phase 6 — Handoff
+
+Report one run command:
 
 ```
-## Child N — <title>
-
-### Scope
-<1-3 sentences>
-
-### Acceptance criteria
-- <testable bullet>
-
-### Depends on
-Child M  <!-- ordinal ref; "none" if no deps -->
-
-### Files likely touched
-- path/to/file.py
-
-### Risk
-<text-only|visual|shared-state>
+/issue label:epic:<slug>          # batch-execute all children
 ```
 
-Each child: self-contained (one session), clear AC, files likely touched. For deps, use the `### Depends on` subsection with ordinal refs (`Child 1`, `Child 2`, etc.) — **never bold inline text** like `**Depends on:** #1`. The parser requires the section header.
+`/issue` runs ≤4 children concurrently and does **not** dependency-order, so for a chain, run the
+blocker children first, then the dependents (`/issue <n1> <n2>`). For risky epics (deletions,
+migrations, multi-file behavior changes), suggest an `/adversary` cross-model pass before execution.
+This skill ends here — `/issue` → `/resolve-issue` owns execution and merging.
 
-**Risk tag.** Assign exactly one:
-- `text-only`: docs, comments, prompts, config trims, mechanical renames.
-- `visual`: UI, rendered documents, screenshots, or anything judged by sight.
-- `shared-state`: DB, daemon behavior, schemas, auth, deploy paths, public APIs, cross-project artifacts, or anything where green local tests may miss risk.
-Default to `shared-state` when uncertain.
+## Hard rules
 
-For shared-state or visual work, include proof expectations in the relevant child
-issues. `/epic-run` relies on per-PR verification and CI in normal mode; it does
-not run an extra epic-level demo gate after the last merge.
-
-**Size heuristic:** files-touched > ~15 OR LOC delta > ~1000 OR > ~10 large-file reads → split. One session = one focused PR.
-
-**Surface walk (optional).** Spawn an `Explore` subagent to walk the affected surface when integration risk is unclear. Brief it with the draft shape; ask for entry points, cross-process consumers, live state, and non-obvious tests. Cap under 800 words. Skip when single-file or you already know the surface.
-
-## Stage 5 — Materialize epic
-
-### Tracker (`gh issue create --label epic --title "Epic: <topic>"`)
-
-```markdown
-## Goal
-<2-3 sentences>
-
-## Risk
-<text-only|visual|shared-state>
-
-## Children
-<filled after children created>
-```
-
-### Child issue body
-
-```markdown
-## Scope
-<1-3 sentences>
-
-**Risk:** <text-only|visual|shared-state>
-
-## Acceptance criteria
-- <testable bullet>
-
-## Proof
-<Required for visual/shared-state work; omit for text-only.
-Visual: screenshot/GIF showing the rendered change.
-Shared-state: before/after route, table row, transcript, or other artifact
-proving the affected surface behaves correctly.>
-
-## Files likely touched
-- path/to/file.py
-
-## Depends on
-#<other-child-num>  <!-- omit if no deps -->
-
-Part of #<epic-num>
-```
-
-**Live-state mutators.** Phrase ACs as "verify the target state, migrating any non-conforming records."
-
-After children created, edit tracker to fill `## Children` with `- [ ] #N — <title>` lines.
-
-### Labels
-
-If `epic` doesn't exist: `gh label create epic --color "5319e7" --description "Tracking issue for a multi-issue epic"`.
-Topic-specific: `gh label list | grep epic:` for existing convention. Create `epic:<slug>` if topic warrants and apply to tracker + every child.
-
-### Report
-
-One line: The run command: `/epic-run <epic-num>` (or `/loop /epic-run <epic-num>` for unattended runs if your harness supports scheduled wakeups).
-
-For risky epics (deletions, migrations, multi-file behavior changes), suggest a `/adversary` cross-model pass on the plan before `/epic-run`.
-
-## Rules
-
-- **Don't invent scope.** "Audit backups" means backups, not "and clean up the dashboard while we're here."
-- **Order matters.** File-overlapping items are sequential — note in `Depends on`.
-- **No PRD ceremony.** Tracker stays lean; children carry scope, AC, out-of-scope.
-- **The user runs `/epic-run` separately.** This skill ends when issues are created.
-- **No silent sub-orchestrators.** Genuine sub-decomposition → escalate to a sibling epic.
-
-**Do NOT create issues until user says go.**
+- **Don't invent scope.** "Audit backups" means backups, not a dashboard cleanup along the way.
+- **Order matters.** File-overlapping children are sequential — say so in `depends-on`.
+- **No PRD bloat.** The tracker carries Goal + Contract; children carry scope + AC. Nothing else.
+- **No silent sub-orchestrators.** A child that needs decomposing is a sibling epic — surface it.
+- **Diverse lenses, never N identical refuters** — same-prompt panels converge and add nothing.
+- **GitHub state is the checkpoint.** Resumable from tracker body + labels + tagged comments; no local ledger.
+- **Don't create issues until the user says go.**

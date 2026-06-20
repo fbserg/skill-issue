@@ -7,12 +7,13 @@ Labels, branch names, and PR title conventions used by the epic workflow.
 | Label | Created by | Meaning |
 |---|---|---|
 | `epic` | `epic-plan` | Tracking issue for a multi-issue epic |
-| `epic-<N>` | `epic-run` / `epic-tools pr-create` | Applied to every child PR of epic N |
-| `epic-<N>-running` | `epic-run` orchestrator | Run lock — epic is currently being executed |
-| `epic-<N>-failed` | `epic-run` orchestrator | Child issue or PR failed and needs attention |
-| `epic-<N>-ci-retried` | `epic-run` orchestrator | CI was flaky; one retry was attempted |
-| `epic-followups` | manual / `epic-retro` | Follow-up issues filed during or after an epic |
-| `epic-unfinished` | manual / `epic-retro` | Partial ACs filed mid-epic |
+| `epic:<slug>` | `epic-plan` | Label applied to child issues for routing via `/issue label:epic:<slug>` |
+| `epic-<N>` | `epic-run` / `epic-tools pr-create` **(deprecated — epic-run)** | Applied to every child PR of epic N |
+| `epic-<N>-running` | `epic-run` orchestrator **(deprecated — epic-run)** | Run lock — epic is currently being executed |
+| `epic-<N>-failed` | `epic-run` orchestrator **(deprecated — epic-run)** | Child issue or PR failed and needs attention |
+| `epic-<N>-ci-retried` | `epic-run` orchestrator **(deprecated — epic-run)** | CI was flaky; one retry was attempted |
+| `epic-followups` | manual (previously also `epic-retro`) | Follow-up issues filed during or after an epic |
+| `epic-unfinished` | manual (previously also `epic-retro`) | Partial ACs filed mid-epic |
 
 ## Branch names
 
@@ -20,7 +21,7 @@ Labels, branch names, and PR title conventions used by the epic workflow.
 |---|---|---|
 | `epic-<N>-<child>-<slug>-<suffix>` | child agent | Child issue work branch |
 | `worktree-agent-<suffix>` | orchestrator | Orchestrator worktree branch |
-| `revert-epic-<N>-<suffix>` | `epic-tools revert` | Revert PR branch |
+| `revert-epic-<N>-<suffix>` | `epic-tools revert` **(deprecated — epic-run)** | Revert PR branch |
 
 Where:
 - `<N>` is the epic issue number

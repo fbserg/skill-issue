@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented here.
 
+## Unreleased (2026-06-20)
+
+### Changed
+- Project is now **Claude-only**. Codex is fully phased out: the entire `skills/codex/` tree is archived under `deprecated/skills/codex/` and no longer installed.
+- Deprecated the `epic-run` pipeline (`epic-run`, `epic-research`, `epic-retro`) and the `epic-tools` CLI: all archived under `deprecated/`. They are not installed, not checked by `check-install.py`, and not symlinked by `install.sh`. See `deprecated/README.md`.
+- Rebuilt `epic-plan` (Claude): lean, research-and-review-centric. Wide parallel research front-loads discovery; a 4-lens adversarial review validates the decomposition before issues are filed; child issues re-enter from GitHub state and execute via `/issue` → `/resolve-issue` (not `/epic-run`).
+- `install.sh` and `check-install.py` updated to reflect Claude-only install: Codex loops and epic-tools wiring removed.
+
 ## Unreleased
 
 ### Added

@@ -4,7 +4,7 @@ about: Something isn't working right
 labels: bug
 ---
 
-**Skill or tool:** (e.g. `epic-plan`, `epic-tools revert`, `zero`)
+**Skill or tool:** (e.g. `epic-plan`, `resolve-issue`, `zero`)
 
 **What happened:**
 

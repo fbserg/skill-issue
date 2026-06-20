@@ -18,9 +18,9 @@ cd skill-issue
 # 3. Use
 # In Claude Code, type:
 /epic-plan "add dark mode to the settings page"
-# Claude asks questions, researches competitors, drafts a GitHub epic.
-# When done, run it:
-/epic-run <epic-number>
+# Claude researches, drafts a GitHub epic with child issues.
+# Execute children via:
+/issue label:epic:<slug>
 ```
 
 ## Skills
@@ -31,25 +31,12 @@ cd skill-issue
 |---|---|
 | [`adversary`](skills/claude/adversary/SKILL.md) | Cross-model red-team: sends a plan or diff to Codex (GPT) for an adversarial pass before committing. |
 | [`deep-research`](skills/claude/deep-research/SKILL.md) | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
-| [`epic-plan`](skills/claude/epic-plan/SKILL.md) | Scope a goal into a GitHub epic + child issues, with staged research and one-at-a-time questions. |
-| [`epic-research`](skills/claude/epic-research/SKILL.md) | Pre-plan research: three parallel agents on competitors, tech peers, and GitHub code. |
-| [`epic-retro`](skills/claude/epic-retro/SKILL.md) | Mine closed epics and PRs for ranked skill/process improvements. |
-| [`epic-run`](skills/claude/epic-run/SKILL.md) | Execute a planned epic: fan children into isolated worktrees, verify PRs, merge in dependency order. |
+| [`epic-plan`](skills/claude/epic-plan/SKILL.md) | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /issue → /resolve-issue; re-enters from GitHub state. |
 | [`issue`](skills/claude/issue/SKILL.md) | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by tier. Never writes code, never merges. |
 | [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | Self-scaling pipeline for one issue: light path for tier-1, full assess→plan→implement→test→review for tier 2-3, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
 | [`simplify-sweep`](skills/claude/simplify-sweep/SKILL.md) | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 
-### Codex (`skills/codex/`)
-
-| Skill | Description |
-|---|---|
-| [`epic-plan`](skills/codex/epic-plan/SKILL.md) | Same 7-stage flow adapted for Codex workers. |
-| [`epic-research`](skills/codex/epic-research/SKILL.md) | Parity copy of the Claude epic-research skill. |
-| [`epic-run`](skills/codex/epic-run/SKILL.md) | Codex adapter for the epic-run orchestrator. |
-| [`quick-research`](skills/codex/quick-research/SKILL.md) | Lightweight fan-out research for practical decisions and tradeoff answers. |
-| [`tidy`](skills/codex/tidy/SKILL.md) | Anti-slop pass on changed code: delete phantom abstractions, flatten ceremony, reuse existing utilities. |
-
-### Shared (`skills/shared/`) — installed for both Claude and Codex
+### Shared (`skills/shared/`) — installed for Claude
 
 | Skill | Description |
 |---|---|
@@ -58,15 +45,6 @@ cd skill-issue
 | [`humanizer`](skills/shared/humanizer/SKILL.md) | De-slop AI prose: remove generative tells while preserving meaning. |
 | [`zero`](skills/shared/zero/SKILL.md) | Destructive repo reset: checkpoint, merge all branches/worktrees into main, push. Read before use. |
 
-## Pairing skills
-
-```
-/epic-research "should we adopt X"   →  answers "where do we stand"
-/epic-plan "build X"                 →  turns a direction into child issues
-/epic-run <N>                        →  executes the plan
-/epic-retro                          →  mines closed epics for improvements
-```
-
 ## Routing an issue
 
 | You have | Use |
@@ -74,7 +52,7 @@ cd skill-issue
 | An issue number | `/issue <N>` — hands it to `/resolve-issue`, which self-scales by tier |
 | A rough idea (no issue yet) | `/issue <free text>` — scopes it, files the issue, then dispatches |
 | Multiple issues | `/issue last 5` or `/issue 42 43 44` — fans out ≤4 concurrent `/resolve-issue` lanes |
-| A true epic (multi-session, multiple deliverables) | `/epic-plan <N>` → `/epic-run <N>` |
+| A true epic (multi-session, multiple deliverables) | `/epic-plan <topic>` → `/issue label:epic:<slug>` |
 
 Claiming (assign yourself), plan-comment-before-branch, and PR-only delivery are built in — you never merge your own PR.
 
@@ -82,9 +60,8 @@ Claiming (assign yourself), plan-comment-before-branch, and PR-only delivery are
 
 - Git
 - GitHub CLI (`gh`) authenticated: `gh auth login`
-- Python 3.10+ for `epic-tools`
 - [`uv`](https://docs.astral.sh/uv/) for `gmail-tools` (auto-installs its Google deps on first run)
-- Claude Code and/or Codex with local skill directory support
+- Claude Code with local skill directory support
 
 ### Optional
 
@@ -94,29 +71,14 @@ Claiming (assign yourself), plan-comment-before-branch, and PR-only delivery are
 
 See [docs/install.md](docs/install.md) for full instructions.
 
-`skill-issue` is the canonical source for these skills and `epic-tools`. Edit
-the files in this checkout, then run `python3 scripts/check-install.py` to catch
-any local install that points at an older copy. Run `python3 scripts/check-links.py`
-to verify that all relative markdown links in the repo resolve on disk.
+`skill-issue` is the canonical source for these skills. Edit the files in this
+checkout, then run `python3 scripts/check-install.py` to catch any local install
+that points at an older copy. Run `python3 scripts/check-links.py` to verify that
+all relative markdown links in the repo resolve on disk.
 
 ```bash
 # Quick install (symlinks — edits to the repo are immediately live)
 ./scripts/install.sh
-```
-
-Confirm `~/.local/bin` is on `PATH`, then verify:
-
-```bash
-epic-tools --help
-```
-
-## epic-tools
-
-The `epic-tools` CLI lives at `tools/epic-tools/bin/epic-tools`. It's used by `epic-run` and `epic-retro` for GitHub operations and PR verification.
-
-```
-epic-tools --help
-python3 scripts/check-install.py
 ```
 
 ## gmail-tools
@@ -166,4 +128,4 @@ Experimental. Read each skill before using it on an important repository.
 
 `zero` is intentionally destructive — it merges everything into the default branch and pushes. Use only at a deliberate cleanup point.
 
-`epic-run`'s scheduled wakeups (`ScheduleWakeup`) work only inside Claude Code's loop/cron harness. Without it, run one tick at a time manually.
+The `epic-run` family (epic-run, epic-research, epic-retro) and `epic-tools` are deprecated and archived under `deprecated/` (see `deprecated/README.md`). The project is Claude-only; child issues from `epic-plan` execute via `/issue` → `/resolve-issue`.

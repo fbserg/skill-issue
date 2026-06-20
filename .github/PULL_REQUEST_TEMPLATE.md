@@ -8,8 +8,7 @@
 
 ## Tested
 
-<!-- How did you test this? For skill changes: describe the invocation and outcome. For epic-tools: paste the relevant --help output or test run. -->
+<!-- How did you test this? For skill changes: describe the invocation and outcome. -->
 
-- [ ] Skill tested end-to-end in Claude Code / Codex
-- [ ] `python3 -m py_compile tools/epic-tools/bin/epic-tools` passes (if epic-tools changed)
+- [ ] Skill tested end-to-end in Claude Code
 - [ ] No private paths introduced (`git grep -nE '/Users/[a-z]+|~/projects/|\$HOME/projects' -- . ':!.github/PULL_REQUEST_TEMPLATE.md'` returns nothing)
