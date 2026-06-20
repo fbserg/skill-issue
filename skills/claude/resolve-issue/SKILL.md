@@ -64,8 +64,9 @@ each pinned to a specific failure mode (not to "we could parallelize"):
 
 - **plan panel** (Step 1, tier-3 only) — counters a plan that boxes into a
   dead end;
-- **review panel** (Step 3) — three perspective-diverse lenses counter the
-  blind spot a single reviewer gets when three concerns compete in one pass;
+- **review panel** (Step 3) — perspective-diverse lenses (up to four) counter
+  the blind spot a single reviewer gets when several concerns compete in one
+  pass;
 - **blocker verification** (Step 3) — refute each blocker so the fixer never
   "fixes" a phantom bug.
 
@@ -144,7 +145,8 @@ Handoff: `TIER`, `RATIONALE`, `OPEN_QUESTIONS`, `IMPACT_SET` (files/areas),
 
 **Tier 1 → light path.** Don't bounce it — run the trimmed pipeline: single
 planner (Step 1, no panel), implementer, test writer (Step 2), one combined
-reviewer instead of the three-lens panel (Step 3), finalize (Step 4). Skip the
+reviewer instead of the full review panel (Step 3, no maintainability lens),
+finalize (Step 4). Skip the
 plan panel and the per-blocker skeptic panel; the issue isn't wide enough to pay
 for them. **Epic → stop:** if the assessor lands on Epic (multiple separable
 deliverables / multi-session / depends on in-flight work), don't implement —
@@ -229,15 +231,15 @@ Review scales with tier:
   (add the security lens only if the change touches input / IO / untrusted data),
   and skip the separate blocker-verification panel — one inline skeptic re-check of
   any blocker is enough.
-- **Tier 2 — two reviewers:** (1) correctness **with security & robustness merged
-  in** — security stays unconditional at this blast radius, never gated on a
-  guess about whether the change "touches IO"; (2) tests-actually-assert. Run
-  blocker verification below.
-- **Tier 3 — three separate fresh-context lenses** (the full panel) plus blocker
+- **Tier 2 — three reviewers:** (1) correctness **with security & robustness
+  merged in** — security stays unconditional at this blast radius, never gated on
+  a guess about whether the change "touches IO"; (2) tests-actually-assert; (3)
+  maintainability & structure (advisory — see below). Run blocker verification.
+- **Tier 3 — four separate fresh-context lenses** (the full panel) plus blocker
   verification.
 
-1. **Review panel** (read-only): spawn three reviewer lenses concurrently over
-   the full PR diff, each fresh context —
+1. **Review panel** (read-only): spawn the reviewer lenses for the tier
+   concurrently over the full PR diff, each fresh context —
    - **correctness** — each criterion satisfied; logic, return values, edge
      inputs, the `CRITERION_MAP`;
    - **security & robustness** — injection, unsafe input, crashes, data
@@ -245,6 +247,23 @@ Review scales with tier:
    - **tests-actually-assert** — do the new tests exercise the contract,
      survive the negative control, cover the boundaries; flag any criterion
      with no real assertion.
+   - **maintainability & structure** (tier 2–3 only) — the strict-quality lens.
+     Hunt structural regressions, not style nits: abstraction quality, files
+     crossing ~1000 lines without strong justification, ad-hoc conditional
+     sprawl grafted onto existing code, type/boundary cleanliness, logic kept in
+     its canonical layer reusing existing helpers rather than re-implemented.
+     Prefer behavior-preserving simplifications ("does this whole block collapse
+     to a helper we already have?") over restating what works. **Two scope
+     guards, both hard:** (a) **advisory only — caps at should-fix, never emits a
+     blocker**; a structural smell informs, it does not gate a merge. (b) **Skip
+     this lens entirely for verbatim transplants and packet-frozen code** —
+     calc/sync ports are line-by-line identical by contract (ground rule 4), so
+     an "improve the abstraction" finding there is wrong by construction; the
+     orchestrator omits this lens when the change is a transplant. The fixer
+     treats its should-fix findings like any other should-fix and **declines,
+     with a reason, any that would balloon PR scope** (e.g. splitting a
+     pre-existing 1000-line file) rather than dragging an unrelated refactor into
+     the PR.
 
    Each emits findings `F-<cycle>-<n>` with severity (blocker / should-fix /
    nit), file, and a concrete description. **Dedup across lenses** — the same
