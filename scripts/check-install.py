@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import os
-import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -15,24 +13,9 @@ EXPECTED_SKILLS = {
         "authentic-writing",
         "authenticity-check",
         "epic-plan",
-        "epic-run",
-        "epic-research",
-        "epic-retro",
         "humanizer",
         "issue",
         "resolve-issue",
-        "tidy",
-        "zero",
-    ),
-    "codex": (
-        "authentic-writing",
-        "authenticity-check",
-        "epic-plan",
-        "epic-run",
-        "epic-research",
-        "humanizer",
-        "quick-research",
-        "tidy",
         "zero",
     ),
 }
@@ -42,18 +25,8 @@ EXPECTED_LINKS = {
     for name in names
 }
 EXPECTED_LINKS[
-    Path("~/.local/bin/epic-tools").expanduser()
-] = REPO_ROOT / "tools/epic-tools/bin/epic-tools"
-EXPECTED_SUBCOMMANDS = {
-    "parse-epic",
-    "epic-status",
-    "verify-pr",
-    "revert",
-    "pr-create",
-    "lock-status",
-    "cleanup",
-    "plan-to-epic",
-}
+    Path("~/.local/bin/gmail-tools").expanduser()
+] = REPO_ROOT / "tools/gmail-tools/bin/gmail-tools"
 
 
 def fail(message: str) -> None:
@@ -69,58 +42,14 @@ def check_link(link: Path, expected: Path) -> None:
         fail(f"{link} resolves to {resolved}, expected {expected}")
     if not resolved.exists():
         fail(f"{link} target does not exist: {resolved}")
-    if resolved.name == "epic-tools" and not os.access(resolved, os.X_OK):
+    if resolved.name == "gmail-tools" and not os.access(resolved, os.X_OK):
         fail(f"{resolved} is not executable")
-
-
-def installed_epic_tools_help() -> str:
-    result = subprocess.run(
-        ["epic-tools", "--help"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    output = result.stdout + result.stderr
-    if result.returncode != 0:
-        fail(f"epic-tools --help failed:\n{output.strip()}")
-    return output
-
-
-def parse_subcommands(help_text: str) -> set[str]:
-    match = re.search(r"\{([\w,\-]+)\}", help_text)
-    if not match:
-        fail("could not parse epic-tools subcommands from --help")
-    return set(match.group(1).split(","))
-
-
-def check_help_flag(subcommand: str, needle: str) -> None:
-    result = subprocess.run(
-        ["epic-tools", subcommand, "--help"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    output = result.stdout + result.stderr
-    if result.returncode != 0:
-        fail(f"epic-tools {subcommand} --help failed:\n{output.strip()}")
-    if needle not in output:
-        fail(f"epic-tools {subcommand} --help does not mention {needle}")
 
 
 def main() -> int:
     for link, expected in EXPECTED_LINKS.items():
         check_link(link, expected)
 
-    subcommands = parse_subcommands(installed_epic_tools_help())
-    if subcommands != EXPECTED_SUBCOMMANDS:
-        fail(
-            "epic-tools subcommand mismatch: "
-            f"extra={sorted(subcommands - EXPECTED_SUBCOMMANDS)} "
-            f"missing={sorted(EXPECTED_SUBCOMMANDS - subcommands)}"
-        )
-
-    check_help_flag("revert", "--yes")
-    check_help_flag("cleanup", "--yes")
     print(f"OK skill-issue install: {REPO_ROOT}")
     return 0
 

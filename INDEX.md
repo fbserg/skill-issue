@@ -5,12 +5,11 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 ## Layout
 
 - `skills/claude/` — skills installed into `~/.claude/skills/`
-- `skills/codex/` — skills installed into `~/.codex/skills/`
-- `skills/shared/` — skills symlinked into both `~/.claude/skills/` and `~/.codex/skills/`
+- `skills/shared/` — skills symlinked into `~/.claude/skills/` (Claude-only now)
 - `agents/` — named subagent types with pinned model/effort, installed into `~/.claude/agents/`
 - `hooks/claude/` — Claude Code hooks (PreToolUse / Stop event handlers)
 - `config/CLAUDE.md` — reference `CLAUDE.md` operating rules (sanitized); copy into a project or `~/.claude/`
-- `tools/epic-tools/` — CLI used by epic-run and epic-retro for GitHub operations
+- `deprecated/` — archived skills/tools (epic-run family, Codex, epic-tools); not installed. See `deprecated/README.md`.
 - `scripts/` — repo maintenance scripts
 - `docs/` — install guide, env sharing, publication checklist
 
@@ -22,29 +21,14 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 |---|---|---|
 | adversary | `skills/claude/adversary/SKILL.md` | Cross-model adversarial review: sends a plan or diff to Codex (GPT) for a red-team pass before committing. |
 | deep-research | `skills/claude/deep-research/SKILL.md` | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
-| epic-plan | `skills/claude/epic-plan/SKILL.md` | Scope a topic into a GitHub epic + child issues, with staged research and one-at-a-time clarifying questions. |
-| epic-research | `skills/claude/epic-research/SKILL.md` | Pre-plan research: three parallel agents on competitors, tech peers, and GitHub code; output feeds epic-plan. |
-| epic-retro | `skills/claude/epic-retro/SKILL.md` | Mine closed epic PRs and followup issues for ranked improvements to epic-plan/epic-run. |
-| epic-run | `skills/claude/epic-run/SKILL.md` | Execute a planned epic: fan children into isolated worktrees, verify PRs, merge in dependency order. |
+| epic-plan | `skills/claude/epic-plan/SKILL.md` | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /issue → /resolve-issue; re-enters from GitHub state. |
 | issue | `skills/claude/issue/SKILL.md` | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by tier. Never writes code, never merges. |
 | resolve-issue | `skills/claude/resolve-issue/SKILL.md` | Self-scaling pipeline for one issue: light path for tier-1, full assess→plan→implement→test→review for tier 2-3, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
 | simplify-sweep | `skills/claude/simplify-sweep/SKILL.md` | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 
 ---
 
-## Codex skills (`skills/codex/`)
-
-| Name | Path | TLDR |
-|---|---|---|
-| epic-plan | `skills/codex/epic-plan/SKILL.md` | Same 7-stage epic-plan flow adapted for Codex workers. |
-| epic-research | `skills/codex/epic-research/SKILL.md` | Parity copy of the Claude epic-research skill for Codex sessions. |
-| epic-run | `skills/codex/epic-run/SKILL.md` | Codex adapter for the epic-run orchestrator; dependency-ordered workers, isolated workspaces, orchestrator merges. |
-| quick-research | `skills/codex/quick-research/SKILL.md` | Lightweight multi-agent fan-out research for practical tradeoff and comparison questions. |
-| tidy | `skills/codex/tidy/SKILL.md` | Anti-slop pass on changed code: delete phantom abstractions, flatten ceremony, reuse existing utilities. |
-
----
-
-## Shared skills (`skills/shared/`) — installed for both Claude and Codex
+## Shared skills (`skills/shared/`) — installed for Claude
 
 | Name | Path | TLDR |
 |---|---|---|
@@ -75,11 +59,10 @@ Combined `settings.json` snippet: `hooks/claude/README.md`
 
 | Name | Path | TLDR |
 |---|---|---|
-| epic-tools | `tools/epic-tools/bin/epic-tools` | CLI for GitHub operations used by epic-run and epic-retro (PR verification, issue claiming, plan-to-epic). |
 | claude-spend | `tools/claude-spend/spend.py` | Claude Code per-project spend analyzer (per-session/per-skill token+cost rollup, cache-tier aware); stolen from hong (https://github.com/hyang0129/dot-claude). |
 | check-install | `scripts/check-install.py` | Verify local symlinks point at this repo's copies, not stale older versions. |
 | check-links | `scripts/check-links.py` | Doc-link drift guard: verify every relative markdown link in tracked .md files resolves on disk. |
-| install | `scripts/install.sh` | Symlink all skills and epic-tools into the right runtime dirs. Idempotent. |
+| install | `scripts/install.sh` | Symlink all skills into the right runtime dirs. Idempotent. |
 
 ---
 
