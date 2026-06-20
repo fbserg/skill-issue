@@ -70,8 +70,15 @@ concurrent (the project's cadence).
   because the batch routes lanes *before* spawning: a plan comment or draft PR →
   route that lane to `--resume <N>`; a ready PR → drop it (note `skipped: ready
   PR`); neither → fresh `/resolve-issue <N>`.
-- **Fan out** ≤4 concurrent lane subagents (`agentType: "worker"` — Sonnet at
-  `effort: medium`; the agent type carries the model, no separate `model:` needed).
+- **Fan out** ≤4 concurrent lane subagents **in a single message — several
+  `Agent` tool calls in one assistant turn, not one per turn** (`agentType:
+  "worker"` — Sonnet at `effort: medium`; the agent type carries the model, no
+  separate `model:` needed). Spawning lanes across separate turns serializes them
+  and defeats the batch; emit the whole wave at once and collect the handoffs
+  together. For more than 4 issues, dispatch in waves of ≤4 — one full message per
+  wave, await it, then the next. Beyond the `gh` guard/list calls above you run no
+  `Bash`/`Read`/`Edit` yourself — all code work is inside the lanes (the same
+  no-code-context rule resolve-issue holds).
   Each lane is **explicitly the orchestrator of
   `/resolve-issue` for its one issue** — it runs the resolve-issue skill end to
   end in isolation (its own worktree, its own phase subagents; this is the
