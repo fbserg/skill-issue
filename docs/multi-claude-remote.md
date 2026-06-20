@@ -28,9 +28,10 @@ instances cannot collide.
 | **tmux sessions** | a dedicated socket `tmux -L NAME` | A picker for one instance never sees/kills another's |
 | **Shared assets** | symlinks to one source-of-truth dir | Skills/agents/settings/memory stay in lockstep, edited once |
 
-The local one-word command is trivial: open a TTY over SSH and run a picker
-script that lives **on the box**. All the logic is remote; the launcher is four
-lines.
+The local one-word command is small: it picks a transport (mosh if present, else
+`ssh -t`) and runs a picker script that lives **on the box**. All the logic is
+remote. Transport and picker polish (live preview, detach-on-attach, auto-named
+sessions) are orthogonal niceties layered on top — see Starters.
 
 ---
 
@@ -157,8 +158,13 @@ JSON
 
 ### 4. Drop the two remote scripts and a dependency
 
-`fzf` makes the picker nice; the script falls back to the `select` builtin
-without it. Install once: `ssh ... 'brew install fzf'` (or your package manager).
+Two optional deps sharpen this, both with graceful fallbacks:
+- **`fzf`** — fuzzy picker *and* the live per-session preview; without it the
+  picker falls back to a numbered `select` menu (no preview).
+- **`mosh`** — resilient transport that survives sleep, IP changes and flaky
+  phone networks; without it (locally) the launcher falls back to `ssh -t`.
+
+Install on the box (fzf + mosh-server) and your laptop (mosh): `brew install fzf mosh`.
 
 See **Starters** below for `NAME-launch.sh` (sets `CLAUDE_CONFIG_DIR`, execs
 claude) and `NAME-pick.sh` (the selector). Create the dir, deploy, mark
@@ -180,9 +186,9 @@ so editing host/port/key never means touching the script.
 `NAME.env`, and every variable in it is prefixed `<NAME-uppercased>_` —
 `BMAC_HOST`, `CMAC_PICKER`, etc. One glance tells you which instance a variable
 belongs to, and two instances' envs can never shadow each other. The fixed keys
-are `<N>_HOST`, `<N>_PORT`, `<N>_USER`, `<N>_KEY`, `<N>_PICKER`. (Do **not**
-invent an unrelated prefix — an early instance used `SZIL_*` cloned from its
-template and it was pure confusion; the prefix must echo the command name.)
+are `<N>_HOST`, `<N>_PORT`, `<N>_USER`, `<N>_KEY`, `<N>_PICKER` (plus an optional
+`<N>_MOSH_SERVER`). The prefix is simply the connection's own name, uppercased —
+`bmac` → `BMAC_*`, `cmac` → `CMAC_*`. Nothing clever; just the name.
 
 `NAME.env` (next to the launcher, and/or in `~/projects/NAME/`):
 
@@ -192,6 +198,7 @@ NAME_PORT="22"
 NAME_USER="USER"
 NAME_KEY="$HOME/.ssh/KEY"
 NAME_PICKER="/Users/USER/.claude-profiles/NAME-pick.sh"
+NAME_MOSH_SERVER="/opt/homebrew/bin/mosh-server"   # only used when mosh is present
 ```
 
 `NAME` launcher — put it on your PATH (e.g. symlink into `~/.local/bin`):
@@ -206,12 +213,21 @@ done
 : "${NAME_HOST:?NAME.env not found or NAME_HOST unset}"
 : "${NAME_PORT:=22}" "${NAME_USER:=USER}" "${NAME_KEY:=$HOME/.ssh/KEY}"
 : "${NAME_PICKER:=/Users/USER/.claude-profiles/NAME-pick.sh}"
+: "${NAME_MOSH_SERVER:=/opt/homebrew/bin/mosh-server}"
+
+# Prefer mosh (survives sleep / IP changes / flaky phone networks); fall back to
+# ssh -t where mosh isn't installed locally. Both drop into the remote picker.
+if command -v mosh >/dev/null 2>&1; then
+  exec mosh --server="$NAME_MOSH_SERVER" --ssh="ssh -p $NAME_PORT -i $NAME_KEY" \
+    "${NAME_USER}@${NAME_HOST}" -- bash "$NAME_PICKER"
+fi
 exec ssh -t -p "$NAME_PORT" -i "$NAME_KEY" \
   -o ServerAliveInterval=30 -o ServerAliveCountMax=4 \
   "${NAME_USER}@${NAME_HOST}" "exec bash ${NAME_PICKER}"
 ```
 
-`ssh -t` forces a TTY so the remote picker (fzf / select / read) is interactive.
+Both transports hand the remote picker an interactive TTY (mosh always; `ssh -t`
+forces one), so fzf / select / read work either way.
 
 ---
 
@@ -255,6 +271,9 @@ exec ssh -t -p "$NAME_PORT" -i "$NAME_KEY" \
 - **In-memory creds.** A running instance caches its token at launch. After you
   change its `.credentials.json`, restart that session to pick it up.
 - **Symlinked settings are shared writes** (see step 1).
+- **mosh needs UDP** (ports 60000–61000). Fine over Tailscale / LAN; on a network
+  that blocks UDP it hangs — that's when the `ssh -t` fallback matters (rename or
+  uninstall local mosh to force ssh).
 - **bash 3.2.** macOS ships ancient bash. Keep remote scripts 3.2-safe — no
   `mapfile`, no arrays — so they run under the system shell. (The picker's
   unquoted `$sessions` is deliberate word-splitting; tmux session names with
@@ -282,7 +301,8 @@ exec claude "$@"
 ```bash
 #!/usr/bin/env bash
 # Session selector for the NAME instance. Lists Claude sessions on the dedicated
-# NAME tmux socket; attach one or start a new one. Isolated from every other
+# NAME tmux socket WITH a live preview of each pane; attach one (detaching any
+# other client) or start a fresh, timestamped one. Isolated from every other
 # instance (they use other sockets). bash-3.2-safe: no mapfile / no arrays.
 set -u
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"
@@ -290,16 +310,20 @@ export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"
 TM="tmux -L NAME"
 LAUNCHER="$HOME/.claude-profiles/NAME-launch.sh"
 DEFAULT="NAME"
-NEW="+ new session"
+NEW="＋ new session"
 
 sessions="$($TM list-sessions -F '#S' 2>/dev/null | grep -v '^$' || true)"
 
 if command -v fzf >/dev/null 2>&1; then
+  # Live preview of each session's pane ($TM is fully expanded into the string,
+  # so the preview subshell needs no env). The NEW row has no pane → placeholder.
+  PREVIEW="$TM capture-pane -ep -t {} 2>/dev/null || echo '(starts a fresh session)'"
   choice="$(printf '%s\n' "$NEW" $sessions | fzf \
-    --prompt='NAME > ' --height=45% --reverse --no-sort \
-    --header='enter = attach  ·  pick + new session to start one')"
+    --prompt='NAME ▸ ' --height=90% --reverse --no-sort \
+    --preview "$PREVIEW" --preview-window='right,62%,wrap,border-left' \
+    --header='enter = attach  ·  pick ＋ new session to start one')"
 else
-  echo; echo "NAME sessions (pick + new session to start one):"
+  echo; echo "NAME sessions (pick ＋ new session to start one):"
   PS3="pick a number: "
   select choice in "$NEW" $sessions; do [ -n "${choice:-}" ] && break; done
 fi
@@ -307,12 +331,43 @@ fi
 [ -z "${choice:-}" ] && exit 0          # cancelled
 
 if [ "$choice" = "$NEW" ]; then
-  printf 'new session name [%s]: ' "$DEFAULT"; read -r name
-  [ -z "$name" ] && name="$DEFAULT"
-  exec $TM new-session -A -s "$name" bash -lc "exec $LAUNCHER"   # -A: attach if it exists
+  default="$DEFAULT-$(date +%m%d-%H%M)"   # timestamped so repeats don't collide
+  printf 'new session name [%s]: ' "$default"; read -r name
+  [ -z "$name" ] && name="$default"
+  # -A: attach if it exists, else create.  -D: detach any other client on attach.
+  exec $TM new-session -A -D -s "$name" bash -lc "exec $LAUNCHER"
 else
-  exec $TM attach-session -t "$choice"
+  exec $TM attach-session -d -t "$choice"   # -d: detach any other client
 fi
+```
+
+### `status` overview (optional) — what's running, without attaching
+
+One read-only command that lists every instance's sessions and which account
+each profile is authed as, without attaching to anything. Edit the `show` lines
+to name your instances (`label · tmux-flags · config-dir`; empty flags = the
+default socket).
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+source "$HOME/projects/ANY/ANY.env"        # any instance's env — same box & key
+ssh -p "$ANY_PORT" -i "$ANY_KEY" "${ANY_USER}@${ANY_HOST}" 'bash -s' <<"REMOTE"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:$PATH"
+acct(){ python3 - "$1" <<'PY'
+import json,os,sys
+p=os.path.expanduser("~/%s/.claude.json"%sys.argv[1])
+try: print(json.load(open(p)).get("oauthAccount",{}).get("emailAddress","?"))
+except Exception: print("?")
+PY
+}
+show(){ printf '\n\033[1m── %s\033[0m  (%s)\n' "$1" "$(acct "$3")"
+  tmux $2 list-sessions \
+    -F '   #S  [#{?session_attached,attached,detached}]  #{session_windows}w' \
+    2>/dev/null || echo '   (none)'; }
+show alpha ""        .claude-alpha     # default-socket instance
+show beta  "-L beta" .claude-beta      # dedicated-socket instance
+REMOTE
 ```
 
 ### Local `NAME` command + `NAME.env` (on your machine, on PATH)
@@ -320,8 +375,8 @@ fi
 See **step 5** for the full pair: a thin launcher that sources `NAME.env` and
 execs `ssh -t … NAME-pick.sh`, plus the `NAME.env` file whose keys are all
 prefixed `<NAME-uppercased>_` (`NAME_HOST`, `NAME_PORT`, `NAME_USER`, `NAME_KEY`,
-`NAME_PICKER`). The prefix must echo the command name — don't reuse a template's
-unrelated prefix.
+`NAME_PICKER`, `NAME_MOSH_SERVER`). The prefix is just the connection name,
+uppercased.
 
 ---
 
