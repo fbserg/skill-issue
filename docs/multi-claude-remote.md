@@ -28,6 +28,12 @@ instances cannot collide.
 | **tmux sessions** | a dedicated socket `tmux -L NAME` | A picker for one instance never sees/kills another's |
 | **Shared assets** | symlinks to one source-of-truth dir | Skills/agents/settings/memory stay in lockstep, edited once |
 
+The dedicated socket (`tmux -L NAME`) matters only when **multiple instances share
+the box** — it keeps each instance's sessions invisible to the others' pickers.
+If a box runs just **one** instance, using tmux's default socket (no `-L`) is
+fine, and has a practical upside: the picker sees any session already running on
+the default socket, so you don't orphan it.
+
 The local one-word command is small: it picks a transport (mosh if present, else
 `ssh -t`) and runs a picker script that lives **on the box**. All the logic is
 remote. Transport and picker polish (live preview, detach-on-attach, auto-named
@@ -167,6 +173,13 @@ Two optional deps sharpen this:
 
 Install fzf on the box and your laptop; mosh on both only if you opt in: `brew install fzf` (+ `mosh` when wanted).
 
+> **Linux / no-sudo box:** `sudo apt-get install fzf` fails over plain SSH (the
+> password prompt has no tty). Reliable fallback: the upstream git installer into
+> the user's home —
+> `git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf && ~/.fzf/install --bin`
+> — which drops the binary at `~/.fzf/bin/fzf`. Add `~/.fzf/bin` to `PATH` in
+> `NAME-launch.sh` and `NAME-pick.sh` so the picker finds it.
+
 See **Starters** below for `NAME-launch.sh` (sets `CLAUDE_CONFIG_DIR`, execs
 claude) and `NAME-pick.sh` (the selector). Create the dir, deploy, mark
 executable:
@@ -279,6 +292,11 @@ forces one), so fzf / select / read work either way.
   with "Nothing received from server on UDP port …". Because a present-but-blocked
   mosh would otherwise lock you out, the launcher uses ssh unless you set
   `NAME_TRANSPORT=mosh`. Verify UDP works before opting in.
+- **WSL targets.** The Linux sshd is typically reached on a non-22 port (e.g.
+  2222) via a Windows portproxy. That portproxy answers a plain TCP connect even
+  when the WSL sshd behind it is DOWN, so a successful connect is not proof of
+  liveness — a liveness probe must read the SSH greeting and require it to start
+  with `SSH-` (e.g. `bash -c 'exec 3<>/dev/tcp/HOST/2222 && read -u3 -t3 g && [[ $g == SSH-* ]]'`).
 - **bash 3.2.** macOS ships ancient bash. Keep remote scripts 3.2-safe — no
   `mapfile`, no arrays — so they run under the system shell. (The picker's
   unquoted `$sessions` is deliberate word-splitting; tmux session names with
