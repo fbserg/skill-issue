@@ -11,6 +11,7 @@ echo "Installing from: $REPO_ROOT"
 echo ""
 
 mkdir -p \
+  "${HOME}/.codex/skills" \
   "${HOME}/.claude/skills" \
   "${HOME}/.local/bin"
 
@@ -21,6 +22,19 @@ for skill_dir in "${REPO_ROOT}/skills/claude"/*/; do
   target="${HOME}/.claude/skills/${name}"
   ln -sfn "$skill_dir" "$target"
   echo "  ~/.claude/skills/${name} -> $skill_dir"
+done
+
+echo ""
+
+# ── Codex skills ──────────────────────────────────────────────────────────────
+echo "Codex skills:"
+for skill_dir in "${REPO_ROOT}/skills/codex"/*/; do
+  [[ -d "$skill_dir" ]] || continue
+  [[ -f "${skill_dir}SKILL.md" ]] || continue
+  name="$(basename "$skill_dir")"
+  target="${HOME}/.codex/skills/${name}"
+  ln -sfn "$skill_dir" "$target"
+  echo "  ~/.codex/skills/${name} -> $skill_dir"
 done
 
 echo ""

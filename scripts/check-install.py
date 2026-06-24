@@ -9,6 +9,15 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 EXPECTED_SKILLS = {
+    "codex": (
+        "adversarial-review",
+        "epic-plan",
+        "issue",
+        "refactor-dupes",
+        "resolve-issue",
+        "ww",
+        "zero",
+    ),
     "claude": (
         "authentic-writing",
         "authenticity-check",

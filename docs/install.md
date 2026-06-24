@@ -7,7 +7,7 @@
    ```bash
    gh auth login
    ```
-3. **Claude Code** with local skill directory support
+3. **Claude Code and/or Codex** with local skill directory support
 
 ### Optional
 
@@ -20,7 +20,7 @@ to the agent runtime. Use `cp -R` instead if you prefer static copies.
 
 This checkout is the canonical edit point for the shipped prose, issue
 (front door + resolve-issue), and zero skills. Do not edit installed
-copies under `~/.claude/skills/`.
+copies under `~/.claude/skills/` or `~/.codex/skills/`.
 
 ### Claude
 
@@ -35,25 +35,45 @@ ln -sfn "$PWD/skills/claude/resolve-issue" ~/.claude/skills/resolve-issue
 ln -sfn "$PWD/skills/claude/zero"          ~/.claude/skills/zero
 ```
 
+### Codex
+
+```bash
+mkdir -p ~/.codex/skills
+ln -sfn "$PWD/skills/codex/adversarial-review" ~/.codex/skills/adversarial-review
+ln -sfn "$PWD/skills/codex/epic-plan"          ~/.codex/skills/epic-plan
+ln -sfn "$PWD/skills/codex/issue"              ~/.codex/skills/issue
+ln -sfn "$PWD/skills/codex/refactor-dupes"     ~/.codex/skills/refactor-dupes
+ln -sfn "$PWD/skills/codex/resolve-issue"      ~/.codex/skills/resolve-issue
+ln -sfn "$PWD/skills/codex/ww"                 ~/.codex/skills/ww
+ln -sfn "$PWD/skills/codex/zero"               ~/.codex/skills/zero
+```
+
 ## Verification
 
 ```bash
 # Skill files are accessible and point at this checkout
 ls ~/.claude/skills/epic-plan/SKILL.md
 ls ~/.claude/skills/humanizer/SKILL.md
+ls ~/.codex/skills/issue/SKILL.md
 python3 scripts/check-install.py
 ```
 
 `scripts/check-install.py` verifies that every shipped skill symlink resolves back to this checkout.
 
-Open Claude Code in any repo and type `/epic-plan "hello world"` — you should see the research phase kick off immediately.
+Open Claude Code or Codex in any repo and invoke one installed skill to confirm
+the runtime picked up the symlinked files.
+
+## Codex exclusions
+
+The Codex install intentionally does not include `deep-research`,
+`authentic-writing`, `authenticity-check`, `humanizer`, or the old Claude
+`simplify-sweep` workflow.
 
 ## Deprecated components
 
 The `epic-run` family (epic-run, epic-research, epic-retro), `epic-tools` CLI,
-and all Codex skills are deprecated and archived under `deprecated/`. See
-`deprecated/README.md`. They are not installed by this script and do not appear
-in `check-install.py`.
+and the old Codex skills are deprecated and archived under `deprecated/`. See
+`deprecated/README.md`. They are not installed by this script.
 
 ## Uninstall
 
@@ -63,4 +83,9 @@ rm ~/.claude/skills/epic-plan ~/.claude/skills/humanizer
 rm ~/.claude/skills/authenticity-check ~/.claude/skills/authentic-writing
 rm ~/.claude/skills/issue ~/.claude/skills/resolve-issue
 rm ~/.claude/skills/zero
+
+# Remove Codex skill symlinks
+rm ~/.codex/skills/adversarial-review ~/.codex/skills/epic-plan
+rm ~/.codex/skills/issue ~/.codex/skills/refactor-dupes
+rm ~/.codex/skills/resolve-issue ~/.codex/skills/ww ~/.codex/skills/zero
 ```

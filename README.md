@@ -16,14 +16,26 @@ cd skill-issue
 # Follow docs/install.md, or run the symlink commands in the Install section below.
 
 # 3. Use
-# In Claude Code, type:
+# In Claude Code or Codex, invoke:
 /epic-plan "add dark mode to the settings page"
-# Claude researches, drafts a GitHub epic with child issues.
+# The agent scopes and drafts a GitHub epic with child issues.
 # Execute children via:
-/issue label:epic:<slug>
+/issue <child-number>
 ```
 
 ## Skills
+
+### Codex (`skills/codex/`)
+
+| Skill | Description |
+|---|---|
+| [`adversarial-review`](skills/codex/adversarial-review/SKILL.md) | Read-only red-team pass over a plan or diff before risky work lands. |
+| [`epic-plan`](skills/codex/epic-plan/SKILL.md) | Scope broad work into a tracker issue and right-sized child issues; creates nothing until GO. |
+| [`issue`](skills/codex/issue/SKILL.md) | Front door for GitHub issue work; scopes ideas or routes issue numbers to resolve-issue. |
+| [`refactor-dupes`](skills/codex/refactor-dupes/SKILL.md) | Tool-first duplicate detection, architecture brief, approved worktree refactor, draft PR. |
+| [`resolve-issue`](skills/codex/resolve-issue/SKILL.md) | One issue to review-ready PR in an isolated worktree; never merges. |
+| [`ww`](skills/codex/ww/SKILL.md) | Isolated worktree workflow; plan first, PR by default, main untouched. |
+| [`zero`](skills/codex/zero/SKILL.md) | Explicit destructive cleanup workflow with read-only inventory first. |
 
 ### Claude (`skills/claude/`)
 
@@ -35,6 +47,9 @@ cd skill-issue
 | [`issue`](skills/claude/issue/SKILL.md) | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by tier. Never writes code, never merges. |
 | [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | Self-scaling pipeline for one issue: light path for tier-1, full assess→plan→implement→test→review for tier 2-3, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
 | [`simplify-sweep`](skills/claude/simplify-sweep/SKILL.md) | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
+
+Claude skills remain available for Claude Code. Codex uses the separate
+`skills/codex/` tree so tool names and workflow assumptions stay runtime-native.
 
 ### Shared (`skills/shared/`) — installed for Claude
 
@@ -52,7 +67,7 @@ cd skill-issue
 | An issue number | `/issue <N>` — hands it to `/resolve-issue`, which self-scales by tier |
 | A rough idea (no issue yet) | `/issue <free text>` — scopes it, files the issue, then dispatches |
 | Multiple issues | `/issue last 5` or `/issue 42 43 44` — fans out ≤4 concurrent `/resolve-issue` lanes |
-| A true epic (multi-session, multiple deliverables) | `/epic-plan <topic>` → `/issue label:epic:<slug>` |
+| A true epic (multi-session, multiple deliverables) | `/epic-plan <topic>` → `/issue <child-number>` |
 
 Claiming (assign yourself), plan-comment-before-branch, and PR-only delivery are built in — you never merge your own PR.
 
@@ -128,4 +143,6 @@ Experimental. Read each skill before using it on an important repository.
 
 `zero` is intentionally destructive — it merges everything into the default branch and pushes. Use only at a deliberate cleanup point.
 
-The `epic-run` family (epic-run, epic-research, epic-retro) and `epic-tools` are deprecated and archived under `deprecated/` (see `deprecated/README.md`). The project is Claude-only; child issues from `epic-plan` execute via `/issue` → `/resolve-issue`.
+The `epic-run` family (epic-run, epic-research, epic-retro), `epic-tools`, and
+the old Codex skills are deprecated and archived under `deprecated/` (see
+`deprecated/README.md`). Current Codex skills live under `skills/codex/`.

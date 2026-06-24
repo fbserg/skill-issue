@@ -4,6 +4,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 
 ## Layout
 
+- `skills/codex/` — skills installed into `~/.codex/skills/`
 - `skills/claude/` — skills installed into `~/.claude/skills/`
 - `skills/shared/` — skills symlinked into `~/.claude/skills/` (Claude-only now)
 - `agents/` — named subagent types with pinned model/effort, installed into `~/.claude/agents/`
@@ -25,6 +26,20 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | issue | `skills/claude/issue/SKILL.md` | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by tier. Never writes code, never merges. |
 | resolve-issue | `skills/claude/resolve-issue/SKILL.md` | Self-scaling pipeline for one issue: light path for tier-1, full assess→plan→implement→test→review for tier 2-3, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
 | simplify-sweep | `skills/claude/simplify-sweep/SKILL.md` | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
+
+---
+
+## Codex skills (`skills/codex/`)
+
+| Name | Path | TLDR |
+|---|---|---|
+| adversarial-review | `skills/codex/adversarial-review/SKILL.md` | Read-only adversarial review of a plan or diff before risky work lands. |
+| epic-plan | `skills/codex/epic-plan/SKILL.md` | Scope broad work into tracker + child issues; no GitHub writes until GO. |
+| issue | `skills/codex/issue/SKILL.md` | Front door for GitHub issue work; scope ideas or route issue numbers to resolve-issue. |
+| refactor-dupes | `skills/codex/refactor-dupes/SKILL.md` | Detect duplicates, approve an architecture brief, refactor one cluster in a worktree PR. |
+| resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR in an isolated worktree; never merges. |
+| ww | `skills/codex/ww/SKILL.md` | Worktree workflow: branch, plan, implement, check, draft PR; main untouched. |
+| zero | `skills/codex/zero/SKILL.md` | Explicit destructive cleanup with read-only inventory first; never discards work. |
 
 ---
 
