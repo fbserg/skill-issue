@@ -1,6 +1,6 @@
 ---
 name: issue
-description: Front door for GitHub issue work in Codex. Use for /issue, "do issue N", "fix issue N", rough issue ideas that need filing, or small batches of issue numbers. It scopes or dispatches to resolve-issue, never merges.
+description: Front door for GitHub issue work in Codex. Use for /issue, "do issue N", "fix issue N", rough issue ideas that need filing, or issue-number triage. It scopes one issue to resolve-issue, or routes explicit multi-issue waves to issue-wave. Never merges itself.
 ---
 
 # Issue
@@ -11,7 +11,7 @@ Use this as the thin entry point for GitHub issue work. It decides what the user
 
 - One issue number or URL: resolve that issue.
 - Rough idea with no issue: scope it into one issue, or tell the user it needs an epic if it spans multiple deliverables.
-- Multiple issue numbers: resolve in waves of at most four only when the user clearly asked for batch issue work.
+- Multiple issue numbers: route to `issue-wave` only when the user clearly asked for batch issue work.
 
 ## Workflow
 
@@ -21,7 +21,7 @@ Use this as the thin entry point for GitHub issue work. It decides what the user
 4. If a draft PR or plan comment exists, route to `resolve-issue --resume <N>`.
 5. If no issue exists yet, ask only for missing acceptance criteria that materially affect scope. Then create one focused issue with `## Scope` and `## Acceptance criteria`.
 6. Route one concrete issue to `resolve-issue <N>`.
-7. For a batch, spawn independent Codex worker sub-agents only when available and only with disjoint issue ownership. Each worker runs `resolve-issue` for exactly one issue.
+7. Route explicit batch work to `issue-wave`; do not coordinate workers or merges here.
 
 ## Boundaries
 

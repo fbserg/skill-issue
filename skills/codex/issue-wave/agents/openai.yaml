@@ -1,0 +1,4 @@
+interface:
+  display_name: "Issue Wave"
+  short_description: "Batch issue dispatch, review, merge, and cleanup"
+  default_prompt: "Use $issue-wave to run a small batch of GitHub issues through worker PRs, review, merge, and cleanup."

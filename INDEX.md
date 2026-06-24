@@ -36,6 +36,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | adversarial-review | `skills/codex/adversarial-review/SKILL.md` | Read-only adversarial review of a plan or diff before risky work lands. |
 | epic-plan | `skills/codex/epic-plan/SKILL.md` | Scope broad work into tracker + child issues; no GitHub writes until GO. |
 | issue | `skills/codex/issue/SKILL.md` | Front door for GitHub issue work; scope ideas or route issue numbers to resolve-issue. |
+| issue-wave | `skills/codex/issue-wave/SKILL.md` | Batch issue dispatch, adversarial review, merge, push, and cleanup methodology. |
 | refactor-dupes | `skills/codex/refactor-dupes/SKILL.md` | Detect duplicates, approve an architecture brief, refactor one cluster in a worktree PR. |
 | resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR in an isolated worktree; never merges. |
 | ww | `skills/codex/ww/SKILL.md` | Worktree workflow: branch, plan, implement, check, draft PR; main untouched. |
