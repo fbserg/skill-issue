@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  macOS launchd template for daily transcript-archive runs.
+
+  HOW TO USE:
+  1. Replace every ALL-CAPS placeholder below with real paths.
+  2. Rename this file to match the Label value, e.g.:
+       com.example.transcript-archive.plist
+  3. Copy it to ~/Library/LaunchAgents/
+  4. Load it:
+       launchctl load ~/Library/LaunchAgents/com.example.transcript-archive.plist
+
+  IMPORTANT: launchd does NOT inherit your shell environment. The
+  TRANSCRIPT_ARCHIVE_DIR variable MUST be set here in EnvironmentVariables,
+  not just in your .zshrc / .bashrc.
+-->
+<plist version="1.0">
+<dict>
+
+  <key>Label</key>
+  <string>com.example.transcript-archive</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <!-- Replace with the absolute path to backup.py on your machine -->
+    <string>/ABSOLUTE/PATH/TO/transcript-archive/backup.py</string>
+  </array>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- Replace with the directory you want transcripts copied into.
+         Point this at a folder inside Dropbox / iCloud Drive / Google Drive /
+         OneDrive / Syncthing for automatic off-machine backup. -->
+    <key>TRANSCRIPT_ARCHIVE_DIR</key>
+    <string>/PATH/TO/YOUR/SYNCED/FOLDER/transcript-archive</string>
+  </dict>
+
+  <!-- Daily at 03:00 local time -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>3</integer>
+    <key>Minute</key>
+    <integer>0</integer>
+  </dict>
+
+  <!-- Do NOT run immediately on load — wait for the scheduled time -->
+  <key>RunAtLoad</key>
+  <false/>
+
+  <!-- Replace with absolute paths for log output -->
+  <key>StandardOutPath</key>
+  <string>/ABSOLUTE/PATH/TO/transcript-archive/launchd.out</string>
+
+  <key>StandardErrorPath</key>
+  <string>/ABSOLUTE/PATH/TO/transcript-archive/launchd.err</string>
+
+</dict>
+</plist>

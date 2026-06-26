@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented here.
 
+## Unreleased
+
+### Added
+- `tools/transcript-archive/backup.py`: one-way daily archiver for Claude Code + Codex JSONL transcripts — strips embedded base64 blobs, never clobbers a larger copy with a smaller one, storage-agnostic (point `TRANSCRIPT_ARCHIVE_DIR` at any synced folder/disk/git repo). Includes a macOS launchd plist template.
+
 ## Unreleased (2026-06-20)
 
 ### Changed
