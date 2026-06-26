@@ -76,6 +76,7 @@ Combined `settings.json` snippet: `hooks/claude/README.md`
 | Name | Path | TLDR |
 |---|---|---|
 | claude-spend | `tools/claude-spend/spend.py` | Claude Code per-project spend analyzer (per-session/per-skill token+cost rollup, cache-tier aware); stolen from hong (https://github.com/hyang0129/dot-claude). |
+| transcript-archive | `tools/transcript-archive/backup.py` | One-way daily archiver for Claude + Codex JSONL transcripts: strips base64 image blobs, never clobbers a larger copy with a smaller one. Storage-agnostic — point it at any synced folder, git repo, or disk. |
 | check-install | `scripts/check-install.py` | Verify local symlinks point at this repo's copies, not stale older versions. |
 | check-links | `scripts/check-links.py` | Doc-link drift guard: verify every relative markdown link in tracked .md files resolves on disk. |
 | install | `scripts/install.sh` | Symlink all skills into the right runtime dirs. Idempotent. |
