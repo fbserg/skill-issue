@@ -279,6 +279,41 @@ forces one), so fzf / select / read work either way.
 
 ---
 
+## Keeping creds fresh — seed once, guard any automation
+
+A seeded `.credentials.json` contains a **refreshToken**, so the remote instance
+keeps itself logged in indefinitely: it rotates its own access token as needed.
+**One-time seeding is usually all you need.** Do not reach for a cron/launchd
+re-sync by reflex.
+
+When you *do* want automated re-seeding (e.g. an unattended service where a dead
+refresh token means silent outage and no human to re-seed), two rules keep it
+from causing the very outage it prevents:
+
+1. **Never blind-overwrite.** The remote self-refreshes, so its token is often
+   *newer* than the source machine's. Overwriting a newer token with an older
+   one — or racing a refresh — is how you force a re-login on one side
+   (refresh-token rotation, see Caveats). Compare `expiresAt` and skip when the
+   remote is fresher:
+   ```bash
+   fresh=$(security find-generic-password -s "Claude Code-credentials" -w)   # or -s "...-<hash>"
+   remote=$(ssh REMOTE 'cat ~/.claude-NAME/.credentials.json 2>/dev/null || true')
+   [ "$fresh" = "$remote" ] && exit 0
+   local_exp=$(python3 -c 'import json,sys;print(json.loads(sys.argv[1])["claudeAiOauth"]["expiresAt"])' "$fresh")
+   remote_exp=$(python3 -c 'import json,sys;print(json.loads(sys.argv[1])["claudeAiOauth"]["expiresAt"])' "$remote" 2>/dev/null || echo 0)
+   [ "$remote_exp" -gt "$local_exp" ] && exit 0   # remote self-refreshed; hands off
+   printf '%s' "$fresh" | ssh REMOTE 'umask 077 && cat > ~/.claude-NAME/.credentials.json'
+   ```
+2. **Restart anything that must pick up the change** (in-memory creds caveat) —
+   and only when the file actually changed, so a no-op sync doesn't bounce a
+   healthy service.
+
+Schedule it slow (every few hours is plenty — access tokens live ~8h), bail
+silently when the box is unreachable, and re-run the verification protocol
+above after the first sync.
+
+---
+
 ## Caveats
 
 - **Same account on two instances** → shared rate-limit pool, and OAuth
