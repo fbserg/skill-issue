@@ -146,3 +146,76 @@ def test_B_1_F_install_does_not_clobber_symlinked_agents_dir(temp_home: Path) ->
     assert stub_worker.exists()
     assert not stub_worker.is_symlink()
     assert stub_worker.read_text() == sentinel
+
+
+def test_B_1_G_install_does_not_clobber_symlinked_claude_skills_dir(temp_home: Path) -> None:
+    sentinel = "externally managed claude skill\n"
+    external_skills_dir = temp_home / "external-claude-skills"
+    external_skills_dir.mkdir()
+    stub_skill = external_skills_dir / "ww"
+    stub_skill.write_text(sentinel)
+
+    claude_dir = temp_home / ".claude"
+    claude_dir.mkdir()
+    skills_dir = claude_dir / "skills"
+    skills_dir.symlink_to(external_skills_dir, target_is_directory=True)
+
+    result = _run_install(temp_home)
+    assert result.returncode == 0, f"install.sh failed:\n{result.stdout}\n{result.stderr}"
+    assert "~/.claude/skills is a symlink (externally managed) — skipping." in result.stdout
+    assert stub_skill.exists()
+    assert not stub_skill.is_symlink()
+    assert stub_skill.read_text() == sentinel
+    # Nothing else was written into the externally-managed dir either.
+    assert list(external_skills_dir.iterdir()) == [stub_skill]
+
+
+def test_B_1_H_install_does_not_clobber_symlinked_codex_skills_dir(temp_home: Path) -> None:
+    sentinel = "externally managed codex skill\n"
+    external_skills_dir = temp_home / "external-codex-skills"
+    external_skills_dir.mkdir()
+    stub_skill = external_skills_dir / "ww"
+    stub_skill.write_text(sentinel)
+
+    codex_dir = temp_home / ".codex"
+    codex_dir.mkdir()
+    skills_dir = codex_dir / "skills"
+    skills_dir.symlink_to(external_skills_dir, target_is_directory=True)
+
+    result = _run_install(temp_home)
+    assert result.returncode == 0, f"install.sh failed:\n{result.stdout}\n{result.stderr}"
+    assert "~/.codex/skills is a symlink (externally managed) — skipping." in result.stdout
+    assert stub_skill.exists()
+    assert not stub_skill.is_symlink()
+    assert stub_skill.read_text() == sentinel
+    assert list(external_skills_dir.iterdir()) == [stub_skill]
+
+
+def test_B_1_I_check_install_skips_symlinked_agents_dir_and_exits_0(
+    temp_home: Path,
+) -> None:
+    install_result = _run_install(temp_home)
+    assert install_result.returncode == 0, f"install.sh failed:\n{install_result.stderr}"
+
+    # Replace the real agents dir install.sh just created with a symlink to
+    # an external dir, simulating a machine where ~/.claude/agents is
+    # externally managed (e.g. dotfiles-linked) rather than skill-issue-owned.
+    agents_dir = temp_home / ".claude" / "agents"
+    for name in AGENT_NAMES:
+        (agents_dir / name).unlink()
+    agents_dir.rmdir()
+    external_agents_dir = temp_home / "external-agents-for-check"
+    external_agents_dir.mkdir()
+    agents_dir.symlink_to(external_agents_dir, target_is_directory=True)
+
+    check_result = _run_check_install(temp_home)
+    assert check_result.returncode == 0, (
+        f"check-install.py should treat a symlinked agents dir as externally "
+        f"managed and exit 0, but got {check_result.returncode}:\n"
+        f"stdout={check_result.stdout}\nstderr={check_result.stderr}"
+    )
+    skip_count = check_result.stdout.count(f"SKIP: {agents_dir} is externally managed")
+    assert skip_count == len(AGENT_NAMES), (
+        f"expected one SKIP line per agent ({len(AGENT_NAMES)}), got {skip_count}:\n"
+        f"{check_result.stdout}"
+    )
