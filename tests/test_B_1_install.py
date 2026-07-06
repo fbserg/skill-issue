@@ -125,3 +125,24 @@ def test_B_1_E_check_install_fails_when_agent_symlink_missing(temp_home: Path) -
         f"but exited 0. stdout={check_result.stdout}"
     )
     assert "worker.md" in check_result.stderr or "worker.md" in check_result.stdout
+
+
+def test_B_1_F_install_does_not_clobber_symlinked_agents_dir(temp_home: Path) -> None:
+    sentinel = "externally managed worker\n"
+    external_agents_dir = temp_home / "external-agents"
+    external_agents_dir.mkdir()
+    stub_worker = external_agents_dir / "worker.md"
+    stub_worker.write_text(sentinel)
+
+    claude_dir = temp_home / ".claude"
+    claude_dir.mkdir()
+    agents_dir = claude_dir / "agents"
+    agents_dir.symlink_to(external_agents_dir, target_is_directory=True)
+
+    result = _run_install(temp_home)
+    assert result.returncode == 0, f"install.sh failed:\n{result.stdout}\n{result.stderr}"
+    assert "externally managed" in result.stdout
+    assert "skipping" in result.stdout
+    assert stub_worker.exists()
+    assert not stub_worker.is_symlink()
+    assert stub_worker.read_text() == sentinel
