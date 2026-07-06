@@ -92,6 +92,9 @@ def check_link(link: Path, expected: Path) -> None:
 
 def main() -> int:
     for link, expected in EXPECTED_LINKS.items():
+        if link.parent.is_symlink():
+            print(f"SKIP: {link.parent} is externally managed")
+            continue
         check_link(link, expected)
 
     print(f"OK skill-issue install: {REPO_ROOT}")
