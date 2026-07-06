@@ -31,7 +31,7 @@ hard rules.
     mechanical phases: **assess** (Step 0), **test writer** (Step 2), **intent
     validator** (Step 3), **finalize** (Step 4), and the builder lane-runner
     wrapper below.
-  - **Opus** (`agentType: "opus-worker"`, Opus at `effort: medium`) for the
+  - **Opus** (`agentType: "opus-worker"`, Opus at `effort: high`) for the
     read-only reasoning phases where a wrong call cascades: **plan / plan
     panel** (Step 1), the **review lenses** and **blocker verification**
     (Step 3).
