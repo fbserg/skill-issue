@@ -9,14 +9,6 @@ This skill OWNS scoping, research, decomposition, decomposition-review, and issu
 
 **The one hard gate: create nothing on GitHub until the user explicitly says GO.**
 
-## Design notes (tensions resolved)
-
-- **T1 — Resumability vs. "no issues until GO".** The expensive phases (scope, research, decompose, review) run before any GitHub artifact exists, so GitHub cannot checkpoint them without violating invariant #1. Stance: **honest scoping, plus a thin crash-recovery cache for the two expensive artifacts only.** The single durable correctness store is GitHub, after GO (invariant #9 — nothing downstream ever reads the cache). But the audit's own value thesis is that the front-loaded research + 4-critic review is *expensive*, and a pre-GO crash on a large epic forces redoing exactly that. So after the research synthesis and after the review revision — the two costly outputs, and only those — write them to `/tmp/epic-plan/<slug>/{research.md,review.md}`. Cheap phases (scope, decompose) are not cached; redoing them is trivial. On `/epic-plan <topic>` for a topic whose cache dir already exists, offer to reuse the cached research/review **only if the scope/contract is unchanged** — if scope shifted, the cached analysis is stale, so re-run. The cache is deleted on successful materialize. No draft-tracker-early hack (that buys a recovery path by breaking the GO gate). No per-phase state machine, no `--resume` wildcard scan, no slug-confirmation dance — the user re-invokes with the same topic, we key off the slug.
-- **T2 — Orphaned labels.** Dropped. `epic-followups` / `epic-unfinished` had no live producer after `epic-run`/`epic-retro` were deprecated. No grab-bag mode, no query for them.
-- **T3 — Handoff grammar.** `/issue`'s documented batch grammar is a *count selector* (`last N`, `oldest N`, or explicit numbers) with *stacking modifiers* (`oldest`, `mine`, `label:X`). A bare `/issue label:epic:<slug>` has no count selector — it is NOT a documented standalone form. So the **primary handoff is explicit child numbers** (`/issue <n1> <n2>`), which `/issue` documents verbatim and which we can emit because we created the children. The bare-label gesture is offered only in its documented stacked form, with a count: `/issue last <N> label:epic:<slug>`.
-- **T4 — Cross-repo children.** Kept, conditionally. A child landing in a non-tracker repo carries a one-line **Repo:** field (repo + base branch + who merges). Omitted entirely for single-repo epics — no empty ceremony. Prior-art block stays dropped (the executor researches).
-- **T5 — Bounded spend.** Research briefs carry an output cap + stop condition + share no state. Review is **one** synthesis pass, **one** skeptic re-check per blocker (can downgrade), **one** revision of the plan. No loops anywhere. Trivial epics skip research and the review panel entirely.
-
 ## Re-entry (run first, always)
 
 GitHub is the state store after GO; the cache is crash-recovery only, before GO.
@@ -29,7 +21,13 @@ GitHub is the state store after GO; the cache is crash-recovery only, before GO.
   ```
 
   A human comment or a `needs-revision` label is a loop-back signal — re-run the review on the current children against it, revise once, re-materialize idempotently (§Materialize skips what exists). Carry the existing tracker forward; do not restart, do not duplicate. Otherwise the epic is complete — re-report the handoff command.
-- **`/epic-plan <topic>`** → new epic (or a pre-GO crash on the same topic). Derive a stable `<slug>` (kebab-case, ≤4 words) from the topic. If `/tmp/epic-plan/<slug>/research.md` or `review.md` already exists, a prior session got that far — offer to reuse it (only if scope is unchanged; see T1) and re-enter past that phase rather than re-pay. Otherwise start fresh. Continue at the early exits.
+- **`/epic-plan <topic>`** → new epic (or a pre-GO crash on the same topic). Derive a stable `<slug>` (kebab-case, ≤4 words) from the topic. If `/tmp/epic-plan/<slug>/research.md` or `review.md` already exists, a prior session got that far — offer to reuse it (only if the scope/contract is unchanged — a shifted scope makes the cached analysis stale) and re-enter past that phase rather than re-pay. Otherwise start fresh. Continue at the early exits.
+
+**`/epic-plan <number>` where the number is NOT an epic tracker** (no
+`epic-plan:tracker` marker in its body)? Treat the issue as the topic seed —
+read its title/body, derive the slug from the title, put a close-or-supersede
+note in the new tracker body, and continue as a new epic. This is the landing
+path for `/resolve-issue` bouncing an epic-shaped issue here.
 
 The slug is the spine of every later identity check: the cache dir, the `epic:<slug>` label, and the idempotency markers all key off it. Pick it once, reuse it everywhere.
 
@@ -47,7 +45,8 @@ Output is a short **contract** that goes verbatim into the tracker and binds eve
 - **Definition of done** — concrete: a passing test, a metric, a user-visible behavior.
 - **Out of scope** — name the *nearest adjacent thing* an agent would wrongly pull in. (Invariant #2: "audit backups" means backups, not a dashboard cleanup.) This is the anti-scope-invention fence.
 - **Constraints** — stack, conventions, interfaces that must not change.
-- **Repos in play** — one, or several (drives the T4 child `Repo:` lines).
+- **Repos in play** — one, or several (drives the child `Repo:` line — present
+  only for multi-repo epics, omitted entirely for single-repo ones).
 
 ## 2. Research (front-loaded, skip on trivial epics)
 
@@ -91,7 +90,7 @@ Draft the children as a dependency graph. Each child:
 
 - **Independently shippable** — one `/resolve-issue` session, one focused PR (invariant #3).
 - **Right-sized** (invariant #4) — split if files-touched > ~15, LOC delta > ~1000, or > ~10 large reads. A child that *itself* needs decomposing is a **sibling epic — surface it to the user**, never a silent sub-orchestrator.
-- Carries: **scope**, **machine-checkable acceptance criteria**, **`depends-on`** by ordinal (`Child 2`), **files likely touched**, a one-word **risk** (`text-only` | `visual` | `shared-state`; default `shared-state` when unsure — it drives proof expectations), and which repo only if it lands in a non-tracker repo (T4).
+- Carries: **scope**, **machine-checkable acceptance criteria**, **`depends-on`** by ordinal (`Child 2`), **files likely touched**, a one-word **risk** (`text-only` | `visual` | `shared-state`; default `shared-state` when unsure — it drives proof expectations), and which repo only if it lands in a non-tracker repo.
 - **File-overlapping children must serialize** (invariant #5) — encode it in `depends-on`. `/issue` does not dependency-order, so this ordering is the executor's only guardrail.
 
 ## 4. Adversarial review of the decomposition (the core; skip on trivial epics)
@@ -109,7 +108,7 @@ Synthesize once — **no loops**:
 
 1. Union the findings; dedup by area (file + description, highest severity wins).
 2. Flagged by **2+ lenses → blocker**; by one lens → advisory.
-3. **One skeptic re-check per blocker** (`opus-worker`): frame as an external claim — "a prior reviewer concluded X; find the flaw in that reasoning — is it real?" Upheld blockers stand; refuted ones drop to advisory. (T5: this lets review *shrink*, not only accrete. Skip advisories — verifying a nit costs more than the nit.)
+3. **One skeptic re-check per blocker** (`opus-worker`): frame as an external claim — "a prior reviewer concluded X; find the flaw in that reasoning — is it real?" Upheld blockers stand; refuted ones drop to advisory — this lets review *shrink*, not only accrete. Skip advisories — verifying a nit costs more than the nit.
 4. **Revise the decomposition once** against the upheld blockers. Advisories are nudges, not gates.
 
 **Cache the upheld-blocker list + the revised DAG** to `/tmp/epic-plan/<slug>/review.md`.
@@ -192,7 +191,7 @@ Child body — scope + AC + deps/proof, nothing else:
 <text-only | visual | shared-state>. For visual/shared-state: a screenshot/GIF or
 before→after artifact is required in the child's PR.
 
-Repo: <repo> @ <base-branch>, merged by <who>     ← only for multi-repo epics (T4)
+Repo: <repo> @ <base-branch>, merged by <who>     ← only for multi-repo epics
 
 Part of #<tracker>
 ```
@@ -203,7 +202,7 @@ On successful materialize (tracker + all children exist, checklist back-filled):
 
 ## 6. Handoff
 
-Report the exact run command using the **real child numbers**, dependency-ordered by us (T3 — `/issue` does not order). This skill does not execute children, write code, or open/merge PRs.
+Report the exact run command using the **real child numbers**, dependency-ordered by us — `/issue`'s batch grammar is a count selector with stacking modifiers and does not order dependencies itself. This skill does not execute children, write code, or open/merge PRs.
 
 ```
 # independent children — run together (≤4 concurrent inside /issue):

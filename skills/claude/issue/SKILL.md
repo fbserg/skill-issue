@@ -66,10 +66,9 @@ concurrent (the project's cadence).
   - `oldest N` → add `--search "sort:created-asc"`.
   - `mine` / `assigned` → add `--assignee @me`. `label:X` → add `--label X`.
     Modifiers stack.
-- **Guard each** with the same canonical check resolve-issue runs at pre-flight,
-  because the batch routes lanes *before* spawning: a plan comment or draft PR →
-  route that lane to `--resume <N>`; a ready PR → drop it (note `skipped: ready
-  PR`); neither → fresh `/resolve-issue <N>`.
+- **Per-lane guard:** run resolve-issue's canonical pre-flight (it owns the
+  marker logic) — do not re-derive it here. An issue assigned to another user →
+  skip that lane and report it, same as the guard would inside a single run.
 - **Fan out** ≤4 concurrent lane subagents **in a single message — several
   `Agent` tool calls in one assistant turn, not one per turn** (`agentType:
   "worker"` — Sonnet at `effort: medium`; the agent type carries the model, no
