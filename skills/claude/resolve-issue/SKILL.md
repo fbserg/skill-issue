@@ -258,8 +258,16 @@ Review scales with tier:
      sprawl grafted onto existing code, type/boundary cleanliness, logic kept in
      its canonical layer reusing existing helpers rather than re-implemented.
      Prefer behavior-preserving simplifications ("does this whole block collapse
-     to a helper we already have?") over restating what works. **Two scope
-     guards, both hard:** (a) **advisory only — caps at should-fix, never emits a
+     to a helper we already have?") over restating what works. **Also flag
+     speculative code — a future that hasn't arrived:** a fallback/strategy with
+     no evidence its case exists, unused flexibility, a knob nobody sets, a
+     user-visible flag that should be test-only. This is the project's own
+     "finish the feature, skip the future" rule applied at review, and it is the
+     one over-engineering class that recurs in post-merge cleanups (speculative
+     strategies and dead guards shipped through review, then deleted). Restrict
+     to delete/yagni-grade findings — code that should not exist — not
+     micro-shrinks (1–2 line stdlib/style trims are batch-sweep noise, not a
+     review finding). **Two scope guards, both hard:** (a) **advisory only — caps at should-fix, never emits a
      blocker**; a structural smell informs, it does not gate a merge. (b) **Skip
      this lens entirely for verbatim transplants and packet-frozen code** —
      calc/sync ports are line-by-line identical by contract (ground rule 4), so
