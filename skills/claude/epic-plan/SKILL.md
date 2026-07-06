@@ -77,7 +77,10 @@ Read the digests. Spawn **one** targeted gap wave only if a real gap surfaced �
   still doesn't work".
 - **Disjoint file sets are a design goal** — overlap is a smell: first re-cut
   the boundary to remove it; serialize via `depends-on` only when the overlap
-  is real (shared config, a genuinely central file).
+  is real (shared config, a genuinely central file). Never leave overlapping
+  siblings unordered — if you can't re-cut the boundary, `depends-on` is
+  mandatory, and noting the overlap without doing either is a decomposition
+  failure.
 - **Derive children from the contract's Done-list** — each Done criterion
   traces to exactly one child that proves it. Untraceable criterion = missing
   child; child proving no criterion = invented scope.
