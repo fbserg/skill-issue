@@ -67,6 +67,23 @@ Read the digests. Spawn **one** targeted gap wave only if a real gap surfaced �
 
 ## 3. Decompose into a child DAG
 
+**How to slice:**
+
+- **Slice vertically by capability, never by layer** — each child is demoable
+  end-to-end ("imports work for one format"), not a stratum ("the DB schema").
+  Layer-children can't ship independently.
+- **Child 1 is the walking skeleton** — the thinnest end-to-end path through
+  the whole idea; later children thicken it. Prevents "4 green children, epic
+  still doesn't work".
+- **Disjoint file sets are a design goal** — overlap is a smell: first re-cut
+  the boundary to remove it; serialize via `depends-on` only when the overlap
+  is real (shared config, a genuinely central file).
+- **Derive children from the contract's Done-list** — each Done criterion
+  traces to exactly one child that proves it. Untraceable criterion = missing
+  child; child proving no criterion = invented scope.
+- **When torn between decompositions, cut by risk** — the child that could
+  invalidate the plan goes first, so a re-plan costs one PR, not four.
+
 Draft the children as a dependency graph. Each child:
 
 - **Independently shippable** — one `/resolve-issue` session, one focused PR (invariant #3).

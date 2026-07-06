@@ -199,7 +199,13 @@ overrides` / bootstrap block (CLAUDE.md / AGENTS.md), run it verbatim before
 editing. Then implements the plan — **code only, no tests** — commits and pushes.
 Handoff: `WORKTREE`, `BRANCH`,
 `PR_URL`, `COMMITS`, `DEVIATIONS_FROM_PLAN`, `CRITERION_STATUS` (per
-criterion: implemented / partial / blocked).
+criterion: implemented / partial / blocked), `DIFF_STAT` (`git diff --stat`
+against base).
+
+**Diff-size bounce.** If `DIFF_STAT` exceeds ~800 changed lines, stop the
+pipeline here and bounce — this is a re-scope signal, not a review-harder
+signal: the issue was mis-sized. Report it and point at splitting the issue or
+`/epic-plan`, don't push it into review.
 
 ## Step 2 — Test writer (separate subagent)
 
@@ -241,7 +247,9 @@ Review scales with tier:
 1. **Review panel** (read-only): spawn the reviewer lenses for the tier
    concurrently over the full PR diff, each fresh context —
    - **correctness** — each criterion satisfied; logic, return values, edge
-     inputs, the `CRITERION_MAP`;
+     inputs, the `CRITERION_MAP`. Also verify the diff against the acceptance
+     criteria in the `PLAN_COMMENT` verbatim — a criterion unmet or silently
+     changed since the plan is a blocker;
    - **security & robustness** — injection, unsafe input, crashes, data
      corruption, resource leaks;
    - **tests-actually-assert** — do the new tests exercise the contract,
