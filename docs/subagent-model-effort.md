@@ -62,6 +62,6 @@ To confirm at spawn time, the Agent tool's available-types listing reflects the 
 
 ## Install
 
-Ready-made definitions for all four types live in this repo under `agents/`. Drop them into `~/.claude/agents/` (or symlink from a shared repo), then add a CLAUDE.md rule so the orchestrator routes through them, e.g.:
+Ready-made definitions for all four types live in this repo under `agents/`. `scripts/install.sh` now symlinks them into `~/.claude/agents/` automatically alongside the skills — no manual copy step needed. Then add a CLAUDE.md rule so the orchestrator routes through them, e.g.:
 
 > Delegation goes through named agent types: `bulk` (haiku/low) for mechanical fan-out, `worker` (sonnet/medium) as the default delegate, `opus-worker` (opus/medium) only as escalation for a single stuck subtask, `explore-mid` (sonnet/medium) for research fan-out when depth matters. These carry `effort: medium` so subagents don't inherit the main thread's low effort — passing `model:` alone is not sufficient.

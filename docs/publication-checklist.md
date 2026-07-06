@@ -3,7 +3,7 @@
 Before tagging and announcing a new release:
 
 ## Code quality
-- [ ] `python3 scripts/check-install.py` passes and covers every shipped Claude skill symlink
+- [ ] `python3 scripts/check-install.py` passes and covers every shipped Claude skill symlink and all four delegate agent symlinks (`bulk.md`, `explore-mid.md`, `opus-worker.md`, `worker.md` under `~/.claude/agents/`)
 - [ ] `git grep -nE '(/Users/[a-z]+|info@|~/projects/|\$HOME/projects/|scripts/tests_for|just push-main|claude-(haiku|sonnet|opus)-[0-9])' -- . ':!CHANGELOG.md' ':!docs/publication-checklist.md' ':!.github/PULL_REQUEST_TEMPLATE.md'` returns nothing
 - [ ] `grep -rn '/simplify' skills/` returns nothing
 - [ ] `grep -rE 'Skill\(\{skill:"(simplify|loop|advisor)"' skills/` returns nothing

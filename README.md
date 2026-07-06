@@ -114,6 +114,12 @@ gmail-tools search "is:unread in:inbox" --max 10
 
 See [`tools/gmail-tools/README.md`](tools/gmail-tools/README.md) for OAuth setup and the full subcommand list.
 
+## Other tools
+
+`tools/claude-spend/spend.py` (per-project Claude Code spend analyzer) isn't
+symlinked by `install.sh` — run it in place: `python3 tools/claude-spend/spend.py`.
+See [INDEX.md](INDEX.md) for the full tools/scripts table.
+
 ## Hooks
 
 Six production-tested Claude Code hooks live in [`hooks/claude/`](hooks/claude/).
