@@ -20,19 +20,32 @@ to the agent runtime. Use `cp -R` instead if you prefer static copies.
 
 This checkout is the canonical edit point for the shipped prose, issue
 (front door + resolve-issue), and zero skills. Do not edit installed
-copies under `~/.claude/skills/` or `~/.codex/skills/`.
+copies under `~/.claude/skills/`, `~/.codex/skills/`, or `~/.claude/agents/`.
 
 ### Claude
 
 ```bash
 mkdir -p ~/.claude/skills
-ln -sfn "$PWD/skills/claude/epic-plan"     ~/.claude/skills/epic-plan
-ln -sfn "$PWD/skills/claude/humanizer"     ~/.claude/skills/humanizer
-ln -sfn "$PWD/skills/claude/authenticity-check" ~/.claude/skills/authenticity-check
-ln -sfn "$PWD/skills/claude/authentic-writing"  ~/.claude/skills/authentic-writing
-ln -sfn "$PWD/skills/claude/issue"         ~/.claude/skills/issue
-ln -sfn "$PWD/skills/claude/resolve-issue" ~/.claude/skills/resolve-issue
-ln -sfn "$PWD/skills/claude/zero"          ~/.claude/skills/zero
+ln -sfn "$PWD/skills/claude/adversary"       ~/.claude/skills/adversary
+ln -sfn "$PWD/skills/claude/deep-research"   ~/.claude/skills/deep-research
+ln -sfn "$PWD/skills/claude/epic-plan"       ~/.claude/skills/epic-plan
+ln -sfn "$PWD/skills/claude/issue"           ~/.claude/skills/issue
+ln -sfn "$PWD/skills/claude/resolve-issue"   ~/.claude/skills/resolve-issue
+ln -sfn "$PWD/skills/claude/simplify-sweep"  ~/.claude/skills/simplify-sweep
+```
+
+### Shared (Claude)
+
+These are vendored/authored once under `skills/shared/` and installed for
+Claude only — do not duplicate them under `skills/claude/`.
+
+```bash
+mkdir -p ~/.claude/skills
+ln -sfn "$PWD/skills/shared/authentic-writing"   ~/.claude/skills/authentic-writing
+ln -sfn "$PWD/skills/shared/authenticity-check"  ~/.claude/skills/authenticity-check
+ln -sfn "$PWD/skills/shared/humanizer"           ~/.claude/skills/humanizer
+ln -sfn "$PWD/skills/shared/ww"                  ~/.claude/skills/ww
+ln -sfn "$PWD/skills/shared/zero"                ~/.claude/skills/zero
 ```
 
 ### Codex
@@ -48,17 +61,32 @@ ln -sfn "$PWD/skills/codex/ww"                 ~/.codex/skills/ww
 ln -sfn "$PWD/skills/codex/zero"               ~/.codex/skills/zero
 ```
 
+### Agents
+
+The four delegate agent definitions (see `docs/subagent-model-effort.md`) are
+symlinked into `~/.claude/agents/` automatically by `scripts/install.sh`. To
+install by hand instead:
+
+```bash
+mkdir -p ~/.claude/agents
+ln -sfn "$PWD/agents/bulk.md"        ~/.claude/agents/bulk.md
+ln -sfn "$PWD/agents/explore-mid.md" ~/.claude/agents/explore-mid.md
+ln -sfn "$PWD/agents/opus-worker.md" ~/.claude/agents/opus-worker.md
+ln -sfn "$PWD/agents/worker.md"      ~/.claude/agents/worker.md
+```
+
 ## Verification
 
 ```bash
-# Skill files are accessible and point at this checkout
+# Skill and agent files are accessible and point at this checkout
 ls ~/.claude/skills/epic-plan/SKILL.md
 ls ~/.claude/skills/humanizer/SKILL.md
 ls ~/.codex/skills/issue/SKILL.md
+ls ~/.claude/agents/worker.md
 python3 scripts/check-install.py
 ```
 
-`scripts/check-install.py` verifies that every shipped skill symlink resolves back to this checkout.
+`scripts/check-install.py` verifies that every shipped skill and agent symlink resolves back to this checkout.
 
 Open Claude Code or Codex in any repo and invoke one installed skill to confirm
 the runtime picked up the symlinked files.
@@ -79,13 +107,20 @@ and the old Codex skills are deprecated and archived under `deprecated/`. See
 
 ```bash
 # Remove Claude skill symlinks
-rm ~/.claude/skills/epic-plan ~/.claude/skills/humanizer
-rm ~/.claude/skills/authenticity-check ~/.claude/skills/authentic-writing
-rm ~/.claude/skills/issue ~/.claude/skills/resolve-issue
-rm ~/.claude/skills/zero
+rm ~/.claude/skills/adversary ~/.claude/skills/deep-research
+rm ~/.claude/skills/epic-plan ~/.claude/skills/issue
+rm ~/.claude/skills/resolve-issue ~/.claude/skills/simplify-sweep
+
+# Remove shared skill symlinks (installed for Claude)
+rm ~/.claude/skills/authentic-writing ~/.claude/skills/authenticity-check
+rm ~/.claude/skills/humanizer ~/.claude/skills/ww ~/.claude/skills/zero
 
 # Remove Codex skill symlinks
 rm ~/.codex/skills/adversarial-review ~/.codex/skills/epic-plan
 rm ~/.codex/skills/issue ~/.codex/skills/refactor-dupes
 rm ~/.codex/skills/resolve-issue ~/.codex/skills/ww ~/.codex/skills/zero
+
+# Remove agent symlinks
+rm ~/.claude/agents/bulk.md ~/.claude/agents/explore-mid.md
+rm ~/.claude/agents/opus-worker.md ~/.claude/agents/worker.md
 ```

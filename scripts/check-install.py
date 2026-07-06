@@ -8,31 +8,65 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-EXPECTED_SKILLS = {
-    "codex": (
-        "adversarial-review",
-        "epic-plan",
-        "issue",
-        "refactor-dupes",
-        "resolve-issue",
-        "ww",
-        "zero",
-    ),
-    "claude": (
-        "authentic-writing",
-        "authenticity-check",
-        "epic-plan",
-        "humanizer",
-        "issue",
-        "resolve-issue",
-        "zero",
-    ),
-}
+
+# Codex-only skills — unchanged, canonical home is skills/codex/.
+CODEX_SKILLS = (
+    "adversarial-review",
+    "epic-plan",
+    "issue",
+    "refactor-dupes",
+    "resolve-issue",
+    "ww",
+    "zero",
+)
+
+# Claude-only skills remaining under skills/claude/ (the five shared skills
+# that used to be duplicated here — authentic-writing, authenticity-check,
+# humanizer, ww, zero — now live solely under skills/shared/, see
+# SHARED_SKILLS below).
+CLAUDE_SKILLS = (
+    "adversary",
+    "deep-research",
+    "epic-plan",
+    "issue",
+    "resolve-issue",
+    "simplify-sweep",
+)
+
+# Skills shared between Claude and Codex prose, installed for Claude only.
+# Canonical home is skills/shared/ — no longer duplicated under skills/claude/.
+SHARED_SKILLS = (
+    "authentic-writing",
+    "authenticity-check",
+    "humanizer",
+    "ww",
+    "zero",
+)
+
+# Delegate agent definitions symlinked into ~/.claude/agents/.
+AGENTS = (
+    "bulk.md",
+    "explore-mid.md",
+    "opus-worker.md",
+    "worker.md",
+)
+
 EXPECTED_LINKS = {
-    Path(f"~/.{runtime}/skills/{name}").expanduser(): REPO_ROOT / f"skills/{runtime}/{name}"
-    for runtime, names in EXPECTED_SKILLS.items()
-    for name in names
+    Path(f"~/.codex/skills/{name}").expanduser(): REPO_ROOT / f"skills/codex/{name}"
+    for name in CODEX_SKILLS
 }
+EXPECTED_LINKS.update({
+    Path(f"~/.claude/skills/{name}").expanduser(): REPO_ROOT / f"skills/claude/{name}"
+    for name in CLAUDE_SKILLS
+})
+EXPECTED_LINKS.update({
+    Path(f"~/.claude/skills/{name}").expanduser(): REPO_ROOT / f"skills/shared/{name}"
+    for name in SHARED_SKILLS
+})
+EXPECTED_LINKS.update({
+    Path(f"~/.claude/agents/{name}").expanduser(): REPO_ROOT / f"agents/{name}"
+    for name in AGENTS
+})
 EXPECTED_LINKS[
     Path("~/.local/bin/gmail-tools").expanduser()
 ] = REPO_ROOT / "tools/gmail-tools/bin/gmail-tools"

@@ -13,6 +13,7 @@ echo ""
 mkdir -p \
   "${HOME}/.codex/skills" \
   "${HOME}/.claude/skills" \
+  "${HOME}/.claude/agents" \
   "${HOME}/.local/bin"
 
 # ── Claude-only skills ────────────────────────────────────────────────────────
@@ -49,6 +50,17 @@ for skill_dir in "${REPO_ROOT}/skills/shared"/*/; do
   name="$(basename "$skill_dir")"
   ln -sfn "$skill_dir" "${HOME}/.claude/skills/${name}"
   echo "  ~/.claude/skills/${name} -> $skill_dir"
+done
+
+echo ""
+
+# ── Delegate agents (bulk/worker/opus-worker/explore-mid) ────────────────────
+echo "Agents:"
+for agent_file in "${REPO_ROOT}/agents"/*.md; do
+  name="$(basename "$agent_file")"
+  target="${HOME}/.claude/agents/${name}"
+  ln -sfn "$agent_file" "$target"
+  echo "  ~/.claude/agents/${name} -> $agent_file"
 done
 
 echo ""
