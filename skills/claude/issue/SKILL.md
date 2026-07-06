@@ -76,7 +76,11 @@ concurrent (the project's cadence).
   separate `model:` needed). Spawning lanes across separate turns serializes them
   and defeats the batch; emit the whole wave at once and collect the handoffs
   together. For more than 4 issues, dispatch in waves of ≤4 — one full message per
-  wave, await it, then the next. Beyond the `gh` guard/list calls above you run no
+  wave, await it, then the next. **Before dispatching each new wave**, check the
+  tracker/parent issue for a `stop` label (`gh issue view <N> --json labels`,
+  reusing the guard calls already made) — present → halt cleanly and report what's
+  in flight, don't start the wave. Phone-reachable: the label can be added from
+  GitHub mobile. Beyond the `gh` guard/list calls above you run no
   `Bash`/`Read`/`Edit` yourself — all code work is inside the lanes (the same
   no-code-context rule resolve-issue holds).
   Each lane is **explicitly the orchestrator of
