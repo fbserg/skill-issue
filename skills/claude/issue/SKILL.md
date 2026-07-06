@@ -88,6 +88,26 @@ concurrent (the project's cadence).
   sanctioned exception to "subagents don't delegate") and returns that issue's
   terminal state: `READY` + PR URL, `BLOCKER` + continuation comment URL, or
   `epic → /epic-plan`.
+- **Watchdog — arm it BEFORE dispatching wave 1; the batch is not launched until
+  it's running.** Lanes die silently (measured: a lane's inner Codex job died and
+  the lane sat idle 20+ min); awaiting the wave doesn't catch this, and a cron
+  heartbeat depends on the orchestrator remembering. Make launch-and-watch atomic:
+  1. `PULSE=<scratchpad>/issue-lanes && mkdir -p $PULSE`. Every lane spawn prompt
+     includes: *"At every phase transition (and at least every 5 minutes of
+     activity) append a timestamped status line to `$PULSE/lane-<N>.pulse`; write
+     a final line starting `TERMINAL` when you return."*
+  2. Arm one persistent `Monitor` whose script loops every 60s over
+     `$PULSE/*.pulse`, and emits a line only for a lane whose file has no
+     `TERMINAL` line and hasn't been touched in >12 min:
+     `STALE lane <N>: last pulse <age>m ago`. Every emission is also appended to
+     `~/.claude/logs/lane-watchdog.log` (timestamp, batch id, lane, age, action
+     taken) — this log is the evidence for whether the watchdog earns its keep.
+  3. On a `STALE` event: check the lane (`TaskOutput` non-blocking). Dead or
+     wedged → restart it via the idempotent resume path below, **from its
+     existing worktree/GitHub state — never discard uncommitted lane work** —
+     and log the restart. Alive and merely slow → log `false-positive`.
+  4. `TaskStop` the monitor after the batch report; a batch isn't done while its
+     watchdog is still armed.
 - **Idempotent.** Re-running the same batch re-derives each lane's state from
   GitHub — ready PR → skip, draft PR → resume, neither → fresh. No local ledger.
 - A lane that BLOCKERs or turns out an epic is **non-fatal** — it never sinks the
