@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -48,12 +47,8 @@ def _run_check_install(home: Path) -> subprocess.CompletedProcess:
 
 
 @pytest.fixture
-def temp_home(tmp_path_factory) -> Path:
-    home = Path(tempfile.mkdtemp(prefix="skill-issue-test-home-"))
-    yield home
-    # tmp dirs are cleaned by the OS temp reaper; no explicit rmtree needed
-    # here since each test gets its own throwaway dir and we never touch
-    # the real HOME.
+def temp_home(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    return tmp_path_factory.mktemp("skill-issue-test-home")
 
 
 def test_B_1_A_fresh_install_creates_all_four_agent_symlinks(temp_home: Path) -> None:
@@ -101,12 +96,6 @@ def test_B_1_C_shared_skills_resolve_to_skills_shared_only(temp_home: Path) -> N
         assert resolved == expected_target, (
             f"{link} resolves to {resolved}, expected {expected_target} "
             "(skills/shared/ must be the sole canonical source)"
-        )
-        # And it must NOT still resolve into skills/claude/<name> — that
-        # duplicate symlink is exactly what the fix removed.
-        stale_target = (REPO_ROOT / "skills" / "claude" / name).resolve()
-        assert resolved != stale_target or stale_target == expected_target, (
-            f"{link} still resolves into the deleted skills/claude/{name} duplicate"
         )
 
 

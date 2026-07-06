@@ -55,6 +55,7 @@ mkdir -p ~/.codex/skills
 ln -sfn "$PWD/skills/codex/adversarial-review" ~/.codex/skills/adversarial-review
 ln -sfn "$PWD/skills/codex/epic-plan"          ~/.codex/skills/epic-plan
 ln -sfn "$PWD/skills/codex/issue"              ~/.codex/skills/issue
+ln -sfn "$PWD/skills/codex/issue-wave"         ~/.codex/skills/issue-wave
 ln -sfn "$PWD/skills/codex/refactor-dupes"     ~/.codex/skills/refactor-dupes
 ln -sfn "$PWD/skills/codex/resolve-issue"      ~/.codex/skills/resolve-issue
 ln -sfn "$PWD/skills/codex/ww"                 ~/.codex/skills/ww

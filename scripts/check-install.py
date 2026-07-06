@@ -14,6 +14,7 @@ CODEX_SKILLS = (
     "adversarial-review",
     "epic-plan",
     "issue",
+    "issue-wave",
     "refactor-dupes",
     "resolve-issue",
     "ww",
