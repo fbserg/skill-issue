@@ -46,9 +46,7 @@ hard rules.
   in its own `git worktree`, not the primary checkout: `git rev-parse
   --show-toplevel` must be a path listed by `git worktree list` and must not be
   the primary checkout. If it finds itself in the primary, it aborts and does
-  nothing — never edit, commit, or `git reset` the primary. (This has gone
-  wrong: workers committed into and reset the primary, tangling two issues and
-  dropping pending files.)
+  nothing — never edit, commit, or `git reset` the primary.
 - **Gates verbatim, in the worktree, before READY.** Finalize runs the repo's
   real checks copied **verbatim** — from a `## Issue lane overrides` block in
   CLAUDE.md / AGENTS.md if the repo has one, else its documented gate commands —
@@ -99,29 +97,25 @@ Scratch files, when a phase needs them, live under `/tmp/resolve-issue-<N>/`.
 
 **Called with `--resume <N>`?** Jump to **Resume** below — do not re-run Step 0–2.
 
-**Called with an `ASSESSMENT` block** (from `/issue`, which already assessed and
-claimed)? Treat it as Step 0's output verbatim — `TIER`, `IMPACT_SET`,
-`BASE_BRANCH`, `ACCEPTANCE_CRITERIA`, `SHARED_INTERFACE_HIT`, `OPEN_QUESTIONS` —
-and skip straight to Step 1. Don't re-assess; the router paid for that already.
-
 **Called bare (`/resolve-issue <N>`)?** Run the pre-flight below, then Step 0.
 
 Pre-flight (every entry except `--resume`). This is the **canonical**
 concurrent-run guard — `/issue` dispatches here rather than re-spelling it:
-- **Concurrent-run guard** — check two markers, because the earliest durable one
-  is the plan comment, not the PR:
-  - **Plan comment** — `gh api repos/<R>/issues/<N>/comments` for a resolve-issue
-    plan comment. Present (with or without a draft PR yet) → a pipeline is already
-    in flight → switch to **Resume**. The plan comment is posted before the branch
-    exists, so keying only on the PR leaves a whole-implement-phase window where a
-    second run races the branch.
+- **Concurrent-run guard** — check the PR first, then the plan comment:
   - **PR** — `gh pr list --search "issue-<N>" --state all` (REST fallback `gh api
-    'search/issues?q=repo:<R>+is:pr+issue-<N>'`). A draft PR → **Resume**. A ready
-    PR → surface and stop.
+    'search/issues?q=repo:<R>+is:pr+issue-<N>'`). A ready PR → surface and stop,
+    before any resume logic runs. A draft PR → **Resume**.
+  - **Plan comment** — only if no PR exists — `gh api
+    repos/<R>/issues/<N>/comments` for a resolve-issue plan comment. Present →
+    a pipeline is already in flight → switch to **Resume**. The plan comment is
+    posted before the branch exists, so keying only on the PR leaves a
+    whole-implement-phase window where a second run races the branch; that
+    race window is what makes the plan-comment check necessary once the PR
+    check has cleared.
   Without this guard two runs race and clobber the same branch.
-- **Claim** — `gh issue edit <N> --add-assignee @me`, unless the router already
-  did (`ASSESSMENT` present) or the issue is assigned to another user (then
-  surface and stop). Assignment is the claim — no label, no comment. The
+- **Claim** — `gh issue edit <N> --add-assignee @me`, unless the issue is
+  assigned to another user (then surface and stop). Assignment is the claim —
+  no label, no comment. The
   implementer releases it (`--remove-assignee @me`) on any failure before a PR
   exists; once the draft PR is open the PR owns the issue.
 
@@ -172,10 +166,10 @@ single planner above; the space isn't wide enough to pay for a panel.
 
 **Optional prior-art lane.** When an open question is "what's the standard way to
 do this" rather than "how does our code work," add one web/docs research agent to
-the panel (the epic-research pattern — competitor approaches, library idioms,
-`gh search code`). Codebase research answers *how X works here*; this answers
-*how X is done well elsewhere*. Skip it when every open question is purely
-internal — research depth tracks the question, not a fixed budget.
+the panel — competitor approaches, library idioms, `gh search code`. Codebase
+research answers *how X works here*; this answers *how X is done well
+elsewhere*. Skip it when every open question is purely internal — research
+depth tracks the question, not a fixed budget.
 
 Sanity-check the plan against the assessment yourself (does it cover the
 impact set? does anything contradict the rationale?). Weak plan → one revision
@@ -206,6 +200,9 @@ against base).
 pipeline here and bounce — this is a re-scope signal, not a review-harder
 signal: the issue was mis-sized. Report it and point at splitting the issue or
 `/epic-plan`, don't push it into review.
+
+For duplicate-heavy refactors, tool-first detection (jscpd, lizard) beats
+reading; LEAVE is a valid verdict on ugly-but-working code.
 
 ## Step 2 — Test writer (separate subagent)
 
@@ -322,12 +319,10 @@ cannot perform) is neither a silent pass nor a BLOCKER — list it under a
 `## Deferred (post-merge)` PR section with who runs it and how, and reference the
 issue with **`Refs #<N>`, never `Closes #<N>`** so merging does not auto-close it
 while real criteria remain open; a deferral that can't be justified as truly
-un-worktree-able is a BLOCKER, not a deferral. Then assemble the full PR body
-and, **before `gh pr ready`, grep that drafted body for the eight section
-headers, the `B_<N>_` test IDs, and the negative-control line — a missing header
-or an empty Acceptance-criteria / Test-evidence section blocks ready** (fix the
-body or report BLOCKER; the template is a gate, not a suggestion). Then mark the
-PR ready (`gh pr ready`).
+un-worktree-able is a BLOCKER, not a deferral. Then assemble the full PR body.
+**Finalize gate: repo checks pass and each acceptance criterion has observed
+evidence in the PR body — content over headings.** Then mark the PR ready
+(`gh pr ready`).
 
 PR body sections:
 
@@ -385,7 +380,7 @@ omitted), test IDs with the negative-control result, review findings and
 resolutions, and anything UNCOVERED or declined. On BLOCKER, point at the
 `CONTINUATION` comment and name the one-line resume command
 (`/resolve-issue --resume <N>`). Then clean up: `git worktree remove --force
-<dir>` (Claude Code locks the worktrees it creates; a bare `git worktree remove`
-exits non-zero on a locked worktree and silently leaves it on disk — this has
-leaked hundreds of MB across runs) and `rm -rf /tmp/resolve-issue-<N>/`. The
-branch and PR remain (the resume re-creates the worktree from the branch).
+<dir>` (Claude Code locks the worktrees it creates, so a bare `git worktree
+remove` exits non-zero and silently leaves it on disk) and `rm -rf
+/tmp/resolve-issue-<N>/`. The branch and PR remain (the resume re-creates the
+worktree from the branch).
