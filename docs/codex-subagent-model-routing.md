@@ -127,7 +127,7 @@ Testing on 2026-07-09 produced a split result:
 - Personal standalone-agent discovery passed. An explicitly selected `reviewer` child recorded `gpt-5.6-sol`, `high`, and the parent's live `read-only` sandbox in its persisted `turn_context`.
 - The cold natural-language gate failed. The parent emitted `wait` with no child IDs, then claimed a fabricated child path. No spawn event existed.
 - Project-scoped standalone discovery also failed in the clean temporary probe with `unknown agent_type`, despite being part of the documented surface. Similar tool-backed custom-agent discovery failures have been reported upstream.[3]
-- The bare `gpt-5.6` slug from the documentation's recommendation was absent from this client's `codex debug models` catalog, and a pinned run was rejected server-side with `The 'gpt-5.6' model is not supported when using Codex with a ChatGPT account`. The recommendation appears to apply to API-key accounts only; ChatGPT accounts must use the family-specific mapping.
+- The bare `gpt-5.6` slug from the documentation's recommendation was absent from this client's `codex debug models` catalog, and a pinned run was rejected server-side with `The 'gpt-5.6' model is not supported when using Codex with a ChatGPT account`. Whether the slug works on any other account type was not tested. On a ChatGPT account, use the family-specific mapping.
 
 Therefore this document is a verified installation and test procedure, not evidence that automatic routing works on every current client. A different machine or newer release must pass its own cold gate before claiming success.
 
