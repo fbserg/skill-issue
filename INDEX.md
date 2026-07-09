@@ -92,6 +92,7 @@ Combined `settings.json` snippet: `hooks/claude/README.md`
 | `docs/env-sharing.md` | Encrypt a repo's `.env` for all GitHub collaborators using age + their SSH public keys. |
 | `docs/publication-checklist.md` | Checklist for publishing new skills or hooks to this repo. |
 | `docs/subagent-model-effort.md` | How to pin model AND effort for subagents via named agent types — built-ins inherit session effort; `model:` alone is not enough. Ships with `agents/`. |
+| `docs/codex-subagent-model-routing.md` | Codex custom-agent model routing with live-catalog selection and rollout-based verification; records current cold-discovery failures instead of trusting self-reports. |
 | `docs/multi-claude-remote.md` | Run multiple Claude Code instances on one remote box (SSH + tmux), each on a different account, with a session picker — covers the macOS Keychain-per-config-dir trap, file-vs-Keychain creds, isolation, verification, and starter scripts. |
 | `docs/single-serving-site-host.md` | Host a pile of one-off static pages on one Cloudflare Worker + `public/` dir: push-to-deploy, custom domain, an authenticated POST endpoint for posting pages without a commit, and a code-listed index. Full wrangler.toml + Worker skeleton + deploy hook + post/delete CLIs. |
 

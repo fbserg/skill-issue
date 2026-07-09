@@ -5,6 +5,7 @@ All notable changes to this project will be documented here.
 ## Unreleased
 
 ### Added
+- `docs/codex-subagent-model-routing.md`: install Codex custom-agent model/effort routing from the live model catalog and verify it from child rollout metadata, with cold-discovery and negative-control gates.
 - `tools/transcript-archive/backup.py`: one-way daily archiver for Claude Code + Codex JSONL transcripts — strips embedded base64 blobs, never clobbers a larger copy with a smaller one, storage-agnostic (point `TRANSCRIPT_ARCHIVE_DIR` at any synced folder/disk/git repo). Includes a macOS launchd plist template.
 
 ## Unreleased (2026-06-20)
