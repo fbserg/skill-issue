@@ -6,7 +6,7 @@ This runbook gives another Codex enough information to install task-specific sub
 
 Current Codex documentation supports personal custom agents in `~/.codex/agents/` and project-scoped agents in `.codex/agents/`. Each standalone TOML file requires `name`, `description`, and `developer_instructions`; it may also set `model` and `model_reasoning_effort`.[1]
 
-Model availability is account- and client-dependent. Inspect the installed model catalog before writing agent files. The public starting points are `gpt-5.6` for demanding work and `gpt-5.6-terra` for faster, lower-cost supporting work.[1]
+Model availability is account- and client-dependent. Inspect the installed model catalog before writing agent files. The public starting points are `gpt-5.6` for demanding work and `gpt-5.6-terra` for faster, lower-cost supporting work.[1] Note that the bare `gpt-5.6` slug the documentation recommends may not appear in `codex debug models` at all — on Codex CLI 0.144.0 the catalog exposes only the family variants (`gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`). When that is the case, skip the portable policy and go straight to the family-specific mapping.
 
 Subagents inherit the parent turn's live sandbox and approval choices. Do not claim that an agent is read-only merely because its TOML contains `sandbox_mode = "read-only"`; verify the effective child policy from its rollout or with a harmless permission probe.[1]
 
@@ -48,7 +48,7 @@ max_threads = 6
 max_depth = 1
 ```
 
-Codex defaults to six concurrent open agent threads and one level of child agents; deeper nesting increases cost and unpredictability.[1]
+Codex defaults to six concurrent open agent threads and one level of child agents; deeper nesting increases cost and unpredictability.[1][2]
 
 ## Objective verification
 
@@ -127,11 +127,12 @@ Testing on 2026-07-09 produced a split result:
 - Personal standalone-agent discovery passed. An explicitly selected `reviewer` child recorded `gpt-5.6-sol`, `high`, and the parent's live `read-only` sandbox in its persisted `turn_context`.
 - The cold natural-language gate failed. The parent emitted `wait` with no child IDs, then claimed a fabricated child path. No spawn event existed.
 - Project-scoped standalone discovery also failed in the clean temporary probe with `unknown agent_type`, despite being part of the documented surface. Similar tool-backed custom-agent discovery failures have been reported upstream.[3]
+- The bare `gpt-5.6` slug from the documentation's recommendation was absent from this client's `codex debug models` catalog, so the portable policy table was uninstallable as written; the family-specific mapping was used instead.
 
 Therefore this document is a verified installation and test procedure, not evidence that automatic routing works on every current client. A different machine or newer release must pass its own cold gate before claiming success.
 
 ## Sources
 
-1. [OpenAI Codex: Subagents](https://developers.openai.com/codex/subagents)
+1. [OpenAI Codex: Subagents](https://developers.openai.com/codex/subagents) (308-redirects to `learn.chatgpt.com/docs/agent-configuration/subagents`)
 2. [OpenAI Codex configuration schema](https://github.com/openai/codex/blob/main/codex-rs/core/config.schema.json)
 3. [OpenAI Codex issue #15250: custom subagents inaccessible from tool-backed sessions](https://github.com/openai/codex/issues/15250)
