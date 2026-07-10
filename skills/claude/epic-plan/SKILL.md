@@ -19,6 +19,8 @@ This skill OWNS scoping, research, decomposition, decomposition-review, and issu
   ```
 
   First, **re-sync the tracker checklist** against actual child states — children close out of band and the checklist rots silently; tick merged/closed children via `gh issue edit <tracker> --body-file`. Then: a human comment or `needs-revision` label is a loop-back signal — re-run the review against the live tracker + children (there is no cache post-GO), revise once, re-materialize idempotently. Carry the existing tracker forward; never restart or duplicate. Otherwise report status: which children shipped, which are runnable now, the next `/issue` wave.
+
+  **Close-out:** when the last child merges, the epic isn't done — verify the *composed* result against the contract's Done criteria (`/verify`-style, end-to-end, not per-child green), suggest `/simplify-sweep` over the epic's commit range to catch cross-child duplication from parallel lanes, then close the tracker with a one-comment summary.
 - **`/epic-plan <topic>`** → new epic (or a pre-GO crash on the same topic). Derive a stable `<slug>` (kebab-case, ≤4 words); it keys the cache dir, the `epic:<slug>` label, and the idempotency markers. If `/tmp/epic-plan/<slug>/research.md` or `review.md` exists, a prior session got that far — reuse it only if the scope is unchanged, and re-enter past that phase.
 - **`/epic-plan <number>` where the issue is NOT a tracker** (no `epic-plan:tracker` marker) → treat the issue as the topic seed: derive the slug from its title, note close-or-supersede in the new tracker body, continue as a new epic. This is the landing path for `/resolve-issue` bouncing an epic-shaped issue here.
 

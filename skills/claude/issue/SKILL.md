@@ -1,6 +1,6 @@
 ---
 name: issue
-description: "Front door for GitHub issues. One number → hand to /resolve-issue (which self-scales: light path for a small issue, full pipeline for a big one, and a stop-with-/epic-plan for a true epic). A rough idea (/issue website slow) → scope it first: file one issue, or hand a broad topic to /epic-plan. A batch (/issue last 5, /issue 42 43 44, with oldest/mine/label: modifiers) → fan out one /resolve-issue lane per issue, ≤4 concurrent, resuming in-flight work from GitHub state. Never writes code, never merges."
+description: "Front door for GitHub issues. One number → hand to /resolve-issue (which self-scales: light path for a small issue, full pipeline for a big one, and a stop-with-/epic-plan for a true epic). A rough idea (/issue website slow) → scope it first: file one issue, or hand a broad topic to /epic-plan. A batch (/issue last 5, /issue 42 43 44, with oldest/mine/label: modifiers) → fan out one /resolve-issue lane per issue, ≤4 concurrent, resuming in-flight work from GitHub state. Never writes code, never merges. For ad-hoc UNFILED work you want run fast without the pipeline, use /blitz instead."
 ---
 
 # Issue — the front door
