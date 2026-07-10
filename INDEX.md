@@ -58,17 +58,21 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 
 ## Hooks (`hooks/claude/`)
 
+Published mirror of the live hook set; canonical copies run from a private config repo.
+
 | Name | Path | Event | TLDR |
 |---|---|---|---|
-| confetti | `hooks/claude/confetti/confetti-gate.sh` | Stop | Fire Raycast confetti after a successful deploy/push. macOS + Raycast only. |
-| edit-guard | `hooks/claude/edit-guard/edit_guard.py` | PreToolUse | Warn at 3 / hard-block at 8 direct edits per session on Fable/Opus models. |
-| git-no-bypass | `hooks/claude/git-no-bypass/git-no-bypass.sh` | PreToolUse | Block `--no-verify` and `core.hooksPath` overrides in git commands. |
-| rtk-rewrite | `hooks/claude/rtk-rewrite/rtk-rewrite.sh` | PreToolUse | Rewrite verbose Bash commands through `rtk` to compress tool output. Needs `brew install rtk`. |
-| proof-gate | `hooks/claude/proof-gate/proof-gate.sh` | Stop | Block "done" sign-offs while uncommitted code or unpushed commits exist. |
-| session-context | `hooks/claude/session-context/session-context.sh` | Start | Inject current branch + recent commits into every session automatically. |
-| settings-guard | `hooks/claude/settings-guard/settings-guard.sh` | PreToolUse | Block writes to settings.json that contain invalid fields. |
+| expensive_model_edit_guard | `hooks/claude/expensive_model_edit_guard.py` | PreToolUse | Warn at 3 / hard-block at 8 direct edits per session on Fable/Opus models. |
+| edit_guard_backstop | `hooks/claude/edit_guard_backstop.py` | Stop | Catches the edit guard silently failing to fire (e.g. bypassPermissions regression). |
+| effort_spawn_guard | `hooks/claude/effort_spawn_guard.py` | PreToolUse | Block `Agent`/`Workflow` spawns that omit a custom agent type / `agentType`. |
+| guard-settings-json | `hooks/claude/guard-settings-json.sh` | PreToolUse | Block invalid fields in settings.json; protect `~/.claude/CLAUDE.md`. |
+| pretool-bash | `hooks/claude/pretool-bash.sh` | PreToolUse | Block destructive Bash, filter verbose test output, RTK rewrite, pre-push build gate. |
+| sessionstart-context | `hooks/claude/sessionstart-context.sh` | SessionStart | Inject current branch + recent commits into every session automatically. |
+| notify-done | `hooks/claude/notify-done.sh` | Stop | Ring the terminal bell when Claude's last message is actually a question. |
+| confetti-gate | `hooks/claude/confetti-gate.sh` | Stop | Fire Raycast confetti after a successful deploy/push. macOS + Raycast only. |
+| quality/ (4 hooks + shared lib) | `hooks/claude/quality/` | PreToolUse/PostToolUse/PostToolBatch/PostToolUseFailure/Stop | Format-on-write + unresolved-failure Stop gate. |
 
-Combined `settings.json` snippet: `hooks/claude/README.md`
+Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/README.md`
 
 ---
 

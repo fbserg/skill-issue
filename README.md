@@ -68,7 +68,8 @@ Claude skills remain available for Claude Code. Codex uses the separate
 |---|---|
 | An issue number | `/issue <N>` — hands it to `/resolve-issue`, which self-scales by tier |
 | A rough idea (no issue yet) | `/issue <free text>` — scopes it, files the issue, then dispatches |
-| Multiple issues | `$issue-wave 42 43 44` — fans out isolated `/resolve-issue` lanes, reviews, merges, pushes, and cleans up |
+| Multiple issues | `/issue 42 43 44` — fans out ≤4 concurrent `/resolve-issue` lanes (Claude); `$issue-wave` on Codex |
+| Ad-hoc lanes, nothing filed | `/blitz` — parallel worktrees, adversarial review, no pipeline |
 | A true epic (multi-session, multiple deliverables) | `/epic-plan <topic>` → `/issue <child-number>` |
 
 Claiming (assign yourself), plan-comment-before-branch, and PR-only delivery are built in — you never merge your own PR.
@@ -79,10 +80,6 @@ Claiming (assign yourself), plan-comment-before-branch, and PR-only delivery are
 - GitHub CLI (`gh`) authenticated: `gh auth login`
 - [`uv`](https://docs.astral.sh/uv/) for `gmail-tools` (auto-installs its Google deps on first run)
 - Claude Code with local skill directory support
-
-### Optional
-
-- `advisorModel` set in Claude Code settings — enables `advisor()` calls in `dispatch.md`
 
 ## Install
 
@@ -123,18 +120,22 @@ See [INDEX.md](INDEX.md) for the full tools/scripts table.
 
 ## Hooks
 
-Six production-tested Claude Code hooks live in [`hooks/claude/`](hooks/claude/).
+Nine Claude Code hooks — the live set the author actually runs — mirrored in
+[`hooks/claude/`](hooks/claude/).
 
 | Hook | What it does |
 |---|---|
-| [`edit-guard`](hooks/claude/edit-guard/) | Warn/block Fable/Opus from piling up direct code edits — keeps expensive models as orchestrators. |
-| [`git-no-bypass`](hooks/claude/git-no-bypass/) | Block `--no-verify` and `core.hooksPath` overrides so pre-commit/push hooks can't be skipped silently. |
-| [`settings-guard`](hooks/claude/settings-guard/) | Block invalid fields (`mcpServers`, `disabledSkills`) from landing in `settings.json`. |
-| [`session-context`](hooks/claude/session-context/) | Inject current branch + last 5 commits into every session automatically. |
-| [`confetti`](hooks/claude/confetti/) | Fire Raycast confetti after a successful deploy. macOS + Raycast only. |
-| [`proof-gate`](hooks/claude/proof-gate/) | Block "done" sign-offs while the repo has uncommitted code or unpushed commits. |
+| [`expensive_model_edit_guard.py`](hooks/claude/expensive_model_edit_guard.py) | Warn/block Fable/Opus from piling up direct code edits — keeps expensive models as orchestrators. |
+| [`edit_guard_backstop.py`](hooks/claude/edit_guard_backstop.py) | Stop-time backstop that catches the edit guard silently failing to fire. |
+| [`effort_spawn_guard.py`](hooks/claude/effort_spawn_guard.py) | Block `Agent`/`Workflow` spawns that would inherit the main thread's effort level instead of naming a custom agent type. |
+| [`guard-settings-json.sh`](hooks/claude/guard-settings-json.sh) | Block invalid fields (`mcpServers`, `disabledSkills`) from landing in `settings.json`; protect `~/.claude/CLAUDE.md` from edits. |
+| [`pretool-bash.sh`](hooks/claude/pretool-bash.sh) | Block destructive Bash commands, filter verbose test output, apply RTK's token-saving rewrite, gate `git push` on a clean build. |
+| [`sessionstart-context.sh`](hooks/claude/sessionstart-context.sh) | Inject current branch + last 5 commits into every session automatically. |
+| [`notify-done.sh`](hooks/claude/notify-done.sh) | Ring the terminal bell when Claude's last message is actually a question. |
+| [`confetti-gate.sh`](hooks/claude/confetti-gate.sh) | Fire Raycast confetti after a successful deploy. macOS + Raycast only. |
+| [`quality/`](hooks/claude/quality/) | Format-on-write + unresolved-failure Stop gate, four cooperating hooks sharing one state file. |
 
-See [`hooks/claude/README.md`](hooks/claude/README.md) for the combined `settings.json` snippet.
+See [`hooks/claude/README.md`](hooks/claude/README.md) for per-hook `settings.json` snippets and what was deliberately left out.
 
 ## Credits
 

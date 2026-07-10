@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
-# PreToolUse hook for Edit/Write — guards Claude Code settings files.
-#
-# Blocks writes to settings.json / settings.local.json that contain fields
-# that don't belong there and will be silently ignored or cause confusion:
-#
-#   mcpServers  — lives in ~/.claude.json, not settings.json
-#   disabledSkills — not a real field; skills use skillOverrides
+# PreToolUse hook for Edit/Write — guards sensitive config files.
+#   1. Blocks all edits to ~/.claude/CLAUDE.md (edit manually if needed).
+#   2. Blocks settings.json writes containing invalid fields (mcpServers etc).
 
 set -euo pipefail
 
 INPUT=$(cat)
 FILE=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
+
+GLOBAL_CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+if [[ "$FILE" == "$GLOBAL_CLAUDE_MD" ]]; then
+  echo "BLOCKED: ~/.claude/CLAUDE.md is write-protected." >&2
+  echo "Edit it manually if you really need to change it." >&2
+  exit 2
+fi
 
 # Only care about settings.json / settings.local.json
 if [[ "$FILE" != *settings.json && "$FILE" != *settings.local.json ]]; then

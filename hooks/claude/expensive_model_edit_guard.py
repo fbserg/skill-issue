@@ -51,6 +51,13 @@ def is_exempt_path(raw: str) -> bool:
 def main() -> None:
     data = json.load(sys.stdin)
     session_id = data.get("session_id", "")
+    # heartbeat: silent allows leave no transcript trace, so the Stop-time
+    # backstop needs an out-of-band signal that this guard actually ran
+    if session_id:
+        try:
+            Path(f"/tmp/edit-guard-ran-{session_id}").touch()
+        except OSError:
+            pass
     if os.environ.get("EDIT_GUARD_OFF") == "1":
         return
     if session_id and Path(f"/tmp/edit-guard-off-{session_id}").exists():
@@ -97,7 +104,7 @@ def main() -> None:
             f"{edit_count} direct edits this session on an expensive model ({model}). "
             "Main thread is orchestrator-only: dispatch a Sonnet subagent "
             "(Agent tool, model:'sonnet') or a worktree agent to do the implementation, "
-            "then review its result. Say 'edit guard off' to lift "
+            "then review its result. User can say 'edit guard off' to lift "
             f"(touch /tmp/edit-guard-off-{session_id})."
         )
     if edit_count == WARN_AT:
