@@ -1,6 +1,6 @@
 ---
 name: blitz
-description: Execution-posture nudge for multi-part work — fast, parallel, adversarial. Use when the user invokes /blitz, says "run this fast and adversarial", or hands over a multi-lane task without a more specific pipeline (/issue, /resolve-issue, /epic-plan) fitting. Not a pipeline; just the standing reminders.
+description: Lightweight executor for multiple issues or lanes — fast, parallel, adversarial — without the full /issue → /resolve-issue pipeline (no tiered phases, no typed handoffs, no watchdog ceremony). Use when the user invokes /blitz or says to run a batch fast and adversarial. Not a planner (that's /epic-plan) and not a pipeline; just the execution posture.
 ---
 
 You're the orchestrator; you don't implement. Posture:
