@@ -1,37 +1,31 @@
 ---
 name: simplify-sweep
-description: "Batch-clean a range of pushed commits: headless Sonnet /simplify per area, review the edits, commit, log. Successor to /tidy."
+description: "Batch-clean a range of pushed commits: headless Sonnet /simplify per area, review the edits, commit. Successor to /tidy."
 ---
 
 # simplify-sweep — periodic cleanup over pushed commits
 
 Runs Claude Code's built-in `/simplify` over a commit range using cheap headless
 Sonnet sessions, one per area batch. The expensive main session only orchestrates:
-pick the range, batch, launch, review the resulting edits, commit, log.
+pick the range, batch, launch, review the resulting edits, commit.
 
 `$ARGUMENTS` (optional): a ref range (`abc123..HEAD`), a base ref, or area paths.
-If absent, sweep everything since the last logged run.
+If absent, sweep everything since the last sweep commit.
 
 ## 1. Pick the range
 
 - If `$ARGUMENTS` gives a range/ref, use it.
-- Else read the last line of `~/.claude/tidy-log.jsonl` and use its `head`
-  (or last `commits[]` entry) as the base: `<base>..HEAD`.
-- Fallback: last commit matching `git log -i --grep='^tidy\|^sweep' -1`.
+- Else base = last commit matching `git log -i --grep='^tidy\|^sweep' -1` (the
+  `sweep(<area>):` tag from step 4 is the state store — no other bookkeeping).
 - Sanity-check with `git diff --stat <base>..HEAD` and report commits/files/churn
   to the user before launching.
 
 ## 2. Batch
 
-- Under ~1500 changed lines: one batch.
-- Larger: **balance batches by churn size, not by area.** Compute per-directory
-  churn (`git diff --shortstat <range> -- <dir>`), then pack directories into
-  batches of ~1000 lines (500 floor — below that the run's fixed orientation
-  cost dominates; 1500 ceiling — above that recall visibly drops, the agent
-  reads ~5× the diff in surrounding context). Split a big area by subdirectory,
-  merge small areas together. Equal-sized batches finish together; one giant
-  area batch makes the whole sweep wait on it. Keep each batch's file set
-  disjoint.
+- Small ranges: one batch. Larger: **balance batches by churn size, not by area**
+  (per-directory `git diff --shortstat`), keeping each batch's file set disjoint
+  and each batch small enough that its diff is comfortably reviewable in one
+  sitting — split further if a batch's review drags.
 - Skip generated files entirely (repo's Do-Not-Edit table); they get regenerated,
   never hand-cleaned.
 
@@ -43,6 +37,8 @@ launch each run with `run_in_background`, then per finished batch export
 `git -C <worktree> diff > patch`, apply to the main checkout, review, test,
 commit, and finally `git worktree remove` them. Batches are disjoint, so patches
 never conflict. Sequential in the main checkout is the fallback for 1–2 batches.
+**3+ background batches → arm the watchdog** (pulse files + one Monitor, the
+/issue pattern) — detached lanes die silently.
 
 ```bash
 claude -p --model sonnet --permission-mode acceptEdits \
@@ -57,8 +53,8 @@ text, or test intent. When unsure, leave it alone."
 Rules:
 - **Sonnet floor — never Haiku.** Haiku punts on large diffs ("verify X" instead of
   doing the work).
-- **Never two headless runs editing one checkout.** Sequential in the main checkout
-  is the default; parallel only with one worktree per run.
+- **Never two headless runs editing one checkout.** Parallel only with one worktree
+  per run.
 - The run leaves uncommitted edits in the working tree — that's the handoff.
 
 ## 4. Review and commit (main session)
@@ -67,22 +63,12 @@ Per batch, before the next launch:
 - Read the working-tree diff. Revert over-reaches: behavior changes, dict-key
   removals, getattr→direct rewrites, anything touching serialized output or tests'
   intent. Past sweeps show Sonnet over-reaches ~2–3 times per batch — expect it.
+  This review gate is the skill's entire safety story; never skip it.
 - Run the repo's fast test loop (`just test` in heartwood) plus any focused tests
   for touched areas.
 - Commit the batch: subject `sweep(<area>): <summary>` (heartwood: via
-  `just agent-commit`). Tests must pass before commit.
-
-## 5. Log the run
-
-Append one JSON line to `~/.claude/tidy-log.jsonl` (kept under its old name for
-continuity):
-
-```bash
-printf '{"ts":"%s","repo":"%s","since":"%s","head":"%s","batches":%d,"commits":%s,"note":"%s"}\n' \
-  "$(date -Iseconds)" "$(basename "$(git rev-parse --show-toplevel)")" \
-  "<base>" "$(git rev-parse --short HEAD)" \
-  "$N_BATCHES" '["<sha1>","<sha2>"]' "$NOTE" >> ~/.claude/tidy-log.jsonl
-```
+  `just agent-commit`). Tests must pass before commit. The tag doubles as the
+  next sweep's range marker.
 
 Finish with a one-line tally per batch (files touched, reverted over-reaches,
 commit hash) and the overall range covered.
