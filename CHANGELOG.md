@@ -5,6 +5,7 @@ All notable changes to this project will be documented here.
 ## Unreleased
 
 - Added the runtime-native Codex `blitz` skill and retired the stale Codex `issue-wave` registration; Codex now matches the four-entry-point orchestration decision.
+- Synced current Claude-side workflow lessons into the Codex epic/issue lifecycle and made shared `zero` canonical for both runtimes to prevent future drift.
 
 ### Added
 - `hooks/claude/stop-failure.sh`: StopFailure watchdog — logs API-error turn ends (rate limit, overload, server error) to `~/.claude/logs/stop-failures.jsonl` and rings the bell, so silently dying sessions leave a trace. Born from the 2026-07-10 hook audit.

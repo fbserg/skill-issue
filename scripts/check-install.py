@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-# Codex-only skills — unchanged, canonical home is skills/codex/.
+# Codex-native skills; shared zero is registered separately below.
 CODEX_SKILLS = (
     "adversarial-review",
     "blitz",
@@ -18,7 +19,6 @@ CODEX_SKILLS = (
     "refactor-dupes",
     "resolve-issue",
     "ww",
-    "zero",
 )
 
 # Claude-only skills remaining under skills/claude/ (the five shared skills
@@ -35,8 +35,7 @@ CLAUDE_SKILLS = (
     "simplify-sweep",
 )
 
-# Skills shared between Claude and Codex prose, installed for Claude only.
-# Canonical home is skills/shared/ — no longer duplicated under skills/claude/.
+# Shared skill sources. All install into Claude; zero also installs into Codex.
 SHARED_SKILLS = (
     "authentic-writing",
     "authenticity-check",
@@ -53,10 +52,21 @@ AGENTS = (
     "worker.md",
 )
 
+# Runtime-native counterparts are allowed to differ in prose and tools, but a
+# newer source-side edit must be explicitly reviewed on the Codex side.
+CODEX_PARITY_PAIRS = (
+    ("skills/claude/blitz", "skills/codex/blitz"),
+    ("skills/claude/epic-plan", "skills/codex/epic-plan"),
+    ("skills/claude/issue", "skills/codex/issue"),
+    ("skills/claude/resolve-issue", "skills/codex/resolve-issue"),
+    ("skills/shared/ww", "skills/codex/ww"),
+)
+
 EXPECTED_LINKS = {
     Path(f"~/.codex/skills/{name}").expanduser(): REPO_ROOT / f"skills/codex/{name}"
     for name in CODEX_SKILLS
 }
+EXPECTED_LINKS[Path("~/.codex/skills/zero").expanduser()] = REPO_ROOT / "skills/shared/zero"
 EXPECTED_LINKS.update({
     Path(f"~/.claude/skills/{name}").expanduser(): REPO_ROOT / f"skills/claude/{name}"
     for name in CLAUDE_SKILLS
@@ -91,12 +101,36 @@ def check_link(link: Path, expected: Path) -> None:
         fail(f"{resolved} is not executable")
 
 
+def last_change_timestamp(relative_path: str) -> int:
+    result = subprocess.run(
+        ["git", "log", "-1", "--format=%ct", "--", relative_path],
+        cwd=REPO_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return int(result.stdout.strip())
+
+
+def check_codex_skill_parity() -> None:
+    stale = [
+        (source, codex)
+        for source, codex in CODEX_PARITY_PAIRS
+        if last_change_timestamp(source) > last_change_timestamp(codex)
+    ]
+    if stale:
+        pairs = ", ".join(f"{source} -> {codex}" for source, codex in stale)
+        fail(f"Codex skill review is stale: {pairs}")
+
+
 def main() -> int:
     for link, expected in EXPECTED_LINKS.items():
         if link.parent.is_symlink():
             print(f"SKIP: {link.parent} is externally managed")
             continue
         check_link(link, expected)
+
+    check_codex_skill_parity()
 
     print(f"OK skill-issue install: {REPO_ROOT}")
     return 0

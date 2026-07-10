@@ -36,7 +36,7 @@ cd skill-issue
 | [`refactor-dupes`](skills/codex/refactor-dupes/SKILL.md) | Tool-first duplicate detection, architecture brief, approved worktree refactor, draft PR. |
 | [`resolve-issue`](skills/codex/resolve-issue/SKILL.md) | One issue to review-ready PR in an isolated worktree; never merges. |
 | [`ww`](skills/codex/ww/SKILL.md) | Isolated worktree workflow; plan first, PR by default, main untouched. |
-| [`zero`](skills/codex/zero/SKILL.md) | Explicit destructive cleanup workflow with read-only inventory first. |
+| [`zero`](skills/shared/zero/SKILL.md) | Shared destructive cleanup workflow with proof-before-delete classification. |
 
 ### Claude (`skills/claude/`)
 

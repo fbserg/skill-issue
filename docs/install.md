@@ -60,7 +60,7 @@ ln -sfn "$PWD/skills/codex/issue"              ~/.codex/skills/issue
 ln -sfn "$PWD/skills/codex/refactor-dupes"     ~/.codex/skills/refactor-dupes
 ln -sfn "$PWD/skills/codex/resolve-issue"      ~/.codex/skills/resolve-issue
 ln -sfn "$PWD/skills/codex/ww"                 ~/.codex/skills/ww
-ln -sfn "$PWD/skills/codex/zero"               ~/.codex/skills/zero
+ln -sfn "$PWD/skills/shared/zero"              ~/.codex/skills/zero
 ```
 
 ### Agents
@@ -89,6 +89,7 @@ python3 scripts/check-install.py
 ```
 
 `scripts/check-install.py` verifies that every shipped skill and agent symlink resolves back to this checkout.
+It also fails when a paired Claude/shared workflow changed after its Codex-native counterpart, forcing an explicit parity review instead of silent drift.
 
 Open Claude Code or Codex in any repo and invoke one installed skill to confirm
 the runtime picked up the symlinked files.

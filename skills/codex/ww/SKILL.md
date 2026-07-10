@@ -1,7 +1,6 @@
 ---
 name: ww
 description: Use when the user invokes /ww or asks to do work in an isolated worktree. Creates a git worktree, plans first, implements only inside that worktree, opens a PR by default, and keeps the main checkout clean.
-user-invocable: true
 ---
 
 # Worktree Workflow
@@ -27,3 +26,4 @@ Run the requested task in an isolated git worktree. Never edit the primary check
 - Do not merge the PR.
 - Do not delete the worktree until the PR branch is pushed or the user asks for cleanup.
 - If the change cannot be isolated cleanly, stop and explain the blocker.
+- This workflow is exactly one lane with a plan/approval gate. Route multiple ad-hoc lanes to `blitz` and filed issue work to `issue`.

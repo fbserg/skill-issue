@@ -54,6 +54,12 @@ fi
 
 echo ""
 
+echo "Shared Codex skills:"
+if ! is_external_dir "${HOME}/.codex/skills"; then
+  ln -sfn "${REPO_ROOT}/skills/shared/zero" "${HOME}/.codex/skills/zero"
+  echo "  ~/.codex/skills/zero -> ${REPO_ROOT}/skills/shared/zero"
+fi
+
 # ── Shared skills (dirs containing SKILL.md only — skip loose .md files) ─────
 echo "Shared skills (Claude):"
 if is_external_dir "${HOME}/.claude/skills"; then

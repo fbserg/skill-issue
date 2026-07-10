@@ -1,6 +1,6 @@
 ---
 name: issue
-description: Front door for GitHub issue work in Codex. Use for /issue, "do issue N", "fix issue N", rough issue ideas that need filing, issue-number triage, or an explicit batch of filed issues. It scopes work and dispatches one resolve-issue lane per issue. Never merges itself.
+description: Front door for GitHub issue work in Codex. Use for /issue, "do issue N", "fix issue N", rough ideas needing a filed issue, one or more issue numbers, or batch selectors such as "last 5", "oldest 3", "mine", and "label:bug". It scopes work and dispatches one resolve-issue lane per issue, with at most four concurrent lanes. Never writes code or merges.
 ---
 
 # Issue
@@ -11,7 +11,7 @@ Use this as the thin entry point for GitHub issue work. It decides what the user
 
 - One issue number or URL: resolve that issue.
 - Rough idea with no issue: scope it into one issue, or tell the user it needs an epic if it spans multiple deliverables.
-- Multiple issue numbers: fan out one isolated `resolve-issue` lane per issue, with at most four active lanes.
+- Multiple issues or selectors: resolve and echo the exact issue list, then fan out one isolated `resolve-issue` lane per issue, with at most four active lanes.
 
 ## Workflow
 
@@ -21,7 +21,11 @@ Use this as the thin entry point for GitHub issue work. It decides what the user
 4. If a draft PR or plan comment exists, route to `resolve-issue --resume <N>`.
 5. If no issue exists yet, ask only for missing acceptance criteria that materially affect scope. Then create one focused issue with `## Scope` and `## Acceptance criteria`.
 6. Route one concrete issue to `resolve-issue <N>`.
-7. For an explicit batch, dispatch one `resolve-issue` worker per issue, cap concurrency at four, and report the resulting PRs. Do not merge them here.
+7. For `last N`, `oldest N`, `mine`/`assigned`, or `label:X`, resolve the list with `gh issue list`; modifiers stack. Echo number, title, and count before dispatch.
+8. For a batch, dispatch independent `resolve-issue` workers concurrently, cap concurrency at four, and await the wave before starting another. Each worker owns its worktree and full issue lifecycle.
+9. Re-running is idempotent: ready PR means skip, draft PR or plan comment means resume, and neither means fresh. One blocked lane never sinks the others.
+10. With three or more lanes, keep a visible ledger and actively monitor lane status. Restart a dead lane through `resolve-issue --resume`; never discard its worktree or GitHub state.
+11. Report issue → PR/state, resume URL, epic handoff, skip, or blocker. Do not merge here.
 
 ## Boundaries
 

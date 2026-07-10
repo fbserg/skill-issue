@@ -1,6 +1,6 @@
 ---
 name: refactor-dupes
-description: Find and refactor meaningful duplicate code in a pointed directory. Use for /refactor-dupes <dir>, "DRY this up", "find duplicated code", or "collapse the copy-paste in X". Detects first, asks for approval before edits, then works in a worktree and PR.
+description: Find and refactor meaningful duplicate code in a pointed directory. Use for /refactor-dupes with a directory, "DRY this up", "find duplicated code", or "collapse the copy-paste in X". Detects first, asks for approval before edits, then works in a worktree and PR.
 ---
 
 # Refactor Dupes

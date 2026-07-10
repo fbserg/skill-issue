@@ -41,11 +41,11 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | refactor-dupes | `skills/codex/refactor-dupes/SKILL.md` | Detect duplicates, approve an architecture brief, refactor one cluster in a worktree PR. |
 | resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR in an isolated worktree; never merges. |
 | ww | `skills/codex/ww/SKILL.md` | Worktree workflow: branch, plan, implement, check, draft PR; main untouched. |
-| zero | `skills/codex/zero/SKILL.md` | Explicit destructive cleanup with read-only inventory first; never discards work. |
+| zero | `skills/shared/zero/SKILL.md` | Shared destructive cleanup with proof-before-delete classification. |
 
 ---
 
-## Shared skills (`skills/shared/`) — installed for Claude
+## Shared skills (`skills/shared/`) — installed for Claude; `zero` also for Codex
 
 | Name | Path | TLDR |
 |---|---|---|
