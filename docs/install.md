@@ -54,9 +54,9 @@ ln -sfn "$PWD/skills/shared/zero"                ~/.claude/skills/zero
 ```bash
 mkdir -p ~/.codex/skills
 ln -sfn "$PWD/skills/codex/adversarial-review" ~/.codex/skills/adversarial-review
+ln -sfn "$PWD/skills/codex/blitz"             ~/.codex/skills/blitz
 ln -sfn "$PWD/skills/codex/epic-plan"          ~/.codex/skills/epic-plan
 ln -sfn "$PWD/skills/codex/issue"              ~/.codex/skills/issue
-ln -sfn "$PWD/skills/codex/issue-wave"         ~/.codex/skills/issue-wave
 ln -sfn "$PWD/skills/codex/refactor-dupes"     ~/.codex/skills/refactor-dupes
 ln -sfn "$PWD/skills/codex/resolve-issue"      ~/.codex/skills/resolve-issue
 ln -sfn "$PWD/skills/codex/ww"                 ~/.codex/skills/ww
@@ -119,8 +119,8 @@ rm ~/.claude/skills/authentic-writing ~/.claude/skills/authenticity-check
 rm ~/.claude/skills/humanizer ~/.claude/skills/ww ~/.claude/skills/zero
 
 # Remove Codex skill symlinks
-rm ~/.codex/skills/adversarial-review ~/.codex/skills/epic-plan
-rm ~/.codex/skills/issue ~/.codex/skills/issue-wave ~/.codex/skills/refactor-dupes
+rm ~/.codex/skills/adversarial-review ~/.codex/skills/blitz ~/.codex/skills/epic-plan
+rm ~/.codex/skills/issue ~/.codex/skills/refactor-dupes
 rm ~/.codex/skills/resolve-issue ~/.codex/skills/ww ~/.codex/skills/zero
 
 # Remove agent symlinks

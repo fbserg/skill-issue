@@ -30,9 +30,9 @@ cd skill-issue
 | Skill | Description |
 |---|---|
 | [`adversarial-review`](skills/codex/adversarial-review/SKILL.md) | Read-only red-team pass over a plan or diff before risky work lands. |
+| [`blitz`](skills/codex/blitz/SKILL.md) | Fast execution of ad-hoc lanes in parallel worktrees with adversarial review. |
 | [`epic-plan`](skills/codex/epic-plan/SKILL.md) | Scope broad work into a tracker issue and right-sized child issues; creates nothing until GO. |
 | [`issue`](skills/codex/issue/SKILL.md) | Front door for GitHub issue work; scopes ideas or routes issue numbers to resolve-issue. |
-| [`issue-wave`](skills/codex/issue-wave/SKILL.md) | Batch issue dispatch, adversarial review, merge, push, and cleanup methodology. |
 | [`refactor-dupes`](skills/codex/refactor-dupes/SKILL.md) | Tool-first duplicate detection, architecture brief, approved worktree refactor, draft PR. |
 | [`resolve-issue`](skills/codex/resolve-issue/SKILL.md) | One issue to review-ready PR in an isolated worktree; never merges. |
 | [`ww`](skills/codex/ww/SKILL.md) | Isolated worktree workflow; plan first, PR by default, main untouched. |
@@ -68,7 +68,7 @@ Claude skills remain available for Claude Code. Codex uses the separate
 |---|---|
 | An issue number | `/issue <N>` — hands it to `/resolve-issue`, which self-scales by tier |
 | A rough idea (no issue yet) | `/issue <free text>` — scopes it, files the issue, then dispatches |
-| Multiple issues | `/issue 42 43 44` — fans out ≤4 concurrent `/resolve-issue` lanes (Claude); `$issue-wave` on Codex |
+| Multiple issues | `/issue 42 43 44` — fans out ≤4 concurrent `/resolve-issue` lanes |
 | Ad-hoc lanes, nothing filed | `/blitz` — parallel worktrees, adversarial review, no pipeline |
 | A true epic (multi-session, multiple deliverables) | `/epic-plan <topic>` → `/issue <child-number>` |
 

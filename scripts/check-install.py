@@ -12,9 +12,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 # Codex-only skills — unchanged, canonical home is skills/codex/.
 CODEX_SKILLS = (
     "adversarial-review",
+    "blitz",
     "epic-plan",
     "issue",
-    "issue-wave",
     "refactor-dupes",
     "resolve-issue",
     "ww",

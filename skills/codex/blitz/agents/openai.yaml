@@ -1,0 +1,4 @@
+interface:
+  display_name: "Blitz"
+  short_description: "Fast adversarial execution across parallel lanes"
+  default_prompt: "Use $blitz to execute several ad-hoc tasks quickly in isolated parallel lanes with adversarial review."

@@ -39,6 +39,9 @@ echo "Codex skills:"
 if is_external_dir "${HOME}/.codex/skills"; then
   echo "  ~/.codex/skills is a symlink (externally managed) — skipping."
 else
+  # Retired in favor of blitz. Remove only the old symlink; preserve any real
+  # user-owned directory or file at this path.
+  [[ -L "${HOME}/.codex/skills/issue-wave" ]] && rm "${HOME}/.codex/skills/issue-wave"
   for skill_dir in "${REPO_ROOT}/skills/codex"/*/; do
     [[ -d "$skill_dir" ]] || continue
     [[ -f "${skill_dir}SKILL.md" ]] || continue
