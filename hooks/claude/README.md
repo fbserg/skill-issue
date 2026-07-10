@@ -5,7 +5,7 @@ copies run from a private config repo** (`~/.claude/hooks` is a symlink into
 it); this directory is synced here manually, so it can lag the live set.
 Treat it as reference/install material, not a live-editable source.
 
-Nine hooks, wired via `~/.claude/settings.json`. Paths below assume you drop
+Ten hooks, wired via `~/.claude/settings.json`. Paths below assume you drop
 these files under `~/.claude/hooks/` (adjust if you install elsewhere).
 
 ## expensive_model_edit_guard.py
@@ -155,6 +155,26 @@ celebrates. A no-op without a push recipe that sets the marker.
 ]
 ```
 
+## stop-failure.sh
+
+On `StopFailure` (turn ended due to an API error — rate limit, overload,
+server error, …), appends the event payload as a JSONL line to
+`~/.claude/logs/stop-failures.jsonl` and rings the terminal bell. Completion
+notifications already exist; this is the missing half — a durable trace when
+a session (especially a background fleet lane) dies silently instead of
+finishing. The harness ignores this hook's output and exit code, so it's a
+pure observer.
+
+```json
+"StopFailure": [
+  {
+    "hooks": [
+      {"type": "command", "command": "~/.claude/hooks/stop-failure.sh", "async": true}
+    ]
+  }
+]
+```
+
 ## quality/ — format-on-write + unresolved-failure gate
 
 Four-stage suite sharing `quality/claude_quality_lib.py`:
@@ -228,13 +248,15 @@ Four-stage suite sharing `quality/claude_quality_lib.py`:
 Personal plumbing kept in the private config repo, excluded because it's
 either machine-specific or has no reuse value outside the author's setup:
 `caffeinate.sh` (Mac sleep prevention), `idle-stamp.sh` and `warp-status.sh`
-(Warp terminal integration), `advisor-opus-block.sh` and
-`advisor-track.sh` (usage tracking for a private `advisor` tool),
-`epic-tally-subagent.sh` (attributes background-agent token spend to a
-private epic-cost-tracking file keyed to this author's directory layout).
-`rtk hook claude` is a separate installed binary (the RTK CLI), not a
-script in this tree.
+(Warp terminal integration), `epic-tally-subagent.sh` (attributes
+background-agent token spend to a private epic-cost-tracking file keyed to
+this author's directory layout). RTK's command rewriting runs inside
+`pretool-bash.sh` (Phase 3 shells out to `rtk rewrite`); the RTK CLI's own
+`rtk hook claude` does the same job, but wire exactly one of the two — the
+author ran both for a while and the duplicate rewrite pass corrupted
+compound-predicate `find` commands that Phase 3 deliberately passes through.
 
-`anxiety-panel.py` exists in the source hooks directory but is wired
-nowhere — not in `settings.json`, not referenced by any other hook or the
-statusline script. Vestigial; not shipped.
+`anxiety-panel.py` (advisory Stop-hook review panel: untested edits,
+destructive commands, possible secrets, leftover debug noise, scope creep)
+lives in the source hooks directory but is deliberately wired per-project
+via a repo's `.claude/settings.local.json`, not globally. Not shipped.

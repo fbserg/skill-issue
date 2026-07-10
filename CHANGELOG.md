@@ -5,11 +5,13 @@ All notable changes to this project will be documented here.
 ## Unreleased
 
 ### Added
+- `hooks/claude/stop-failure.sh`: StopFailure watchdog — logs API-error turn ends (rate limit, overload, server error) to `~/.claude/logs/stop-failures.jsonl` and rings the bell, so silently dying sessions leave a trace. Born from the 2026-07-10 hook audit.
 - `docs/codex-subagent-model-routing.md`: install Codex custom-agent model/effort routing from the live model catalog and verify it from child rollout metadata, with cold-discovery and negative-control gates.
 - `tools/transcript-archive/backup.py`: one-way daily archiver for Claude Code + Codex JSONL transcripts — strips embedded base64 blobs, never clobbers a larger copy with a smaller one, storage-agnostic (point `TRANSCRIPT_ARCHIVE_DIR` at any synced folder/disk/git repo). Includes a macOS launchd plist template.
 - `blitz` skill (Claude): lightweight executor for ad-hoc lanes — parallel worktrees + adversarial review, no pipeline ceremony; boundaries documented against /issue and /ww.
 
 ### Changed
+- Hook-audit fixes (2026-07-10): `pretool-bash.sh` Phase 3 now owns rtk rewriting alone (the duplicate standalone `rtk hook claude` settings entry double-rewrote and broke compound-predicate `find` commands that Phase 3 deliberately passes through) and short-circuits already-rewritten commands on rtk's exit-3 path; dead `advisor` hooks deleted; stale `MultiEdit` matchers dropped; `hooks/claude/README.md` corrected (anxiety-panel is project-scoped by design, not vestigial).
 - `epic-plan` rewritten per the 2026-07-10 usage audit (per-child Context stanzas, impact-based blocker severity, feasibility/testability review lens, repo-grounded skeptic re-checks, tracker checklist re-sync, close-out verification, spike children); `simplify-sweep` slimmed (tidy-log.jsonl dropped — sweep commit tags are the state store; watchdog required at 3+ background batches); `docs/DECISIONS.md` gained the orchestration-lineup ruling (four entry points, no wave-loop orchestrator).
 
 ## 2026-06-20

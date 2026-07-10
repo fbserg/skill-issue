@@ -248,18 +248,19 @@ EXIT_CODE=$?
 set -e
 
 case $EXIT_CODE in
-  0)
-    [ "$COMMAND" = "$REWRITTEN" ] && exit 0
+  0|3)
     ;;
   1|2)
     exit 0
-    ;;
-  3)
     ;;
   *)
     exit 0
     ;;
 esac
+
+# Idempotency short-circuit: covers both exit 0 (no-op rewrite) and exit 3
+# (already-rtk-prefixed commands rtk echoes back unchanged).
+[ "$COMMAND" = "$REWRITTEN" ] && exit 0
 
 ORIGINAL_INPUT=$(echo "$INPUT" | jq -c '.tool_input')
 UPDATED_INPUT=$(echo "$ORIGINAL_INPUT" | jq --arg cmd "$REWRITTEN" '.command = $cmd')

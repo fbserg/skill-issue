@@ -70,6 +70,7 @@ Published mirror of the live hook set; canonical copies run from a private confi
 | sessionstart-context | `hooks/claude/sessionstart-context.sh` | SessionStart | Inject current branch + recent commits into every session automatically. |
 | notify-done | `hooks/claude/notify-done.sh` | Stop | Ring the terminal bell when Claude's last message is actually a question. |
 | confetti-gate | `hooks/claude/confetti-gate.sh` | Stop | Fire Raycast confetti after a successful deploy/push. macOS + Raycast only. |
+| stop-failure | `hooks/claude/stop-failure.sh` | StopFailure | Log API-error turn ends to a JSONL watchdog trail + terminal bell. |
 | quality/ (4 hooks + shared lib) | `hooks/claude/quality/` | PreToolUse/PostToolUse/PostToolBatch/PostToolUseFailure/Stop | Format-on-write + unresolved-failure Stop gate. |
 
 Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/README.md`
