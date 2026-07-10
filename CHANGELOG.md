@@ -7,16 +7,20 @@ All notable changes to this project will be documented here.
 ### Added
 - `docs/codex-subagent-model-routing.md`: install Codex custom-agent model/effort routing from the live model catalog and verify it from child rollout metadata, with cold-discovery and negative-control gates.
 - `tools/transcript-archive/backup.py`: one-way daily archiver for Claude Code + Codex JSONL transcripts — strips embedded base64 blobs, never clobbers a larger copy with a smaller one, storage-agnostic (point `TRANSCRIPT_ARCHIVE_DIR` at any synced folder/disk/git repo). Includes a macOS launchd plist template.
-
-## Unreleased (2026-06-20)
+- `blitz` skill (Claude): lightweight executor for ad-hoc lanes — parallel worktrees + adversarial review, no pipeline ceremony; boundaries documented against /issue and /ww.
 
 ### Changed
-- Project is now **Claude-only**. Codex is fully phased out: the entire `skills/codex/` tree is archived under `deprecated/skills/codex/` and no longer installed.
+- `epic-plan` rewritten per the 2026-07-10 usage audit (per-child Context stanzas, impact-based blocker severity, feasibility/testability review lens, repo-grounded skeptic re-checks, tracker checklist re-sync, close-out verification, spike children); `simplify-sweep` slimmed (tidy-log.jsonl dropped — sweep commit tags are the state store; watchdog required at 3+ background batches); `docs/DECISIONS.md` gained the orchestration-lineup ruling (four entry points, no wave-loop orchestrator).
+
+## 2026-06-20
+
+### Changed
+- Project is now **Claude-only**. Codex is fully phased out: the entire `skills/codex/` tree is archived under `deprecated/skills/codex/` and no longer installed. *(Reversed 2026-07-05 — see `docs/DECISIONS.md`; `skills/codex/` is live again and installed.)*
 - Deprecated the `epic-run` pipeline (`epic-run`, `epic-research`, `epic-retro`) and the `epic-tools` CLI: all archived under `deprecated/`. They are not installed, not checked by `check-install.py`, and not symlinked by `install.sh`. See `deprecated/README.md`.
 - Rebuilt `epic-plan` (Claude): lean, research-and-review-centric. Wide parallel research front-loads discovery; a 4-lens adversarial review validates the decomposition before issues are filed; child issues re-enter from GitHub state and execute via `/issue` → `/resolve-issue` (not `/epic-run`).
 - `install.sh` and `check-install.py` updated to reflect Claude-only install: Codex loops and epic-tools wiring removed.
 
-## Unreleased
+## Earlier (pre-2026-06-20)
 
 ### Added
 - `tools/gmail-tools/bin/gmail-tools`: a deliberately draft-only Gmail CLI (search, read, label, attachments, multipart drafts) — a no-send proxy makes the send endpoint structurally impossible to call, so it's safe to hand to an agent. `uv` inline-deps, env-driven OAuth config.

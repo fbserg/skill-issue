@@ -27,6 +27,7 @@ copies under `~/.claude/skills/`, `~/.codex/skills/`, or `~/.claude/agents/`.
 ```bash
 mkdir -p ~/.claude/skills
 ln -sfn "$PWD/skills/claude/adversary"       ~/.claude/skills/adversary
+ln -sfn "$PWD/skills/claude/blitz"           ~/.claude/skills/blitz
 ln -sfn "$PWD/skills/claude/deep-research"   ~/.claude/skills/deep-research
 ln -sfn "$PWD/skills/claude/epic-plan"       ~/.claude/skills/epic-plan
 ln -sfn "$PWD/skills/claude/issue"           ~/.claude/skills/issue
@@ -108,9 +109,10 @@ and the old Codex skills are deprecated and archived under `deprecated/`. See
 
 ```bash
 # Remove Claude skill symlinks
-rm ~/.claude/skills/adversary ~/.claude/skills/deep-research
-rm ~/.claude/skills/epic-plan ~/.claude/skills/issue
-rm ~/.claude/skills/resolve-issue ~/.claude/skills/simplify-sweep
+rm ~/.claude/skills/adversary ~/.claude/skills/blitz
+rm ~/.claude/skills/deep-research ~/.claude/skills/epic-plan
+rm ~/.claude/skills/issue ~/.claude/skills/resolve-issue
+rm ~/.claude/skills/simplify-sweep
 
 # Remove shared skill symlinks (installed for Claude)
 rm ~/.claude/skills/authentic-writing ~/.claude/skills/authenticity-check
@@ -118,7 +120,7 @@ rm ~/.claude/skills/humanizer ~/.claude/skills/ww ~/.claude/skills/zero
 
 # Remove Codex skill symlinks
 rm ~/.codex/skills/adversarial-review ~/.codex/skills/epic-plan
-rm ~/.codex/skills/issue ~/.codex/skills/refactor-dupes
+rm ~/.codex/skills/issue ~/.codex/skills/issue-wave ~/.codex/skills/refactor-dupes
 rm ~/.codex/skills/resolve-issue ~/.codex/skills/ww ~/.codex/skills/zero
 
 # Remove agent symlinks

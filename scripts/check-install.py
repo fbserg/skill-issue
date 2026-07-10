@@ -27,6 +27,7 @@ CODEX_SKILLS = (
 # SHARED_SKILLS below).
 CLAUDE_SKILLS = (
     "adversary",
+    "blitz",
     "deep-research",
     "epic-plan",
     "issue",

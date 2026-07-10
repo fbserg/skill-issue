@@ -18,8 +18,8 @@ For security issues, see [SECURITY.md](SECURITY.md).
 
 ## Skill guidelines
 
-- Treat this repository as the canonical edit point for shipped epic, sweep,
-  and zero skill behavior. Installed entries under `~/.claude/skills` and
+- Treat this repository as the canonical edit point for shipped epic-plan,
+  simplify-sweep, and zero skill behavior. Installed entries under `~/.claude/skills` and
   `~/.local/bin` should be symlinks back here; run
   `python3 scripts/check-install.py` after changing install wiring.
 - Skills are prompt files. Keep them concise — every sentence is read by the model on every invocation.
