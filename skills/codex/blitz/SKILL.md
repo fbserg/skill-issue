@@ -20,10 +20,13 @@ Act as the orchestrator; do not implement lane work in the main checkout.
 - After any gate failure, collect the complete failure set and fix it as one batch. Re-run the narrowest checks that prove the batch before returning to the full gate.
 - Never run the same expensive gate more than twice without a new diagnosis or changed hypothesis. After the second failure, stop the loop, inspect the orchestration and test topology, and report the concrete blocker.
 - Treat golden drift, formatting, static analysis, resource parity, and literal audits as preflight checks. Clear all of them before the final full suite.
+- Batch all known review and adversarial findings before the first push and before any hosted-CI rerun. Do not use hosted CI as a fix-by-fix feedback loop.
+- Do not push cosmetic-only cleanup that restarts expensive hosted CI unless correctness or required reviewer understanding materially requires an immediate push; fold all other clarity cleanup into the next substantive batch.
 - Do not accept retry-only greens for flakes. Stress the focused failure and repair lifecycle, dispatcher, shared-state, or test isolation defects; if it does not reproduce, record the stress evidence once and continue.
 - Reserve shared resources explicitly (build mutexes, emulators, backend records). Release them immediately between commands; stale reservations are blockers, not queues to poll forever.
 - Send a user-visible update at least every 60 seconds while work is active. Report the current command or gate, the last observed result, and the next terminal condition. Repeated `wait` calls are not progress.
 - If a lane is silent for two update intervals, request a ledger update. If it remains silent or repeats the same gate, interrupt and re-scope it instead of continuing to poll.
-- Merge only after required hosted checks pass. If policy permits an earlier merge, keep the lane active and treat any post-merge failure as an urgent repair before downstream work lands.
+- After targeted, preflight, and full local gates pass and adversarial review clears a lane, dependent lanes may start on explicitly tracked stacked branches while the prerequisite's hosted CI runs. Record each stack's base and dependency order.
+- Merge stacks only in dependency order, and only after every final branch head receives its required hosted checks. Restack or rebase after prerequisites merge, then rerun invalidated checks without discarding the recorded proof from the pre-restack head.
 
 Use `issue` for filed GitHub issues and its batch routing. Use `ww` for exactly one plan-first, approval-gated task. Use `epic-plan` when the work first needs decomposition.

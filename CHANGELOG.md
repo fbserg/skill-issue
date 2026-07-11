@@ -4,6 +4,7 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- Updated Codex `blitz` to batch fixes before hosted CI, avoid cosmetic-only CI restarts, and permit locally cleared stacked lanes while preserving dependency-ordered, final-head-checked merges.
 - Added the runtime-native Codex `blitz` skill and retired the stale Codex `issue-wave` registration; Codex now matches the four-entry-point orchestration decision.
 - Synced current Claude-side workflow lessons into the Codex epic/issue lifecycle and made shared `zero` canonical for both runtimes to prevent future drift.
 
