@@ -14,4 +14,16 @@ Act as the orchestrator; do not implement lane work in the main checkout.
 - Move through gates without re-confirming phases. Take each lane through checks, commit, push, and PR or integration as the repository policy requires.
 - Stop only for scope changes, destructive ambiguity, an unresolvable failed gate, or overlapping ownership that cannot be isolated.
 
+## Keep fast lanes fast
+
+- Give each lane a gate ladder before it starts: cheap targeted checks, one batched preflight, then one expensive full gate. Do not use the full gate as a discovery loop.
+- After any gate failure, collect the complete failure set and fix it as one batch. Re-run the narrowest checks that prove the batch before returning to the full gate.
+- Never run the same expensive gate more than twice without a new diagnosis or changed hypothesis. After the second failure, stop the loop, inspect the orchestration and test topology, and report the concrete blocker.
+- Treat golden drift, formatting, static analysis, resource parity, and literal audits as preflight checks. Clear all of them before the final full suite.
+- Do not accept retry-only greens for flakes. Stress the focused failure and repair lifecycle, dispatcher, shared-state, or test isolation defects; if it does not reproduce, record the stress evidence once and continue.
+- Reserve shared resources explicitly (build mutexes, emulators, backend records). Release them immediately between commands; stale reservations are blockers, not queues to poll forever.
+- Send a user-visible update at least every 60 seconds while work is active. Report the current command or gate, the last observed result, and the next terminal condition. Repeated `wait` calls are not progress.
+- If a lane is silent for two update intervals, request a ledger update. If it remains silent or repeats the same gate, interrupt and re-scope it instead of continuing to poll.
+- Merge only after required hosted checks pass. If policy permits an earlier merge, keep the lane active and treat any post-merge failure as an urgent repair before downstream work lands.
+
 Use `issue` for filed GitHub issues and its batch routing. Use `ww` for exactly one plan-first, approval-gated task. Use `epic-plan` when the work first needs decomposition.
