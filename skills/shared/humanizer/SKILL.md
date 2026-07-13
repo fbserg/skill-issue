@@ -16,7 +16,6 @@ description: >-
   only says the text feels off, sounds corporate, reads like AI, or is too
   generic, without naming this skill or the word humanize.
 allowed-tools: Read, Write, Edit, Glob, Grep
-compatibility: claude-code, cursor, codex, antigravity, gemini-cli, pi-coder, opencode, copilot, windsurf, cline, continue, zed, aider
 metadata:
   version: 1.1.1
 ---

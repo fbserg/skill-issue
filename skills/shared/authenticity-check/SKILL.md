@@ -12,7 +12,6 @@ description: >-
   humanize, de-slop, de-AI, rewrite, fix, or make it sound like X; those
   belong to the separate humanizer skill.
 allowed-tools: Read, Glob, Grep
-compatibility: claude-code, cursor, codex, antigravity, gemini-cli, pi-coder, opencode, copilot, windsurf, cline, continue, zed, aider
 metadata:
   version: 1.1.1
 ---
