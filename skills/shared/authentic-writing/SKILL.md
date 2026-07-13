@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 name: authentic-writing
 description: Use the paired authenticity-check and humanizer skills for agent-written prose quality. Audit text that may read as AI-generated, humanize or de-slop drafts without adding facts, and run a fresh re-check after rewrites when requested. Use for README/docs copy, PR descriptions, release notes, issue comments, landing copy, reports, and status updates that need to sound less generic while preserving meaning.
 ---

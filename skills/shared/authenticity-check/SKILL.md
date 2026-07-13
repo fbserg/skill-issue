@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 name: authenticity-check
 description: >-
   Score how authentically a piece of text reads as the work of a real human

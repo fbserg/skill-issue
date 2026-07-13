@@ -1,4 +1,5 @@
 ---
+disable-model-invocation: true
 name: humanizer
 description: >-
   De-slop AI-sounding prose and rewrite a draft so it reads as genuinely
