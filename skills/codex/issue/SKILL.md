@@ -23,9 +23,10 @@ Use this as the thin entry point for GitHub issue work. It decides what the user
 6. Route one concrete issue to `resolve-issue <N>`.
 7. For `last N`, `oldest N`, `mine`/`assigned`, or `label:X`, resolve the list with `gh issue list`; modifiers stack. Echo number, title, and count before dispatch.
 8. For a batch, dispatch independent `resolve-issue` workers concurrently, cap concurrency at four, and await the wave before starting another. Each worker owns its worktree and full issue lifecycle.
-9. Re-running is idempotent: ready PR means skip, draft PR or plan comment means resume, and neither means fresh. One blocked lane never sinks the others.
-10. With three or more lanes, keep a visible ledger and actively monitor lane status. Restart a dead lane through `resolve-issue --resume`; never discard its worktree or GitHub state.
-11. Report issue → PR/state, resume URL, epic handoff, skip, or blocker. Do not merge here.
+9. Claim each issue for the authenticated GitHub user immediately before dispatch. Do not pre-claim queued issues, and do not take an issue already assigned to another user.
+10. Re-running is idempotent: ready PR means skip, draft PR or plan comment means resume, and neither means fresh. One blocked lane never sinks the others.
+11. With three or more lanes, keep a visible ledger and actively monitor lane status. Restart a dead lane through `resolve-issue --resume`; never discard its worktree or GitHub state.
+12. Report issue → PR/state, resume URL, epic handoff, skip, or blocker. Do not merge here.
 
 ## Boundaries
 

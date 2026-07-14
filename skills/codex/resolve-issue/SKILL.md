@@ -25,7 +25,7 @@ Take one GitHub issue to a review-ready PR. Keep the work durable in GitHub and 
 3. Search existing PRs first, then plan and continuation comments. This order is the canonical concurrent-run guard.
 4. If a ready PR exists, report it and stop.
 5. If a draft PR or plan comment exists, resume from that state.
-6. Assign yourself only when the repository convention supports it; stop if another user owns the issue.
+6. Claim the issue for the authenticated GitHub user before posting the plan or creating the branch. Stop rather than taking an issue assigned to another user.
 
 ## Assess and Scale
 
