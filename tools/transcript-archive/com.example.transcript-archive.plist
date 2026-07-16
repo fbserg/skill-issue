@@ -2,61 +2,61 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <!--
-  macOS launchd template for daily transcript-archive runs.
+  macOS launchd RENDER TEMPLATE for daily transcript-archive runs.
 
-  HOW TO USE:
-  1. Replace every ALL-CAPS placeholder below with real paths.
-  2. Rename this file to match the Label value, e.g.:
-       com.example.transcript-archive.plist
-  3. Copy it to ~/Library/LaunchAgents/
-  4. Load it:
-       launchctl load ~/Library/LaunchAgents/com.example.transcript-archive.plist
+  This file is not meant to be edited by hand or loaded directly. It is
+  rendered by install.sh, which replaces every double-at-sign placeholder
+  token below (the ProgramArguments, EnvironmentVariables, schedule, and
+  log-path values further down) with a real value and writes the result
+  to:
+    ~/Library/LaunchAgents/com.skill-issue.transcript-archive.plist
+  Run ./install.sh <ARCHIVE_DIR> to do this (see
+  skills/claude/transcript-backup/SKILL.md for the guided version).
 
   IMPORTANT: launchd does NOT inherit your shell environment. The
-  TRANSCRIPT_ARCHIVE_DIR variable MUST be set here in EnvironmentVariables,
-  not just in your .zshrc / .bashrc.
+  TRANSCRIPT_ARCHIVE_DIR / TRANSCRIPT_ARCHIVE_MACHINE_ID variables MUST be
+  set here in EnvironmentVariables, not just in your .zshrc / .bashrc --
+  install.sh handles this for you.
 -->
 <plist version="1.0">
 <dict>
 
   <key>Label</key>
-  <string>com.example.transcript-archive</string>
+  <string>com.skill-issue.transcript-archive</string>
 
   <key>ProgramArguments</key>
   <array>
-    <string>/usr/bin/python3</string>
-    <!-- Replace with the absolute path to backup.py on your machine -->
-    <string>/ABSOLUTE/PATH/TO/transcript-archive/backup.py</string>
+    <string>@@PYTHON@@</string>
+    <string>@@BACKUP_PY@@</string>
   </array>
 
   <key>EnvironmentVariables</key>
   <dict>
-    <!-- Replace with the directory you want transcripts copied into.
-         Point this at a folder inside Dropbox / iCloud Drive / Google Drive /
-         OneDrive / Syncthing for automatic off-machine backup. -->
     <key>TRANSCRIPT_ARCHIVE_DIR</key>
-    <string>/PATH/TO/YOUR/SYNCED/FOLDER/transcript-archive</string>
+    <string>@@ARCHIVE_DIR@@</string>
+    <key>TRANSCRIPT_ARCHIVE_MACHINE_ID</key>
+    <string>@@MACHINE_ID@@</string>
   </dict>
 
-  <!-- Daily at 03:00 local time -->
+  <!-- Daily at the time install.sh was given (default 03:17 local) -->
   <key>StartCalendarInterval</key>
   <dict>
     <key>Hour</key>
-    <integer>3</integer>
+    <integer>@@HOUR@@</integer>
     <key>Minute</key>
-    <integer>0</integer>
+    <integer>@@MINUTE@@</integer>
   </dict>
 
-  <!-- Do NOT run immediately on load — wait for the scheduled time -->
+  <!-- Do NOT run immediately on load -- install.sh runs the first dump in
+       the foreground itself; this job only fires at the scheduled time. -->
   <key>RunAtLoad</key>
   <false/>
 
-  <!-- Replace with absolute paths for log output -->
   <key>StandardOutPath</key>
-  <string>/ABSOLUTE/PATH/TO/transcript-archive/launchd.out</string>
+  <string>@@LOG_OUT@@</string>
 
   <key>StandardErrorPath</key>
-  <string>/ABSOLUTE/PATH/TO/transcript-archive/launchd.err</string>
+  <string>@@LOG_ERR@@</string>
 
 </dict>
 </plist>
