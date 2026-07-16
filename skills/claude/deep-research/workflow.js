@@ -173,7 +173,7 @@ const scope = await agent(
   '- needsEvidenceTiering: true for empirical/health/causal/scientific topics where evidence strength matters; false for pure preference, how-to, or product-comparison questions.\n' +
   '- reasoningSubquestions: 0-3 counterintuitive sub-questions worth reasoning through from first principles once evidence is collected (e.g. "if the mechanism is X, why do trials in population Y show nothing?"). Empty for simple topics.\n\n' +
   'Return the question (verbatim or lightly normalized), a 1-2 sentence decomposition strategy, complexity, the angles, and the evidence-machinery fields.\n\nStructured output only.',
-  { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, model: 'opus' }
+  { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, model: 'opus', effort: 'high', agentType: 'opus-worker' }
 )
 if (!scope) return { error: 'Scope agent returned no result.' }
 
@@ -278,7 +278,7 @@ while (true) {
     angles,
 
     angle => agent(SEARCH_PROMPT(angle), {
-      label: rTag + 'search:' + angle.label, phase: 'Search', schema: SEARCH_SCHEMA, model: 'sonnet',
+      label: rTag + 'search:' + angle.label, phase: 'Search', schema: SEARCH_SCHEMA, model: 'sonnet', effort: 'medium', agentType: 'worker',
     }).then(r => {
       totalSearches++
       if (!r) return null
@@ -303,7 +303,7 @@ while (true) {
           try { host = new URL(source.url).hostname.replace(/^www\./, '') } catch {}
           totalFetches++
           return agent(FETCH_PROMPT(source, searchResult.angle), {
-            label: rTag + 'fetch:' + host, phase: 'Fetch', schema: EXTRACT_SCHEMA, model: 'sonnet',
+            label: rTag + 'fetch:' + host, phase: 'Fetch', schema: EXTRACT_SCHEMA, model: 'sonnet', effort: 'medium', agentType: 'worker',
           }).then(ext => {
             if (!ext) return null
             return {
@@ -345,7 +345,7 @@ while (true) {
     centralFresh.map(claim => () => {
       totalVerifies++
       return agent(VERIFY_PROMPT(claim), {
-        label: rTag + 'skeptic:' + claim.claim.slice(0, 40), phase: 'Verify', schema: VERDICT_SCHEMA, model: 'sonnet',
+        label: rTag + 'skeptic:' + claim.claim.slice(0, 40), phase: 'Verify', schema: VERDICT_SCHEMA, model: 'sonnet', effort: 'medium', agentType: 'worker',
       }).then(v => ({ claim, v }))
     })
   )
@@ -389,7 +389,7 @@ while (true) {
     '3. missingAngles: ONLY angles whose findings would materially change the answer — a missed evidence type, subpopulation, or counter-hypothesis. Each needs {label, query, boundary, lens} with lens from: ' + LENSES.join(', ') + '. Boundaries must not overlap angles already covered. Empty array if coverage is adequate.\n' +
     '4. saturated: true if another search round would mostly re-find what is already here.\n\n' +
     'Be stingy with missingAngles — each costs a full search round. An angle that would merely add more of the same evidence is NOT missing.\n\nStructured output only.',
-    { label: rTag + 'critic', phase: 'Critic', schema: CRITIC_SCHEMA, model: 'opus' }
+    { label: rTag + 'critic', phase: 'Critic', schema: CRITIC_SCHEMA, model: 'opus', effort: 'high', agentType: 'opus-worker' }
   )
 
   if (!critic) { log('Critic returned nothing — finalizing'); break }
@@ -434,7 +434,7 @@ if (scope.needsEvidenceTiering && subqs.length && confirmed.length) {
         'Produce a non-obvious conclusion the individual sources do not state outright — reconcile contradictions, explain why mechanism and trial data diverge, identify the conditions under which the answer flips.\n' +
         'Your output will be tagged tier "reasoned-from-cited-mechanism" and kept distinct from directly-evidenced findings — do NOT dress inference as measured fact. ' +
         'If the pool cannot support a real conclusion, say so plainly with confidence low.\n\nStructured output only.',
-        { label: 'reason:' + q.slice(0, 40), phase: 'Reasoning', schema: REASONED_SCHEMA, model: 'opus' }
+        { label: 'reason:' + q.slice(0, 40), phase: 'Reasoning', schema: REASONED_SCHEMA, model: 'opus', effort: 'high', agentType: 'opus-worker' }
       ).then(r => r && { ...r, subquestion: q, tier: 'reasoned-from-cited-mechanism' })
     )
   )).filter(Boolean)
@@ -460,7 +460,7 @@ const report = await agent(
   '6. Contested claims are NOT findings — but where a contested claim disputes a finding, say so in that finding\'s evidence text, and reflect the dispute in caveats.\n' +
   '7. Caveats: uncertainty, weak tiers, tier mismatches, time-sensitivity, what the disconfirmation search did and did not find.\n' +
   '8. List 2-3 open questions that emerged but were not answered.\n\nStructured output only.',
-  { label: 'synthesize', phase: 'Synthesize', schema: REPORT_SCHEMA, model: 'opus' }
+  { label: 'synthesize', phase: 'Synthesize', schema: REPORT_SCHEMA, model: 'opus', effort: 'high', agentType: 'opus-worker' }
 )
 
 const contestedOut = contested.map(c => ({

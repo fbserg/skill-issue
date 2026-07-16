@@ -1,13 +1,13 @@
 ---
 name: epic-plan
-description: Scope a topic too big for one issue into a GitHub epic — a tracker issue carrying a frozen contract plus right-sized child issues that execute via /issue → /resolve-issue. The value is the decomposition and an adversarial review of it, front-loaded by an expensive model before any code is written; the paperwork is trivial. Use when the user invokes /epic-plan TOPIC, resumes one (/epic-plan <tracker#>), or when a task has multiple deliverables or spans multiple sessions. NOT for a single scoped change (use /issue, which files one issue) or a one-PR fix (use /resolve-issue). Creates nothing on GitHub until the user says GO.
+description: Scope a topic too big for one issue into a GitHub epic — a tracker issue carrying a frozen contract plus right-sized child issues that execute via /issue → /resolve-issue. The value is the decomposition and an adversarial review of it, front-loaded by an expensive model before any code is written; the paperwork is trivial. Use when the user invokes /epic-plan TOPIC, resumes one (/epic-plan <tracker#>), or when a task has multiple deliverables or spans multiple sessions. NOT for a single scoped change (use /issue, which files one issue) or a one-PR fix (use /resolve-issue). Materializes the epic on GitHub autonomously once the reviewed decomposition is ready.
 ---
 
 Turn a topic into a GitHub epic: one **tracker** issue carrying a frozen contract, plus **child** issues each sized for a single `/resolve-issue` session. Spend tokens up front getting the split right and stress-testing it — being wrong about the decomposition is the most expensive place to be wrong, and an adversarial review here is the cheapest place to catch it. Then hand the children to `/issue` and stop.
 
 This skill OWNS scoping, research, decomposition, decomposition-review, and issue creation. It does NOT write code, run children, or open/merge child PRs — handoff ends at `/issue`.
 
-**The one hard gate: create nothing on GitHub until the user explicitly says GO.**
+**No approval gate: once the reviewed decomposition is ready, materialize it on GitHub immediately and report the plan + issue numbers in the same breath.** (Materialization is idempotent, so a user revision afterwards edits issues in place — a wrong decomposition costs an edit, not a restart.)
 
 ## Re-entry (run first, always)
 
@@ -18,16 +18,16 @@ This skill OWNS scoping, research, decomposition, decomposition-review, and issu
   gh issue list --label "epic:<slug>" --state all --json number,title,state,body
   ```
 
-  First, **re-sync the tracker checklist** against actual child states — children close out of band and the checklist rots silently; tick merged/closed children via `gh issue edit <tracker> --body-file`. Then: a human comment or `needs-revision` label is a loop-back signal — re-run the review against the live tracker + children (there is no cache post-GO), revise once, re-materialize idempotently. Carry the existing tracker forward; never restart or duplicate. Otherwise report status: which children shipped, which are runnable now, the next `/issue` wave.
+  First, **re-sync the tracker checklist** against actual child states — children close out of band and the checklist rots silently; tick merged/closed children via `gh issue edit <tracker> --body-file`. Then: a human comment or `needs-revision` label is a loop-back signal — re-run the review against the live tracker + children (there is no cache post-materialize), revise once, re-materialize idempotently. Carry the existing tracker forward; never restart or duplicate. Otherwise report status: which children shipped, which are runnable now, the next `/issue` wave.
 
   **Close-out:** when the last child merges, the epic isn't done — verify the *composed* result against the contract's Done criteria (`/verify`-style, end-to-end, not per-child green), suggest `/simplify-sweep` over the epic's commit range to catch cross-child duplication from parallel lanes, then close the tracker with a one-comment summary.
-- **`/epic-plan <topic>`** → new epic (or a pre-GO crash on the same topic). Derive a stable `<slug>` (kebab-case, ≤4 words); it keys the cache dir, the `epic:<slug>` label, and the idempotency markers. If `/tmp/epic-plan/<slug>/research.md` or `review.md` exists, a prior session got that far — reuse it only if the scope is unchanged, and re-enter past that phase.
+- **`/epic-plan <topic>`** → new epic (or a pre-materialize crash on the same topic). Derive a stable `<slug>` (kebab-case, ≤4 words); it keys the cache dir, the `epic:<slug>` label, and the idempotency markers. If `/tmp/epic-plan/<slug>/research.md` or `review.md` exists, a prior session got that far — reuse it only if the scope is unchanged, and re-enter past that phase.
 - **`/epic-plan <number>` where the issue is NOT a tracker** (no `epic-plan:tracker` marker) → treat the issue as the topic seed: derive the slug from its title, note close-or-supersede in the new tracker body, continue as a new epic. This is the landing path for `/resolve-issue` bouncing an epic-shaped issue here.
 
 Two early exits before any work:
 
 - **Really one issue** (single deliverable, one `/resolve-issue` session) → stop, tell the user to run `/issue <topic>`.
-- **Trivial epic** (2–3 obvious children, no unknowns, single repo) → skip Research and the review panel. Grill briefly, decompose, check the draft against the Hard rules yourself, then present the same GO gate minus the blocker section: contract + child list + handoff command. Don't pay for the full machine on a topic that doesn't need it.
+- **Trivial epic** (2–3 obvious children, no unknowns, single repo) → skip Research and the review panel. Grill briefly, decompose, check the draft against the Hard rules yourself, then materialize immediately and report the same plan summary minus the blocker section: contract + child list + handoff command. Don't pay for the full machine on a topic that doesn't need it.
 
 ## 1. Scope → freeze the contract
 
@@ -54,7 +54,7 @@ gh issue list --state open --json number,title --limit 30   # related open work 
 
 Read the digests. Spawn **one** targeted gap wave only if a real gap surfaced — never a third. Synthesize a tight brief: works / broken / missing / recommendation. This feeds the decomposition — and the relevant slices of it feed each child's Context stanza (§5), so the executor never re-pays for the recon.
 
-Cache the brief to `/tmp/epic-plan/<slug>/research.md` (crash-recovery before GO; nothing else reads it).
+Cache the brief to `/tmp/epic-plan/<slug>/research.md` (crash-recovery before materialize; nothing else reads it).
 
 ## 3. Decompose into a child DAG
 
@@ -96,20 +96,20 @@ Synthesize once — **no loops**:
 
 Cache upheld blockers + revised DAG to `/tmp/epic-plan/<slug>/review.md`.
 
-## GO gate (the approval that unlocks creation)
+## Plan report (shown alongside materialization — no approval gate)
 
-Show the user plainly — never a vague "looks good":
+Materialize immediately after the revision; do not wait for approval. Alongside (or right before) creating the issues, show the user plainly — never a vague "looks good":
 
 - the **raw upheld-blocker list** and how each was resolved in the revision,
 - the **advisories** (carried as nudges, not fixed),
 - the **revised plan**: tracker contract + the child list with deps, risk, files, and repo,
 - the **handoff command**.
 
-A "looks good" is not GO unless it clearly approves creation; if ambiguous, ask. On GO, materialize. On a revision request, loop back to the named phase (the cache still holds the rest).
+If the user then asks for revisions, loop back to the named phase and re-materialize idempotently (edit existing issues in place — the markers make this safe). The exception that still stops for input: an unresolved contract ambiguity that a decomposition can't paper over (a genuine AskUserQuestion case from §1) — resolve that before creating issues.
 
 ## 5. Materialize (direct `gh`, idempotent)
 
-Only after GO. Every create searches by a stable marker first and skips what exists — re-running never duplicates, so a mid-materialize crash is safe to re-run. **Never pair titles to bodies via shell array indexing** (zsh arrays are 1-indexed; this has produced title/body off-by-one in the field) — write each child's title and body-file explicitly, one create command per child.
+Every create searches by a stable marker first and skips what exists — re-running never duplicates, so a mid-materialize crash is safe to re-run. **Never pair titles to bodies via shell array indexing** (zsh arrays are 1-indexed; this has produced title/body off-by-one in the field) — write each child's title and body-file explicitly, one create command per child.
 
 **Labels** (create if absent; `--limit 999` so pagination doesn't fool the check):
 
@@ -205,7 +205,7 @@ For risky epics (deletions, migrations, multi-file behavior changes), suggest an
 
 ## Hard rules
 
-1. **No issues until the user says GO.** The plan is presented and approved first.
+1. **Materialize autonomously.** No approval gate — create the issues as soon as the reviewed decomposition is ready, and present the plan report with the real issue numbers. Only a genuine contract ambiguity (§1) stops for input.
 2. **Don't invent scope.** "Audit backups" means backups — the Out-of-scope line is the fence.
 3. **Children independently shippable** — one PR, one `/resolve-issue` session, something observable delivered.
 4. **Right-sized children.** The size heuristics trigger a look; a child needing its own decomposition is a sibling epic, surfaced — never a silent sub-orchestrator.
@@ -214,5 +214,5 @@ For risky epics (deletions, migrations, multi-file behavior changes), suggest an
 7. **Children carry their context.** Research findings travel in each child's Context stanza — the executor never re-derives the recon.
 8. **No PRD bloat.** Tracker = Goal + Contract + Children; child = the template, nothing else.
 9. **Materialize is idempotent.** Search by stable marker, skip what exists; explicit title/body pairing, never array-indexed.
-10. **GitHub is the state store after GO; the cache is crash-recovery only before GO.** Re-entry re-syncs the tracker checklist first.
+10. **GitHub is the state store after materialization; the cache is crash-recovery only before it.** Re-entry re-syncs the tracker checklist first.
 11. **Scale to the topic.** Trivial epic → no research, no panel. ~8+ children → probably two epics.
