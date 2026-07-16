@@ -8,10 +8,13 @@ description: Lightweight Codex executor for multiple ad-hoc tasks or lanes—fas
 Act as the orchestrator; do not implement lane work in the main checkout.
 
 - Fan out immediately. Run independent lanes concurrently with Codex sub-agents, one isolated worktree per disjoint file set. Serialize only genuine overlap.
+- Cap concurrency at ~12 active descendants per root. More lanes than that run as sequential waves, not one wide fan-out.
+- Give each lane a lane-scoped task card — file scope, acceptance gate, only the rulings that bind that lane — never the full root prompt. Never let two agents edit the same checkout.
 - When a lane corresponds to a filed issue, claim it for the authenticated GitHub user as the lane starts. Stop rather than stealing an issue assigned to someone else. Keep queued issues unassigned until their lane actually starts.
-- Give every lane explicit ownership, acceptance criteria, required checks, and a finish condition. Never let two agents edit the same checkout.
 - Adversarially review plans, diffs, and conclusions before accepting them. Use distinct, role-locked lenses that try to refute claims against repository evidence.
 - With three or more background lanes, keep a visible ledger and actively monitor every lane. A silent lane is not evidence of progress.
+- Every lane must end with exactly one of `DONE` / `BLOCKED` / `HANDED_OFF` plus a one-line reason. A bare trailing message with no terminal status is a defect — chase it down before closing the ledger.
+- Any FOLLOW-UP a lane surfaces is filed via `gh issue create` (label `follow-up`) before that lane may report `DONE`. A follow-up left only in transcript prose counts as dropped.
 - Move through gates without re-confirming phases. Take each lane through checks, commit, push, and PR or integration as the repository policy requires.
 - Stop only for scope changes, destructive ambiguity, an unresolvable failed gate, or overlapping ownership that cannot be isolated.
 
