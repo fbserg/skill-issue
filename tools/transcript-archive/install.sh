@@ -23,8 +23,8 @@ Usage: install.sh <ARCHIVE_DIR> [--machine-id ID] [--time HH:MM] [--compress]
                 iCloud Drive, Google Drive, OneDrive, Syncthing) for
                 automatic off-machine backup.
   --machine-id  Override the machine identifier used to namespace this
-                machine's copy inside ARCHIVE_DIR (default: derived from
-                the local hostname).
+                machine's copy inside ARCHIVE_DIR (default:
+                <os-username>-<short-hostname>, sanitized).
   --time HH:MM  Local time for the daily scheduled run (default: 03:17).
   --compress    Gzip every archived file (adds --compress to the scheduled
                 command and to the immediate first dump). Re-run without
@@ -55,10 +55,19 @@ sanitize_machine_id() {
 }
 
 default_machine_id() {
-  local h
+  # '<os-username>-<short-hostname>', sanitized. Must stay in exact agreement
+  # with backup.py's default_machine_id_raw()/resolve_machine_id() -- same
+  # two inputs, same order, same sanitize rules -- so a manual `python3
+  # backup.py` run (no install.sh, no explicit --machine-id/env override)
+  # derives the identical machine id install.sh would have registered. A
+  # bare hostname (the old default) is the most collision-prone value on a
+  # team: default MacBook names, DHCP names, and corporate imaging all hand
+  # out identical or near-identical hostnames (M1).
+  local h u
   h=$(hostname -s 2>/dev/null || hostname)
   h=${h%%.*}
-  sanitize_machine_id "$h"
+  u=$(id -un 2>/dev/null || whoami)
+  sanitize_machine_id "${u}-${h}"
 }
 
 # Renders the plist template: replaces every @@TOKEN@@ placeholder with a
@@ -129,6 +138,41 @@ content = pattern.sub(substitute, content)
 with open(os.environ["RP_OUTPUT"], "w", encoding="utf-8") as f:
     f.write(content)
 PYEOF
+}
+
+# Refuses (exit non-zero, backup.py's own loud stderr explanation) BEFORE
+# the schedule gets registered if ARCHIVE_DIR/<machine-id> already carries an
+# identity that doesn't agree with this machine's local state -- reuses
+# backup.py's actual identity-handshake logic (imported as a module, dry_run
+# so it makes zero writes either way) rather than re-implementing the nonce
+# comparison in bash. Without this, a colliding --machine-id would still get
+# a launchd/cron job installed even though every scheduled run would then
+# refuse to write anything.
+verify_identity_or_die() {
+  local archive_dir=$1 machine_id=$2 backup_py=$3
+  local script_dir
+  script_dir=$(cd "$(dirname "$backup_py")" && pwd)
+  if ! PYTHONPATH="$script_dir" python3 - "$archive_dir" "$machine_id" <<'PYEOF'
+import sys
+from pathlib import Path
+
+import backup
+
+archive_dir = Path(sys.argv[1])
+machine_id = sys.argv[2]
+machine_root = archive_dir / machine_id
+try:
+    backup.check_machine_identity(archive_dir, machine_root, machine_id, dry_run=True, adopt_archive=False)
+except SystemExit as e:
+    sys.exit(e.code if e.code is not None else 1)
+sys.exit(0)
+PYEOF
+  then
+    die "archive identity check failed for machine id '${machine_id}' at ${archive_dir} " \
+      "(see the message above) -- refusing to register the schedule. Pass a distinct " \
+      "--machine-id, or run backup.py directly with --adopt-archive if this really is " \
+      "your own archive."
+  fi
 }
 
 install_macos() {
@@ -260,6 +304,8 @@ main() {
   # Normalize/expand ARCHIVE_DIR (may not exist yet -- backup.py creates it).
   mkdir -p "$archive_dir"
   archive_dir=$(cd "$archive_dir" && pwd)
+
+  verify_identity_or_die "$archive_dir" "$machine_id" "$backup_py"
 
   local uname_s
   uname_s=$(uname -s)
