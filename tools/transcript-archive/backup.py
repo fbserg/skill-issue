@@ -29,14 +29,18 @@ collide.
 from __future__ import annotations
 
 import argparse
+import fnmatch
+import getpass
 import gzip
 import hashlib
 import json
 import os
 import platform
 import re
+import secrets
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -44,6 +48,9 @@ from typing import Optional
 
 FREE_DISK_WARN_GB = 10
 LOG_ROTATE_MAX_BYTES = 5 * 1024 * 1024  # 5MB, single generation (.1)
+LONG_PATH_WARN_CHARS = 400  # OneDrive silently refuses paths beyond ~400 chars
+IDENTITY_FILENAME = ".transcript-archive-identity"
+STALE_TMP_MAX_AGE_SECONDS = 3600  # orphaned atomic_write_bytes() temp files older than this get swept
 
 # ---------------------------------------------------------------------------
 # Home directory (a function, not a module constant, so tests can point it at
@@ -76,10 +83,38 @@ def sanitize_machine_id(raw: str) -> str:
     return re.sub(r"[^a-z0-9-]", "-", raw.lower())
 
 
+def current_os_user() -> str:
+    """Resolve the current OS username via USER/LOGNAME, falling back to
+    getpass.getuser() (which itself can raise OSError in some sandboxed/
+    containerized environments with no pwd entry for the running uid).
+    """
+    user = os.environ.get("USER") or os.environ.get("LOGNAME")
+    if not user:
+        try:
+            user = getpass.getuser()
+        except OSError:
+            user = "unknown"
+    return user
+
+
+def default_machine_id_raw() -> str:
+    """'<os-username>-<short-hostname>', unsanitized. A bare hostname is the
+    most collision-prone default on a team (default MacBook names, DHCP
+    names, corporate imaging all hand out identical or near-identical
+    hostnames) -- prefixing the OS username cuts collisions sharply without
+    requiring every machine to be given an explicit --machine-id. Must stay
+    in exact agreement with install.sh's default_machine_id() (same two
+    inputs, same order, same sanitize_machine_id rules) so a manual `python3
+    backup.py` run derives the identical machine id install.sh would have.
+    """
+    hostname = platform.node().split(".")[0]
+    return f"{current_os_user()}-{hostname}"
+
+
 def resolve_machine_id() -> str:
     raw = os.environ.get("TRANSCRIPT_ARCHIVE_MACHINE_ID", "").strip()
     if not raw:
-        raw = platform.node().split(".")[0]
+        raw = default_machine_id_raw()
     machine_id = sanitize_machine_id(raw)
     if not machine_id:
         sys.stderr.write(
@@ -137,6 +172,39 @@ def log(msg: str) -> None:
             f.write(line + "\n")
     except OSError as e:
         sys.stderr.write(f"[log write failed: {e}]\n")
+
+
+# ---------------------------------------------------------------------------
+# Atomic writes (C1: a truncate-in-place write interrupted by disk-full or a
+# crash leaves a corrupted destination stamped with a fresh mtime >= src, so
+# every later run's mtime-skip treats the corrupt copy as up to date and
+# never re-copies it -- a permanent, silent, unrecoverable-without---force
+# data loss. Every write to the archive (transcript copies, identity files)
+# goes through this: write to a temp file in the SAME directory (so the
+# final os.replace() is a same-filesystem atomic rename, never a cross-
+# device copy), fsync it, then os.replace() onto the destination. On any
+# failure the temp file is removed and the destination is left exactly as it
+# was -- old content, or absent -- never partially written.
+# ---------------------------------------------------------------------------
+
+
+def atomic_write_bytes(dest: Path, data: bytes, mtime: Optional[float] = None) -> None:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=dest.name + ".", suffix=".tmp", dir=str(dest.parent)
+    )
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        if mtime is not None:
+            os.utime(tmp_path, (mtime, mtime))
+        os.replace(tmp_path, dest)
+    except OSError:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -482,6 +550,14 @@ def process_file(
     active_dest = dest.with_name(dest.name + ".gz") if compress else dest
     other_dest = dest if compress else dest.with_name(dest.name + ".gz")
 
+    # M3: full dest paths realistically hit 400+ chars once machine-id,
+    # source subtree, and a deeply-nested project/session name stack up --
+    # OneDrive (and some other sync clients) silently refuse to sync a path
+    # past ~400 chars, AFTER the local run already reported success. No new
+    # SUMMARY field (frozen format) -- just a per-offender WARN log line.
+    if len(str(active_dest)) >= LONG_PATH_WARN_CHARS:
+        log(f"WARN long-path (may exceed sync-client limits): {active_dest}")
+
     active_exists = active_dest.exists()
     other_exists = other_dest.exists()
 
@@ -509,7 +585,26 @@ def process_file(
         except OSError:
             dest_mtime = 0.0
         if dest_mtime >= src_mtime:
-            return "skipped"
+            skip = True
+            # M2: mtime alone can't catch a source restored from an older
+            # snapshot with an mtime that's still >= the archived copy's --
+            # content differs but the timestamp lies. Minimal honest fix:
+            # for 'raw' kind only (dest size == src size by construction, no
+            # transform in between), a size mismatch on the skip path means
+            # the content actually differs, so re-process instead of
+            # trusting the stale mtime. 'strip' kinds can't use this check
+            # (processed size differs from src by design, tombstoning
+            # shrinks it) -- documented limitation in README, use --force.
+            if kind == "raw":
+                try:
+                    src_size = src.stat().st_size
+                    existing_size = existing_uncompressed_size(existing_dest)
+                    if src_size != existing_size:
+                        skip = False
+                except OSError:
+                    pass  # can't compare -- fall back to trusting mtime
+            if skip:
+                return "skipped"
     action = "updated" if existing_dest is not None else "added"
 
     try:
@@ -540,10 +635,8 @@ def process_file(
         return action
 
     try:
-        active_dest.parent.mkdir(parents=True, exist_ok=True)
         to_write = gzip_compress_deterministic(processed) if compress else processed
-        active_dest.write_bytes(to_write)
-        os.utime(active_dest, (src_mtime, src_mtime))
+        atomic_write_bytes(active_dest, to_write, mtime=src_mtime)
     except OSError as e:
         return f"error:write: {e}"
 
@@ -597,6 +690,36 @@ class SourceSpec:
         return self.pattern is not None
 
 
+def iter_source_files(src_root: Path, pattern: str):
+    """Yields every file under src_root whose basename matches `pattern`'s
+    final path segment (e.g. '**/*.jsonl' -> '*.jsonl', '**/*' -> '*') --
+    same filename-glob semantics as the old `Path.glob(pattern)` call, minus
+    the one gap that mattered: pathlib's glob does NOT follow directory
+    symlinks, so a symlinked project directory under a source root (e.g. a
+    ~/.claude/projects/<proj> entry that's actually a symlink to another
+    disk/location) was silently never archived, with a clean exit 0 (C3).
+    os.walk(followlinks=True) does follow them. A (st_dev, st_ino)
+    visited-set on each directory breaks a symlink cycle (a symlink pointing
+    back at an ancestor directory) rather than recursing forever.
+    """
+    name_glob = pattern.rsplit("/", 1)[-1]
+    visited: set = set()
+    for dirpath, dirnames, filenames in os.walk(src_root, followlinks=True):
+        try:
+            st = os.stat(dirpath)
+        except OSError:
+            dirnames[:] = []
+            continue
+        key = (st.st_dev, st.st_ino)
+        if key in visited:
+            dirnames[:] = []  # cycle -- already walked this real directory
+            continue
+        visited.add(key)
+        for fname in filenames:
+            if fnmatch.fnmatch(fname, name_glob):
+                yield Path(dirpath) / fname
+
+
 def build_sources(machine_root: Path) -> list[SourceSpec]:
     claude_home = home_dir() / ".claude"
     codex_home = home_dir() / ".codex"
@@ -633,6 +756,224 @@ def build_sources(machine_root: Path) -> list[SourceSpec]:
 
 
 # ---------------------------------------------------------------------------
+# Identity handshake (C2: guards against two independent failure modes that
+# both masquerade as a clean exit-0 run --
+#   1. Machine-id collision: two different physical machines resolve to the
+#      same machine-id (bare/near-bare hostnames collide easily on a team --
+#      see M1) and interleave writes under one machine_root namespace. Silent
+#      data loss either way: a smaller/older interleaved write gets logged as
+#      "kept_larger" (dropped), a bigger one gets logged as "updated"
+#      (clobbering the other machine's history).
+#   2. Unmounted/wrong destination: TRANSCRIPT_ARCHIVE_DIR points at a NAS
+#      mount or sync-client folder that isn't actually mounted/synced right
+#      now, so the OS happily creates a brand-new empty directory tree at
+#      that path and the archiver fabricates a fresh "archive" on local disk
+#      -- exit 0, no error, and the real archive is untouched while a
+#      shadow copy quietly accumulates in the wrong place.
+#
+# Mechanism: the first successful run against a given (archive_dir,
+# machine_id) pair writes a random nonce to BOTH
+#   <machine_root>/.transcript-archive-identity   (lives in the shared archive)
+#   <local state dir>/<sha256 of abs archive_dir>.json  (lives on this machine)
+# Every later run compares the two nonces. They can only agree if this run is
+# happening on the same machine that adopted this exact archive location --
+# a colliding second machine has its own, different local state (or none),
+# and an unmounted-then-materialized-empty destination has no archive-side
+# identity file at all.
+# ---------------------------------------------------------------------------
+
+
+def local_state_dir() -> Path:
+    xdg = os.environ.get("XDG_STATE_HOME", "").strip()
+    if xdg:
+        return Path(xdg).expanduser() / "transcript-archive"
+    return home_dir() / ".local" / "state" / "transcript-archive"
+
+
+def local_state_path(archive_dir: Path) -> Path:
+    canonical = str(Path(archive_dir).expanduser().resolve(strict=False))
+    key = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return local_state_dir() / f"{key}.json"
+
+
+def read_json_file(path: Path) -> Optional[dict]:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _identity_timestamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def write_archive_identity(machine_root: Path, machine_id: str, nonce: str) -> None:
+    payload = {
+        "machine_id": machine_id,
+        "hostname": platform.node(),
+        "os_user": current_os_user(),
+        "nonce": nonce,
+        "created": _identity_timestamp(),
+    }
+    data = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+    atomic_write_bytes(machine_root / IDENTITY_FILENAME, data)
+
+
+def write_local_identity(local_path: Path, archive_dir: Path, machine_id: str, nonce: str) -> None:
+    payload = {
+        "archive_dir": str(archive_dir),
+        "machine_id": machine_id,
+        "nonce": nonce,
+        "created": _identity_timestamp(),
+    }
+    data = json.dumps(payload, indent=2, sort_keys=True).encode("utf-8") + b"\n"
+    atomic_write_bytes(local_path, data)
+
+
+def _refuse(message: str) -> None:
+    sys.stderr.write(message)
+    sys.exit(2)
+
+
+def check_machine_identity(
+    archive_dir: Path, machine_root: Path, machine_id: str, dry_run: bool, adopt_archive: bool
+) -> None:
+    """Runs BEFORE configure_logging() / any archive write, so every exit(2)
+    path here genuinely makes zero writes -- not even a backup.log gets
+    created. Returns normally (possibly after writing the identity files,
+    unless dry_run) when the run is safe to proceed.
+    """
+    local_path = local_state_path(archive_dir)
+    local_identity = read_json_file(local_path)
+    archive_identity = read_json_file(machine_root / IDENTITY_FILENAME)
+
+    local_nonce = local_identity.get("nonce") if local_identity else None
+    archive_nonce = archive_identity.get("nonce") if archive_identity else None
+
+    if local_nonce and archive_nonce:
+        if local_nonce == archive_nonce:
+            return
+        _refuse(
+            f"REFUSING TO RUN: archive identity mismatch at {machine_root}.\n"
+            "This machine's locally-recorded identity nonce for this archive does "
+            "not match the nonce stored in the archive itself. Probable causes:\n"
+            f"  - another machine is ALSO using machine id '{machine_id}' against this "
+            "same archive (a machine-id collision) -- give one of them a distinct "
+            "--machine-id / TRANSCRIPT_ARCHIVE_MACHINE_ID.\n"
+            "  - TRANSCRIPT_ARCHIVE_DIR is pointing at someone else's archive, or a "
+            "stale/replaced copy of your own.\n"
+            "Zero writes were made this run. See README.md, 'Identity handshake "
+            "failure modes'.\n"
+        )
+
+    if local_nonce and not archive_identity:
+        if not adopt_archive:
+            _refuse(
+                f"REFUSING TO RUN: this machine has a recorded identity for "
+                f"{machine_root}, but that archive has no identity file at all.\n"
+                "Probable causes:\n"
+                "  - the archive volume (NAS mount, external disk, sync-client "
+                "folder) isn't mounted/synced right now, and TRANSCRIPT_ARCHIVE_DIR "
+                "resolved to a fresh, empty local path instead of the real archive.\n"
+                "  - the archive was deleted or rebuilt since this machine last wrote "
+                "to it.\n"
+                "If you're SURE this is genuinely your archive (rebuilt on purpose, "
+                "moved, etc.), re-run with --adopt-archive to rebless it.\n"
+                "Zero writes were made this run. See README.md, 'Identity handshake "
+                "failure modes'.\n"
+            )
+        if not dry_run:
+            try:
+                write_archive_identity(machine_root, machine_id, local_nonce)
+            except OSError as e:
+                _refuse(
+                    f"REFUSING TO RUN: could not write the archive identity file at "
+                    f"{machine_root / IDENTITY_FILENAME}: {e}\n"
+                    "Zero writes were made this run. Check that the archive volume is "
+                    "mounted, writable, and has free space, then re-run with "
+                    "--adopt-archive.\n"
+                )
+            log(f"--adopt-archive: wrote a fresh identity at {machine_root} using this machine's existing nonce")
+        return
+
+    if archive_nonce and not local_identity:
+        if not adopt_archive:
+            _refuse(
+                f"REFUSING TO RUN: {machine_root} already has a recorded archive "
+                "identity, but this machine has never recorded a matching local "
+                "nonce for it. Probable causes:\n"
+                f"  - another machine is already using machine id '{machine_id}' "
+                "against this archive (a machine-id collision) -- give this machine "
+                "a distinct --machine-id / TRANSCRIPT_ARCHIVE_MACHINE_ID.\n"
+                "  - this machine's local state was cleared or this is a fresh "
+                "checkout; if this really IS your own archive, re-run with "
+                "--adopt-archive to adopt its existing identity.\n"
+                "Zero writes were made this run. See README.md, 'Identity handshake "
+                "failure modes'.\n"
+            )
+        if not dry_run:
+            try:
+                write_local_identity(local_path, archive_dir, machine_id, archive_nonce)
+            except OSError as e:
+                _refuse(
+                    f"REFUSING TO RUN: could not write this machine's local identity "
+                    f"state at {local_path}: {e}\n"
+                    "Zero writes were made this run (the archive itself was not "
+                    "touched). Check that XDG_STATE_HOME / ~/.local/state is writable "
+                    "and has free space, then re-run with --adopt-archive.\n"
+                )
+            log(f"--adopt-archive: adopted the existing archive identity at {machine_root} into local state")
+        return
+
+    # Neither side has ever recorded anything: a genuine first run against a
+    # brand-new machine_root, OR a pre-hardening archive that already has
+    # real content but predates the identity file entirely. Both adopt the
+    # same way, silently, no flag required.
+    if not dry_run:
+        nonce = secrets.token_hex(16)
+        archive_identity_path = machine_root / IDENTITY_FILENAME
+        try:
+            write_archive_identity(machine_root, machine_id, nonce)
+        except OSError as e:
+            _refuse(
+                f"REFUSING TO RUN: could not write the archive identity file at "
+                f"{archive_identity_path}: {e}\n"
+                "Zero writes were made this run. Check that the archive volume is "
+                "mounted, writable, and has free space, then re-run.\n"
+            )
+        try:
+            write_local_identity(local_path, archive_dir, machine_id, nonce)
+        except OSError as e:
+            # The archive-side identity write above already succeeded --
+            # roll it back best-effort so a retried run (once the local
+            # state dir is fixed) sees the same "neither side has ever
+            # recorded anything" first-run state instead of a half-completed
+            # handshake (archive-side identity present, local-side absent)
+            # that would otherwise permanently masquerade as a machine-id
+            # collision (archive_nonce and not local_identity, above) on
+            # every future run.
+            rollback_note = ""
+            try:
+                archive_identity_path.unlink()
+            except OSError as rollback_error:
+                rollback_note = (
+                    f"\nAdditionally, rolling back the archive-side identity file "
+                    f"at {archive_identity_path} failed too: {rollback_error}. "
+                    "That file may now need manual removal before this machine can "
+                    "retry a clean first run."
+                )
+            _refuse(
+                f"REFUSING TO RUN: could not write this machine's local identity "
+                f"state at {local_path}: {e}\n"
+                "Zero writes were made this run (the archive-side identity write "
+                f"was rolled back).{rollback_note}\n"
+                "Check that XDG_STATE_HOME / ~/.local/state is writable and has "
+                "free space, then re-run.\n"
+            )
+        log(f"identity handshake: adopted {machine_root} (wrote a fresh identity, no prior record on either side)")
+
+
+# ---------------------------------------------------------------------------
 # Misc reporting helpers
 # ---------------------------------------------------------------------------
 
@@ -657,6 +998,39 @@ def archive_file_count(root: Path) -> int:
     for _dirpath, _dirnames, filenames in os.walk(root, onerror=lambda e: None):
         total += len(filenames)
     return total
+
+
+def sweep_stale_temp_files(root: Path, max_age_seconds: int = STALE_TMP_MAX_AGE_SECONDS) -> int:
+    """A hard kill (SIGKILL/OOM/power loss) between atomic_write_bytes()'s
+    mkstemp() and its os.replace() leaves an orphaned `*.tmp` file next to the
+    real destination that no later run would otherwise ever notice or clean
+    up -- they'd accumulate silently and unboundedly across repeated crashes.
+    Run once per invocation, before any new writes, over the whole
+    machine-namespaced tree: any `*.tmp` sibling older than max_age_seconds
+    (well past how long a single fsync+replace ever takes) is either an
+    orphan from a past crash or, more rarely, a temp file from another run of
+    this same script racing concurrently -- the age threshold lets a
+    same-machine concurrent run's still-fresh temp file survive the sweep.
+    Returns the count removed.
+    """
+    removed = 0
+    now = datetime.now(timezone.utc).timestamp()
+    for dirpath, _dirnames, filenames in os.walk(root, onerror=lambda e: None):
+        for fname in filenames:
+            if not fname.endswith(".tmp"):
+                continue
+            path = Path(dirpath) / fname
+            try:
+                age = now - path.stat().st_mtime
+                if age < max_age_seconds:
+                    continue
+                path.unlink()
+            except OSError as e:
+                log(f"WARN: could not sweep stale temp file {path}: {e}")
+                continue
+            removed += 1
+            log(f"WARN: swept orphaned temp file (age {age:.0f}s, likely left by an interrupted write): {path}")
+    return removed
 
 
 def warn_old_layout(archive_dir: Path, machine_id: str) -> None:
@@ -716,6 +1090,15 @@ def parse_args(argv=None) -> argparse.Namespace:
         "is a storage wrapper only. Migrates a plain<->gz copy in place on first write "
         "after the flag changes; see README.",
     )
+    parser.add_argument(
+        "--adopt-archive",
+        action="store_true",
+        help="Rebless a one-sided identity mismatch (this machine's local state and "
+        "the archive's .transcript-archive-identity file don't agree, and one side is "
+        "missing entirely) as legitimate instead of refusing to run. Only use this "
+        "when you've confirmed it's a lost-local-state or rebuilt-archive situation, "
+        "not an actual machine-id collision. See README.",
+    )
     return parser.parse_args(argv)
 
 
@@ -726,8 +1109,15 @@ def main(argv=None) -> None:
     machine_id = resolve_machine_id()
     machine_root = archive_dir / machine_id
 
+    # Must run before configure_logging(): every refusal path here promises
+    # zero writes, and configure_logging() itself creates machine_root/ and
+    # backup.log -- a write.
+    check_machine_identity(archive_dir, machine_root, machine_id, args.dry_run, args.adopt_archive)
+
     configure_logging(machine_root / "backup.log", dry_run=args.dry_run)
     warn_old_layout(archive_dir, machine_id)
+    if not args.dry_run and machine_root.exists():
+        sweep_stale_temp_files(machine_root)
 
     counts = {"added": 0, "updated": 0, "skipped": 0, "kept": 0, "error": 0}
     errors: list = []
@@ -739,9 +1129,7 @@ def main(argv=None) -> None:
                 log(f"WARN: source not found, skipping: {spec.src_root}")
                 continue
             sources_seen += 1
-            for src in spec.src_root.glob(spec.pattern):
-                if not src.is_file():
-                    continue
+            for src in iter_source_files(spec.src_root, spec.pattern):
                 dest = spec.dest_root / src.relative_to(spec.src_root)
                 result = _process_file_safe(
                     src, dest, spec.kind, args.force, args.dry_run, args.compress
