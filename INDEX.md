@@ -13,6 +13,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 - `deprecated/` — archived skills/tools (epic-run family, Codex, epic-tools); not installed. See `deprecated/README.md`.
 - `scripts/` — repo maintenance scripts
 - `docs/` — install guide, env sharing, publication checklist
+- `vale/` — `AItells` vale style (canonical merged AI-tells prose linter, three severity tiers) plus `build.sh` and the built `AItells.zip` package consumers `Packages =` at. See `vale/README.md`.
 
 ---
 

@@ -1,0 +1,48 @@
+extends: existence
+message: "AI copula dodge: '%s'. Use 'is'/'are' or name the subject plainly instead of this inflated construction."
+level: warning
+ignorecase: true
+tokens:
+  # 'stands as a'/'serves as a reminder' are covered at error tier by Slop.yml —
+  # only the non-overlapping serves-as/stood-as/marks-a/represents-a/boasts/features/offers
+  # family lives here.
+  - serves as an
+  - serves as the
+  - served as a
+  - served as an
+  - served as the
+  - serving as a
+  - serving as an
+  - serving as the
+  - marks a pivotal
+  - marks a significant
+  - marks a crucial
+  - marks a key
+  - marks a turning
+  - marks a critical
+  - marks a major
+  - marks a defining
+  - marks a new
+  - represents a significant
+  - represents a pivotal
+  - represents a crucial
+  - represents a key
+  - represents a major
+  - represents a fundamental
+  - represents a paradigm
+  - boasts a vibrant
+  - boasts a rich
+  - boasts a diverse
+  - boasts a wide
+  - boasts a unique
+  - boasts a thriving
+  - boasts an impressive
+  - features a wide
+  - features a rich
+  - features a diverse
+  - features a unique
+  - features a vibrant
+  - offers a unique
+  - offers a wide
+  - offers a comprehensive
+  - offers a diverse

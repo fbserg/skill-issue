@@ -1,0 +1,24 @@
+extends: existence
+message: "Stuffy AI vocabulary: '%s' — a plainer word usually reads better."
+level: suggestion
+ignorecase: true
+tokens:
+  # --- 'aspect' language ---
+  # ('multifaceted' is covered at error tier by Swaps.yml.)
+  - various aspects
+  - different aspects
+  - multiple aspects
+  - key aspects
+  - important aspects
+  - various facets
+  - many dimensions
+
+  # --- formal register ---
+  # ('utilize' family is covered at error tier by Swaps.yml. Common ordinary
+  # engineering vocabulary — 'framework', 'implement', 'optimize', 'prioritize',
+  # 'terminate' — is deliberately excluded: too high a false-positive rate in
+  # technical prose to be worth flagging even at suggestion tier.)
+  - facilitate(s|d|ing)?
+  - commence(s|d|ing)?
+  - ascertain(s|ing)?
+  - endeavour(s|ing)?

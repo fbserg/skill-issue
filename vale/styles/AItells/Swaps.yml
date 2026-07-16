@@ -1,0 +1,37 @@
+extends: substitution
+message: "AI-slop word: use '%s' instead of '%s'."
+level: error
+ignorecase: true
+action:
+  name: replace
+swap:
+  delve(s|d)?: dig
+  delving: digging
+  leverage(s|d)?: use
+  leveraging: using
+  utilize(s|d)?: use
+  utilizing: using
+  robust: sturdy
+  comprehensive: complete
+  furthermore: also
+  moreover: also
+  additionally: also
+  underscore(s|d)?: highlight
+  underscoring: highlighting
+  myriad: many
+  plethora: plenty
+  multifaceted: many-sided
+  pivotal: key
+  paramount: essential
+  garner(s|ed)?: earn
+  foster(s|ed)?: encourage
+  fostering: encouraging
+  harness(ing)? the: use the
+  boasts: has
+  boasting: having
+  showcase(s|d)?: show
+  showcasing: showing
+  streamline(s|d)?: simplify
+  streamlining: simplifying
+  meticulous: careful
+  meticulously: carefully

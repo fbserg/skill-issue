@@ -1,0 +1,7 @@
+extends: existence
+message: "Scare quotes: '%s' — commit to the term or drop the quotes."
+level: warning
+ignorecase: true
+link: https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing
+raw:
+  - "so-called ['\"“”‘’].+?['\"“”‘’]"

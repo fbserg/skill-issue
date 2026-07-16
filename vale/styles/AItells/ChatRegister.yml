@@ -1,0 +1,65 @@
+extends: existence
+message: "AI chat register: '%s'. Chatbot pleasantries, agreement markers, and explainer announcements leaking into prose — delete and let the content speak for itself."
+level: warning
+ignorecase: true
+tokens:
+  # --- Sycophancy / agreement markers ---
+  # ('Great question' is covered at error tier by Artifacts.yml.)
+  - Excellent question
+  - That'?s a great question
+  - That'?s an excellent question
+  - What a great question
+  - Fantastic question
+  - Wonderful question
+  - I'?m glad you asked
+  - Without a doubt
+  - You'?re absolutely right
+  - You make an excellent point
+  - That'?s a wonderful idea
+  - That'?s a fantastic point
+  - I couldn'?t agree more
+
+  # --- Closing pleasantries ---
+  # ('I hope this helps' is covered at error tier by Artifacts.yml.)
+  - I hope this was helpful
+  - I hope this is helpful
+  - I hope this proves helpful
+  - I hope this clears things up
+  - I hope this answers your question
+  - I hope you find this helpful
+  - I hope you found this helpful
+  - Hopefully this helps
+  - Feel free to ask
+  - Feel free to reach out
+  - Feel free to let me know
+  - Don'?t hesitate to ask
+  - Don'?t hesitate to reach out
+  - Let me know if you have any questions
+  - Let me know if you need anything else
+  - Let me know if there'?s anything else
+  - Happy to help
+  - Happy to answer
+  - Happy to clarify
+  - Happy to elaborate
+  - I'?m happy to help
+  - I'?d be happy to help
+  - I'?m here to help
+  - Best of luck
+  - Good luck with your
+  - Happy coding
+
+  # --- Explainer announcements ---
+  # ('Let'?s unpack' / 'Let'?s break (this|it) down' are covered at error tier by Slop.yml.)
+  - Let me unpack
+  - Let me break this down
+  - Let'?s take a closer look at
+  - Let me take a closer look at
+  - Let'?s dive into
+  - Let me dive into
+  - Let'?s walk through
+  - Let me walk through
+  - Let'?s dig into
+  - Let me dig into
+  - Let'?s examine
+  - Let me examine
+  - Let'?s explore

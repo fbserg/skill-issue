@@ -1,0 +1,32 @@
+extends: existence
+message: "Banned / AI-slop phrase: '%s'."
+level: error
+ignorecase: true
+tokens:
+  - notably
+  - importantly
+  - seamless(ly)?
+  - game-?changer
+  - cutting-edge
+  - dive deep
+  - it'?s worth noting
+  - in the realm of
+  - a testament to
+  - stands as a
+  - serves as a reminder
+  - plays a (crucial|key|vital|pivotal) role
+  - rich tapestry
+  - when it comes to
+  - in today'?s
+  - ever-evolving
+  - fast-paced world
+  - unlock the potential
+  - navigate the complexities
+  - deeply rooted
+  - diverse array
+  - evolving landscape
+  - in the heart of
+  - here'?s the (thing|kicker)
+  - let'?s (unpack|break (this|it) down)
+  - imagine a world where
+  - look no further

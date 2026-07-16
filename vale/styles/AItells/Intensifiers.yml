@@ -1,0 +1,15 @@
+extends: existence
+message: "Weasel/intensifier '%s' — cut it or replace with substance."
+level: warning
+ignorecase: true
+tokens:
+  - actually
+  - genuinely
+  - truly
+  - crucially
+  - precisely
+  - essentially
+  - simply
+  - fundamentally
+  - vivid
+  - coherent

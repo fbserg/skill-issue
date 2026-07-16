@@ -1,0 +1,36 @@
+extends: existence
+message: "Suspect word '%s' — an AI staple; keep only if it earns its place."
+level: warning
+ignorecase: true
+tokens:
+  - landscape
+  - ecosystem
+  - tapestry
+  - cornerstone
+  - paradigm
+  - synergy
+  - interplay
+  - holistic
+  - nuanced
+  - vibrant
+  - intricate
+  - intricacies
+  - transformative
+  - groundbreaking
+  - revolutionary
+  - renowned
+  - nestled
+  - beacon of
+  - gateway to
+  - journey
+  - crucial
+  - vital
+  - scalable
+  - multitude
+  - embark(s|ed|ing)?
+  - unleash(es|ed|ing)?
+  - captivate(s|d)?
+  - elevate(s)? (your|the)
+  - enhance(s|d)?
+  - enhancing
+  - whether you'?re
