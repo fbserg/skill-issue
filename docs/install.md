@@ -33,6 +33,7 @@ ln -sfn "$PWD/skills/claude/epic-plan"       ~/.claude/skills/epic-plan
 ln -sfn "$PWD/skills/claude/issue"           ~/.claude/skills/issue
 ln -sfn "$PWD/skills/claude/resolve-issue"   ~/.claude/skills/resolve-issue
 ln -sfn "$PWD/skills/claude/simplify-sweep"  ~/.claude/skills/simplify-sweep
+ln -sfn "$PWD/skills/claude/transcript-backup" ~/.claude/skills/transcript-backup
 ```
 
 ### Shared (Claude)
@@ -113,7 +114,7 @@ and the old Codex skills are deprecated and archived under `deprecated/`. See
 rm ~/.claude/skills/adversary ~/.claude/skills/blitz
 rm ~/.claude/skills/deep-research ~/.claude/skills/epic-plan
 rm ~/.claude/skills/issue ~/.claude/skills/resolve-issue
-rm ~/.claude/skills/simplify-sweep
+rm ~/.claude/skills/simplify-sweep ~/.claude/skills/transcript-backup
 
 # Remove shared skill symlinks (installed for Claude)
 rm ~/.claude/skills/authentic-writing ~/.claude/skills/authenticity-check

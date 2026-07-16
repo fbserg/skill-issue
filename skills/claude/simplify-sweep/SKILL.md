@@ -64,11 +64,11 @@ Per batch, before the next launch:
   removals, getattr→direct rewrites, anything touching serialized output or tests'
   intent. Past sweeps show Sonnet over-reaches ~2–3 times per batch — expect it.
   This review gate is the skill's entire safety story; never skip it.
-- Run the repo's fast test loop (`just test` in heartwood) plus any focused tests
-  for touched areas.
-- Commit the batch: subject `sweep(<area>): <summary>` (heartwood: via
-  `just agent-commit`). Tests must pass before commit. The tag doubles as the
-  next sweep's range marker.
+- Run the target repo's fast test loop (e.g. `just test`, if the repo has a
+  `just` recipe) plus any focused tests for touched areas.
+- Commit the batch: subject `sweep(<area>): <summary>`, via the repo's own
+  commit recipe if it has one. Tests must pass before commit. The tag doubles
+  as the next sweep's range marker.
 
 Finish with a one-line tally per batch (files touched, reverted over-reaches,
 commit hash) and the overall range covered.

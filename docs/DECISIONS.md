@@ -3,6 +3,22 @@
 Durable rulings on contested choices. Check here before re-litigating; a
 standing ruling short-circuits the debate unless its reopen condition fired.
 
+## 2026-07-16 — Codex standalone front doors are sanctioned; "never orchestrates" scoped to the Claude-run pipeline
+
+**Decision:** `skills/codex/{blitz,issue,epic-plan,resolve-issue}` stay live and installed.
+They are escape hatches for driving Codex CLI directly, outside Claude Code. The 2026-06-20
+"Codex never orchestrates" component and the 2026-07-05 tiering ("Sonnet researches, Opus
+judges, Codex builds") govern the CLAUDE-RUN pipeline only — they do not forbid a human
+choosing to run a Codex-native pipeline from the Codex CLI.
+
+**Evidence:** the mirrors were added 2026-06-23 (commit 5f370cb, three days AFTER the
+Claude-only ruling) and actively maintained through 2026-07-14 (3b13f22) — deliberate
+additions, not pre-ruling leftovers. Estate audit 2026-07-16 confirmed they duplicate no
+Claude-side skill's install path and Codex's skill set is a deliberate subset.
+
+**Reopen when:** a Codex-run pipeline ships a defective PR that the Claude-judged pipeline's
+review lenses would have caught; or the mirrors go untouched and unused for 8+ weeks.
+
 ## 2026-07-10 — Orchestration lineup: four entry points, no wave-loop orchestrator
 
 **Decision:** the lineup stays four execution entry points with explicit
