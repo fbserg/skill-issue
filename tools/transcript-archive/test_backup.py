@@ -11,15 +11,19 @@ Two layers:
 
 from __future__ import annotations
 
+import contextlib
 import gzip
 import hashlib
+import io
 import json
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import backup  # noqa: E402
@@ -418,6 +422,39 @@ class TestProcessFile(unittest.TestCase):
         self.assertEqual(result, "added")
         self.assertFalse(dest.exists())
 
+    def test_raw_kind_size_mismatch_on_equal_mtime_reprocesses(self):
+        # M2: a restored source with an mtime that's still >= the archived
+        # copy's (equal, in this case) but different content must not be
+        # skipped forever -- for 'raw' kind, a size mismatch on the skip
+        # path is an honest, cheap signal that content actually changed.
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        dest.write_bytes(b"old content, this is the old one")
+        src.write_bytes(b"different content, restored from an older snapshot entirely")
+        same_mtime = 12345.0
+        os.utime(dest, (same_mtime, same_mtime))
+        os.utime(src, (same_mtime, same_mtime))
+        self.assertNotEqual(len(src.read_bytes()), len(dest.read_bytes()))
+
+        result = backup.process_file(src, dest, "raw", force=False, dry_run=False)
+        self.assertEqual(result, "updated")
+        self.assertEqual(dest.read_bytes(), src.read_bytes())
+
+    def test_raw_kind_equal_size_and_mtime_still_skips(self):
+        # Regression guard: same size + mtime>=src must still skip (the
+        # M2 fallback only fires on an actual size mismatch).
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        content = b"identical content\n"
+        dest.write_bytes(content)
+        src.write_bytes(content)
+        same_mtime = 12345.0
+        os.utime(dest, (same_mtime, same_mtime))
+        os.utime(src, (same_mtime, same_mtime))
+
+        result = backup.process_file(src, dest, "raw", force=False, dry_run=False)
+        self.assertEqual(result, "skipped")
+
     def test_strip_kind_processed(self):
         src = self.tmp / "src.jsonl"
         dest = self.tmp / "dest.jsonl"
@@ -688,6 +725,343 @@ class TestCompress(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# C1: atomic writes
+# ---------------------------------------------------------------------------
+
+
+class TestAtomicWrite(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _no_leftover_tmp_files(self):
+        return [p for p in self.tmp.iterdir() if p.name.endswith(".tmp")]
+
+    def test_replace_failure_leaves_dest_untouched_and_removes_temp(self):
+        dest = self.tmp / "dest.jsonl"
+        dest.write_bytes(b"existing good content")
+
+        with mock.patch("backup.os.replace", side_effect=OSError("simulated disk full")):
+            with self.assertRaises(OSError):
+                backup.atomic_write_bytes(dest, b"new content")
+
+        self.assertEqual(dest.read_bytes(), b"existing good content")  # untouched
+        self.assertEqual(self._no_leftover_tmp_files(), [])  # temp cleaned up
+
+    def test_replace_failure_leaves_no_dest_when_none_existed(self):
+        dest = self.tmp / "dest.jsonl"
+        with mock.patch("backup.os.replace", side_effect=OSError("simulated disk full")):
+            with self.assertRaises(OSError):
+                backup.atomic_write_bytes(dest, b"new content")
+        self.assertFalse(dest.exists())
+        self.assertEqual(self._no_leftover_tmp_files(), [])
+
+    def test_successful_write_leaves_no_temp_file(self):
+        dest = self.tmp / "dest.jsonl"
+        backup.atomic_write_bytes(dest, b"content", mtime=12345)
+        self.assertEqual(dest.read_bytes(), b"content")
+        self.assertEqual(os.path.getmtime(dest), 12345)
+        self.assertEqual(self._no_leftover_tmp_files(), [])
+
+    def test_process_file_write_failure_via_replace_leaves_dest_untouched(self):
+        # Simulates a disk-full write interrupted mid-way: process_file must
+        # report error:write and leave the existing (correct) archived copy
+        # exactly as it was -- never a truncated/partial replacement, and no
+        # stray temp file left sitting next to it.
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        dest.write_bytes(b"good old content, correctly archived")
+        os.utime(dest, (1000, 1000))
+        src.write_bytes(b"new content that would replace it, longer than before")
+        os.utime(src, (2000, 2000))
+
+        with mock.patch("backup.os.replace", side_effect=OSError("simulated disk full")):
+            result = backup.process_file(src, dest, "raw", force=False, dry_run=False)
+
+        self.assertTrue(result.startswith("error:write"))
+        self.assertEqual(dest.read_bytes(), b"good old content, correctly archived")
+        self.assertEqual(self._no_leftover_tmp_files(), [])
+
+
+# ---------------------------------------------------------------------------
+# C2: identity handshake
+# ---------------------------------------------------------------------------
+
+
+class TestIdentityHandshake(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.archive_dir = self.tmp / "archive"
+        self.archive_dir.mkdir()
+        self.machine_root = self.archive_dir / "m1"
+        self.state_home = self.tmp / "state"
+        self._old_xdg = os.environ.get("XDG_STATE_HOME")
+        os.environ["XDG_STATE_HOME"] = str(self.state_home)
+
+    def tearDown(self):
+        if self._old_xdg is None:
+            os.environ.pop("XDG_STATE_HOME", None)
+        else:
+            os.environ["XDG_STATE_HOME"] = self._old_xdg
+        self._tmp.cleanup()
+
+    def _local_path(self):
+        return backup.local_state_path(self.archive_dir)
+
+    def _identity_path(self):
+        return self.machine_root / backup.IDENTITY_FILENAME
+
+    def _check(self, dry_run=False, adopt_archive=False):
+        backup.check_machine_identity(self.archive_dir, self.machine_root, "m1", dry_run, adopt_archive)
+
+    def test_first_run_adopts_writes_both_matching_nonce(self):
+        self._check()
+        self.assertTrue(self._identity_path().exists())
+        self.assertTrue(self._local_path().exists())
+        arch = json.loads(self._identity_path().read_text())
+        local = json.loads(self._local_path().read_text())
+        self.assertEqual(arch["nonce"], local["nonce"])
+        self.assertEqual(arch["machine_id"], "m1")
+
+    def test_matching_nonce_second_run_passes(self):
+        self._check()
+        self._check()  # must not raise/exit
+
+    def test_mismatched_nonce_exit_2_no_writes(self):
+        self._check()
+        idf = self._identity_path()
+        d = json.loads(idf.read_text())
+        d["nonce"] = "0" * 32
+        idf.write_text(json.dumps(d))
+        before = idf.read_bytes()
+
+        with self.assertRaises(SystemExit) as cm:
+            self._check()
+        self.assertEqual(cm.exception.code, 2)
+        self.assertEqual(idf.read_bytes(), before)  # no writes
+
+    def test_missing_archive_identity_with_local_nonce_exit_2(self):
+        self._check()
+        self._identity_path().unlink()  # simulates unmounted/wrong destination
+
+        with self.assertRaises(SystemExit) as cm:
+            self._check()
+        self.assertEqual(cm.exception.code, 2)
+        self.assertFalse(self._identity_path().exists())  # no writes
+
+    def test_archive_identity_without_local_nonce_exit_2(self):
+        self._check()
+        self._local_path().unlink()  # e.g. a colliding second machine, no local record
+
+        with self.assertRaises(SystemExit) as cm:
+            self._check()
+        self.assertEqual(cm.exception.code, 2)
+        self.assertFalse(self._local_path().exists())  # no writes
+
+    def test_adopt_archive_reblesses_missing_archive_identity(self):
+        self._check()
+        local_nonce = json.loads(self._local_path().read_text())["nonce"]
+        self._identity_path().unlink()
+
+        self._check(adopt_archive=True)  # must not raise
+
+        new_arch_nonce = json.loads(self._identity_path().read_text())["nonce"]
+        self.assertEqual(new_arch_nonce, local_nonce)
+
+    def test_adopt_archive_reblesses_missing_local_nonce(self):
+        self._check()
+        archive_nonce = json.loads(self._identity_path().read_text())["nonce"]
+        self._local_path().unlink()
+
+        self._check(adopt_archive=True)  # must not raise
+
+        new_local_nonce = json.loads(self._local_path().read_text())["nonce"]
+        self.assertEqual(new_local_nonce, archive_nonce)
+
+    def test_dry_run_writes_neither_file_on_first_run(self):
+        self._check(dry_run=True)
+        self.assertFalse(self._identity_path().exists())
+        self.assertFalse(self._local_path().exists())
+
+    def test_dry_run_does_not_write_on_adopt_archive(self):
+        self._check()
+        self._identity_path().unlink()
+        self._check(dry_run=True, adopt_archive=True)
+        self.assertFalse(self._identity_path().exists())
+
+    def test_pre_hardening_archive_no_identity_no_local_adopts_silently(self):
+        # Simulates an archive with real content from before the identity
+        # handshake existed: machine_root already has files, but no identity
+        # file and no local nonce recorded anywhere.
+        self.machine_root.mkdir(parents=True)
+        (self.machine_root / "claude" / "projects").mkdir(parents=True)
+        (self.machine_root / "claude" / "projects" / "old.jsonl").write_text("{}\n")
+
+        self._check()  # must not raise -- silent adopt
+
+        self.assertTrue(self._identity_path().exists())
+        self.assertTrue(self._local_path().exists())
+
+    def test_unwritable_local_state_on_first_run_exits_2_and_rolls_back_archive(self):
+        # A file sitting where the local state *directory* needs to be makes
+        # write_local_identity()'s dest.parent.mkdir() raise OSError, after
+        # write_archive_identity() has already succeeded -- exercises the
+        # rollback path so a retried run sees a genuine first-run state
+        # instead of a permanent half-completed handshake.
+        os.environ["XDG_STATE_HOME"] = str(self.tmp / "state_is_a_file")
+        (self.tmp / "state_is_a_file").write_text("not a directory\n")
+
+        with self.assertRaises(SystemExit) as cm:
+            self._check()
+        self.assertEqual(cm.exception.code, 2)
+        self.assertFalse(self._identity_path().exists())  # rolled back
+        self.assertFalse(self._local_path().exists())
+
+    def test_unwritable_archive_root_on_first_run_exits_2_no_local_write(self):
+        # machine_root's parent (archive_dir) exists but is read-only, so
+        # write_archive_identity()'s dest.parent.mkdir() for machine_root
+        # raises OSError before any local-state write is even attempted.
+        self.archive_dir.chmod(0o500)
+        try:
+            with self.assertRaises(SystemExit) as cm:
+                self._check()
+        finally:
+            self.archive_dir.chmod(0o700)  # restore so tearDown's rmtree can clean up
+        self.assertEqual(cm.exception.code, 2)
+        self.assertFalse(self._local_path().exists())
+
+
+class TestStaleTempFileSweep(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _touch_with_age(self, path: Path, age_seconds: float) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"partial")
+        old = datetime.now(timezone.utc).timestamp() - age_seconds
+        os.utime(path, (old, old))
+
+    def test_old_orphaned_tmp_is_removed(self):
+        stray = self.tmp / "dest.jsonl.abc123.tmp"
+        self._touch_with_age(stray, backup.STALE_TMP_MAX_AGE_SECONDS + 60)
+
+        removed = backup.sweep_stale_temp_files(self.tmp)
+
+        self.assertEqual(removed, 1)
+        self.assertFalse(stray.exists())
+
+    def test_fresh_tmp_is_left_alone(self):
+        stray = self.tmp / "dest.jsonl.abc123.tmp"
+        self._touch_with_age(stray, 5)
+
+        removed = backup.sweep_stale_temp_files(self.tmp)
+
+        self.assertEqual(removed, 0)
+        self.assertTrue(stray.exists())
+
+    def test_non_tmp_files_are_untouched(self):
+        real = self.tmp / "dest.jsonl"
+        self._touch_with_age(real, backup.STALE_TMP_MAX_AGE_SECONDS + 60)
+
+        removed = backup.sweep_stale_temp_files(self.tmp)
+
+        self.assertEqual(removed, 0)
+        self.assertTrue(real.exists())
+
+
+# ---------------------------------------------------------------------------
+# C3: symlinked source traversal
+# ---------------------------------------------------------------------------
+
+
+class TestSymlinkTraversal(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_symlinked_directory_is_archived(self):
+        real_dir = self.tmp / "elsewhere"
+        real_dir.mkdir()
+        (real_dir / "s.jsonl").write_text(json.dumps({"a": 1}) + "\n")
+
+        src_root = self.tmp / "projects"
+        src_root.mkdir()
+        (src_root / "linked-proj").symlink_to(real_dir, target_is_directory=True)
+
+        found = list(backup.iter_source_files(src_root, "**/*.jsonl"))
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].name, "s.jsonl")
+
+    def test_symlink_cycle_terminates(self):
+        src_root = self.tmp / "projects"
+        src_root.mkdir()
+        sub = src_root / "sub"
+        sub.mkdir()
+        (sub / "s.jsonl").write_text(json.dumps({"a": 1}) + "\n")
+        (sub / "loop-back").symlink_to(src_root, target_is_directory=True)  # cycle
+
+        # Must terminate (not hang) and find the one real file exactly once.
+        found = list(backup.iter_source_files(src_root, "**/*.jsonl"))
+        self.assertEqual(len(found), 1)
+        self.assertEqual(found[0].name, "s.jsonl")
+
+    def test_pattern_matches_only_filename_not_path(self):
+        src_root = self.tmp / "projects"
+        (src_root / "nested" / "deep").mkdir(parents=True)
+        (src_root / "nested" / "deep" / "s.jsonl").write_text("{}\n")
+        (src_root / "nested" / "deep" / "other.txt").write_text("nope\n")
+
+        found = list(backup.iter_source_files(src_root, "**/*.jsonl"))
+        self.assertEqual([p.name for p in found], ["s.jsonl"])
+
+
+# ---------------------------------------------------------------------------
+# M3: long-path WARN
+# ---------------------------------------------------------------------------
+
+
+class TestLongPathWarn(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_warn_emitted_for_long_dest_path(self):
+        src = self.tmp / "src.jsonl"
+        src.write_bytes(b"hello\n")
+        deep_name = "x" * 450
+        dest = self.tmp / deep_name
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            backup.process_file(src, dest, "raw", force=False, dry_run=False)
+        self.assertIn("WARN long-path", buf.getvalue())
+
+    def test_no_warn_for_short_dest_path(self):
+        src = self.tmp / "src.jsonl"
+        src.write_bytes(b"hello\n")
+        dest = self.tmp / "dest.jsonl"
+
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            backup.process_file(src, dest, "raw", force=False, dry_run=False)
+        self.assertNotIn("WARN long-path", buf.getvalue())
+
+
+# ---------------------------------------------------------------------------
 # Log rotation
 # ---------------------------------------------------------------------------
 
@@ -881,6 +1255,25 @@ class TestIntegration(unittest.TestCase):
         last_line2 = proc2.stdout.strip().splitlines()[-1]
         self.assertIn("skipped=1", last_line2)
         self.assertIn("added=0", last_line2)
+
+    def test_symlinked_project_dir_archived(self):
+        # C3: a symlinked project directory under ~/.claude/projects must
+        # still be archived -- pathlib's glob() silently skipped it.
+        real_dir = self.tmp / "elsewhere_project"
+        real_dir.mkdir()
+        (real_dir / "session1.jsonl").write_text(json.dumps({"a": 1}) + "\n")
+
+        projects = self.fake_home / ".claude" / "projects"
+        projects.mkdir(parents=True)
+        (projects / "linked-proj").symlink_to(real_dir, target_is_directory=True)
+
+        proc = run_backup(self._env())
+        self.assertEqual(proc.returncode, 0)
+        last_line = proc.stdout.strip().splitlines()[-1]
+        self.assertIn("added=1", last_line)
+        dest = self.archive / "testmachine" / "claude" / "projects" / "linked-proj" / "session1.jsonl"
+        self.assertTrue(dest.exists())
+        self.assertEqual(json.loads(dest.read_text()), {"a": 1})
 
     def test_error_exit_code_when_source_unreadable(self):
         projects = self.fake_home / ".claude" / "projects"
