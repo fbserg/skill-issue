@@ -1,0 +1,259 @@
+#!/usr/bin/env bash
+# install.sh -- one-command setup for tools/transcript-archive/backup.py.
+#
+# Usage: ./install.sh <ARCHIVE_DIR> [--machine-id ID] [--time HH:MM]
+#
+# Registers a daily scheduled run of backup.py (launchd on macOS, cron on
+# Linux), then runs the first dump immediately in the foreground so the
+# archive is populated right away. Safe to re-run: re-running with a new
+# ARCHIVE_DIR / --time replaces the previous schedule for this machine.
+set -euo pipefail
+
+DEFAULT_TIME="03:17"
+
+usage() {
+  cat <<'EOF'
+Usage: install.sh <ARCHIVE_DIR> [--machine-id ID] [--time HH:MM]
+
+  ARCHIVE_DIR   Destination root for the transcript archive (required).
+                Point this at a folder inside a synced drive (Dropbox,
+                iCloud Drive, Google Drive, OneDrive, Syncthing) for
+                automatic off-machine backup.
+  --machine-id  Override the machine identifier used to namespace this
+                machine's copy inside ARCHIVE_DIR (default: derived from
+                the local hostname).
+  --time HH:MM  Local time for the daily scheduled run (default: 03:17).
+
+Schedules a daily run (launchd on macOS, cron on Linux) and then runs the
+first dump immediately in the foreground. Re-run to change the destination
+or time -- this script is idempotent.
+EOF
+}
+
+die() {
+  echo "install.sh: $*" >&2
+  exit 1
+}
+
+sanitize_machine_id() {
+  # Must match backup.py's sanitize_machine_id() exactly: lowercased, chars
+  # outside [a-z0-9-] replaced with '-'. install.sh runs every machine id
+  # (explicit --machine-id or the hostname-derived default) through this
+  # before using it in any path or plist value, so install.sh and backup.py
+  # can never disagree on which directory a given machine's archive lives
+  # in.
+  local h=$1
+  h=$(printf '%s' "$h" | tr '[:upper:]' '[:lower:]')
+  h=$(printf '%s' "$h" | sed -E 's/[^a-z0-9-]/-/g')
+  printf '%s' "$h"
+}
+
+default_machine_id() {
+  local h
+  h=$(hostname -s 2>/dev/null || hostname)
+  h=${h%%.*}
+  sanitize_machine_id "$h"
+}
+
+# Renders the plist template: replaces every @@TOKEN@@ placeholder with a
+# real value in a single simultaneous pass. Delegates to python3 (already a
+# hard requirement) rather than bash's ${var//pattern/replacement}: bash
+# treats a literal '&' in the *replacement* operand as a sed-style
+# backreference to the matched text, which silently corrupts any
+# substituted value containing '&' (e.g. an ARCHIVE_DIR named
+# "archive&dir") -- and chained sequential substitutions have their own
+# hazard, where an earlier-substituted value that happens to literally
+# contain a later @@TOKEN@@ string gets re-mangled by the later pass.
+# python3's re.sub() with a single combined pattern replaces all tokens in
+# one pass over the ORIGINAL template text, sidestepping both. Split out of
+# the macOS install path so it can be exercised in isolation (see
+# test_backup.py / manual verification) without touching real launchd
+# state -- this function is never itself destructive, it only writes a
+# file at the $output path it is given.
+render_plist() {
+  local template=$1 output=$2 python_bin=$3 backup_py=$4 archive_dir=$5
+  local machine_id=$6 hour=$7 minute=$8 log_out=$9 log_err=${10}
+  RP_TEMPLATE="$template" RP_OUTPUT="$output" \
+  RP_PYTHON="$python_bin" RP_BACKUP_PY="$backup_py" RP_ARCHIVE_DIR="$archive_dir" \
+  RP_MACHINE_ID="$machine_id" RP_HOUR="$hour" RP_MINUTE="$minute" \
+  RP_LOG_OUT="$log_out" RP_LOG_ERR="$log_err" \
+  "$python_bin" - <<'PYEOF'
+import os
+import re
+
+TOKENS = {
+    "@@PYTHON@@": os.environ["RP_PYTHON"],
+    "@@BACKUP_PY@@": os.environ["RP_BACKUP_PY"],
+    "@@ARCHIVE_DIR@@": os.environ["RP_ARCHIVE_DIR"],
+    "@@MACHINE_ID@@": os.environ["RP_MACHINE_ID"],
+    "@@HOUR@@": os.environ["RP_HOUR"],
+    "@@MINUTE@@": os.environ["RP_MINUTE"],
+    "@@LOG_OUT@@": os.environ["RP_LOG_OUT"],
+    "@@LOG_ERR@@": os.environ["RP_LOG_ERR"],
+}
+
+
+def xml_escape(s: str) -> str:
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+pattern = re.compile("|".join(re.escape(token) for token in TOKENS))
+with open(os.environ["RP_TEMPLATE"], encoding="utf-8") as f:
+    content = f.read()
+content = pattern.sub(lambda m: xml_escape(TOKENS[m.group(0)]), content)
+with open(os.environ["RP_OUTPUT"], "w", encoding="utf-8") as f:
+    f.write(content)
+PYEOF
+}
+
+install_macos() {
+  local archive_dir=$1 machine_id=$2 hour=$3 minute=$4 backup_py=$5 template=$6
+  local python_bin label plist_dir plist_path log_dir log_out log_err
+
+  python_bin=$(command -v python3) || die "python3 not found on PATH"
+  label="com.skill-issue.transcript-archive"
+  plist_dir="${HOME}/Library/LaunchAgents"
+  plist_path="${plist_dir}/${label}.plist"
+  log_dir="${archive_dir}/${machine_id}"
+  log_out="${log_dir}/launchd.out"
+  log_err="${log_dir}/launchd.err"
+
+  mkdir -p "$plist_dir"
+  mkdir -p "$log_dir"
+
+  render_plist "$template" "$plist_path" "$python_bin" "$backup_py" \
+    "$archive_dir" "$machine_id" "$hour" "$minute" "$log_out" "$log_err"
+
+  # Unload any previous registration for this label, then (re)register.
+  # bootout fails (harmlessly) if the job wasn't loaded yet.
+  launchctl bootout "gui/$(id -u)/${label}" >/dev/null 2>&1 || true
+  launchctl bootstrap "gui/$(id -u)" "$plist_path"
+
+  echo "install.sh: launchd job '${label}' installed -> ${plist_path}" >&2
+  echo "install.sh: scheduled daily at ${hour}:${minute} (RunAtLoad=false); launchd logs -> ${log_dir}/launchd.{out,err}" >&2
+}
+
+install_linux() {
+  local archive_dir=$1 machine_id=$2 hour=$3 minute=$4 backup_py=$5
+  local python_bin cron_out cron_line existing filtered new_crontab
+
+  python_bin=$(command -v python3) || die "python3 not found on PATH"
+  mkdir -p "${archive_dir}/${machine_id}"
+  cron_out="${archive_dir}/${machine_id}/cron.out"
+
+  # shellcheck disable=SC2016
+  # (values are interpolated deliberately below, not left literal)
+  cron_line="${minute} ${hour} * * * TRANSCRIPT_ARCHIVE_DIR=\"${archive_dir}\" TRANSCRIPT_ARCHIVE_MACHINE_ID=\"${machine_id}\" /usr/bin/env python3 \"${backup_py}\" >> \"${cron_out}\" 2>&1 # transcript-archive"
+
+  existing=$(crontab -l 2>/dev/null || true)
+  filtered=$(printf '%s\n' "$existing" | grep -v '# transcript-archive$' || true)
+  new_crontab=$(printf '%s\n%s\n' "$filtered" "$cron_line" | sed '/^$/d')
+  printf '%s\n' "$new_crontab" | crontab -
+
+  echo "install.sh: crontab entry installed (tag '# transcript-archive')" >&2
+  echo "install.sh: scheduled daily at ${hour}:${minute}; cron output -> ${cron_out}" >&2
+  echo "install.sh: ${cron_line}" >&2
+}
+
+main() {
+  local archive_dir="" machine_id="" time_spec="$DEFAULT_TIME"
+
+  if [[ $# -eq 0 ]]; then
+    usage >&2
+    exit 1
+  fi
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help)
+        usage
+        exit 0
+        ;;
+      --machine-id)
+        [[ $# -ge 2 ]] || die "--machine-id requires a value"
+        machine_id=$2
+        shift 2
+        ;;
+      --time)
+        [[ $# -ge 2 ]] || die "--time requires a value (HH:MM)"
+        time_spec=$2
+        shift 2
+        ;;
+      --)
+        shift
+        ;;
+      -*)
+        die "unknown option: $1"
+        ;;
+      *)
+        if [[ -n "$archive_dir" ]]; then
+          die "unexpected extra argument: $1"
+        fi
+        archive_dir=$1
+        shift
+        ;;
+    esac
+  done
+
+  [[ -n "$archive_dir" ]] || { usage >&2; die "ARCHIVE_DIR is required"; }
+
+  [[ "$time_spec" =~ ^([0-9]{1,2}):([0-9]{2})$ ]] || die "--time must be HH:MM, got: $time_spec"
+  local hour=${BASH_REMATCH[1]} minute=${BASH_REMATCH[2]}
+  hour=$((10#$hour))
+  minute=$((10#$minute))
+  ((hour >= 0 && hour <= 23)) || die "--time hour out of range: $hour"
+  ((minute >= 0 && minute <= 59)) || die "--time minute out of range: $minute"
+
+  if [[ -z "$machine_id" ]]; then
+    machine_id=$(default_machine_id)
+    [[ -n "$machine_id" ]] || die "could not derive a machine id from the hostname; pass --machine-id explicitly"
+  else
+    # Sanitize an explicit --machine-id the same way backup.py sanitizes
+    # whatever it receives via TRANSCRIPT_ARCHIVE_MACHINE_ID, so the log
+    # dir / plist EnvironmentVariables value install.sh sets up always
+    # agrees with the directory backup.py actually writes to.
+    machine_id=$(sanitize_machine_id "$machine_id")
+    [[ -n "$machine_id" ]] || die "--machine-id sanitized to empty; pass a value with at least one [a-z0-9-] character"
+  fi
+
+  command -v python3 >/dev/null 2>&1 || die "python3 not found on PATH -- install Python 3.8+ and re-run"
+
+  local script_dir backup_py template
+  script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  backup_py="${script_dir}/backup.py"
+  template="${script_dir}/com.example.transcript-archive.plist"
+  [[ -f "$backup_py" ]] || die "backup.py not found next to install.sh at ${backup_py}"
+
+  # Normalize/expand ARCHIVE_DIR (may not exist yet -- backup.py creates it).
+  mkdir -p "$archive_dir"
+  archive_dir=$(cd "$archive_dir" && pwd)
+
+  local uname_s
+  uname_s=$(uname -s)
+  case "$uname_s" in
+    Darwin)
+      [[ -f "$template" ]] || die "plist template not found at ${template}"
+      install_macos "$archive_dir" "$machine_id" "$hour" "$minute" "$backup_py" "$template"
+      ;;
+    Linux)
+      install_linux "$archive_dir" "$machine_id" "$hour" "$minute" "$backup_py"
+      ;;
+    *)
+      die "unsupported OS: ${uname_s} (only macOS and Linux are supported)"
+      ;;
+  esac
+
+  echo "install.sh: running first dump now..." >&2
+  set +e
+  env TRANSCRIPT_ARCHIVE_DIR="$archive_dir" TRANSCRIPT_ARCHIVE_MACHINE_ID="$machine_id" \
+    python3 "$backup_py"
+  local rc=$?
+  set -e
+  exit "$rc"
+}
+
+# Allow this file to be sourced (e.g. to call render_plist directly for
+# testing) without running main.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
