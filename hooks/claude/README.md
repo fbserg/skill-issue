@@ -92,7 +92,9 @@ commands outright, filters verbose test output down to failures, and
 applies RTK's token-saving command rewrite. Also runs a pre-push gate
 (tsc/build/test) before `git push` — that phase is tuned to this author's
 JS/TS project conventions; adjust or strip it for other stacks. Skip the
-gate per-invocation with `SKIP_PREPUSH_GATE=1`.
+gate per-invocation with `SKIP_PREPUSH_GATE=1`. Project-specific command
+rewrites (e.g. per-project VM ssh routing) were stripped from this
+published mirror and live only in the private config repo.
 
 ```json
 "PreToolUse": [
