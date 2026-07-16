@@ -4,6 +4,7 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- `transcript-archive`: optional `--compress` (gzip, deterministic, ~3.7x measured on a real archive) with automatic plain<->`.gz` format migration and an `install.sh --compress` pass-through.
 - `transcript-archive` v2: multi-machine namespaced archive layout (`<machine-id>/claude/...`, `<machine-id>/codex/...`), a JSON-aware image tombstoning policy replacing the v1 base64 regex (which was silently corrupting thinking-block signatures, JWTs, embedded PDFs, and SVG paths), `~/.claude/tasks` now archived (Claude Code's cleanup sweep purges it too, upstream #51779), and a `--force` repair flag for re-running over v1-corrupted archives. Adds `install.sh` (renders the launchd plist / writes the cron line, runs the first dump in the foreground) and a `/transcript-backup` skill as the primary setup path.
 - Updated Codex `blitz` to batch fixes before hosted CI, avoid cosmetic-only CI restarts, and permit locally cleared stacked lanes while preserving dependency-ordered, final-head-checked merges.
 - Added the runtime-native Codex `blitz` skill and retired the stale Codex `issue-wave` registration; Codex now matches the four-entry-point orchestration decision.

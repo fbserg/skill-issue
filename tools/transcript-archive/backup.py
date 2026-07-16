@@ -29,6 +29,7 @@ collide.
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
 import json
 import os
@@ -385,26 +386,131 @@ STRIP_FNS = {
 
 
 # ---------------------------------------------------------------------------
+# gzip compression (optional, --compress)
+# ---------------------------------------------------------------------------
+#
+# Compression is a storage wrapper only: the bytes going into gzip are the
+# SAME processed bytes (stripped/tombstoned transcripts, raw copies) that
+# uncompressed mode would write. mtime=0 makes gzip.compress() deterministic
+# -- re-compressing identical content yields identical bytes, since the
+# gzip header would otherwise embed the current wall-clock time.
+
+GZIP_COMPRESSLEVEL = 6
+
+
+def gzip_compress_deterministic(data: bytes) -> bytes:
+    return gzip.compress(data, compresslevel=GZIP_COMPRESSLEVEL, mtime=0)
+
+
+def gzip_isize(gz_path: Path) -> int:
+    """Read the ISIZE footer: the last 4 bytes of a gzip file, little-endian,
+    the uncompressed size modulo 2**32. Good enough to compare against a
+    freshly-processed byte length for the keep-larger guard -- files here
+    top out around 106MB, nowhere near the 4GB wraparound.
+    """
+    with gz_path.open("rb") as f:
+        f.seek(-4, os.SEEK_END)
+        return int.from_bytes(f.read(4), "little")
+
+
+def validated_gzip_isize(gz_path: Path) -> int:
+    """gzip_isize(), but only after confirming `gz_path` is actually a
+    readable gzip stream. Trusting the trailing 4 bytes of ANY file at the
+    .gz path blind (no magic-byte check, no decompression) lets a truncated
+    or corrupted .gz -- left by a non-atomic write interrupted mid-way (a
+    crash, kill -9, disk-full, a sync-client conflict copy) -- report an
+    arbitrary huge "uncompressed size" from whatever garbage bytes happen to
+    sit at the end of the file. The keep-larger guard would then compare
+    every future run's real content against that garbage and conclude
+    "kept-larger" forever, silently and permanently wedging the corrupted
+    copy with no automated recovery short of a human noticing and re-running
+    with --force. Raises OSError on any validation failure so the caller's
+    existing OSError fallback (treat size as unknown, skip the guard, let
+    the corrupt copy be overwritten with correct new content) kicks in.
+    """
+    with gz_path.open("rb") as f:
+        magic = f.read(2)
+    if magic != b"\x1f\x8b":
+        raise OSError(f"{gz_path}: not a gzip file (bad magic bytes {magic!r})")
+    # Full-stream decompress to catch a truncated/corrupted body that still
+    # happens to start with a valid magic + header. Costs a decompress pass
+    # over files that top out around 106MB -- acceptable since this only
+    # runs when mtime says the source grew and the keep-larger guard is
+    # about to make a permanent-until-noticed decision.
+    try:
+        with gzip.open(gz_path, "rb") as gz:
+            while gz.read(1024 * 1024):
+                pass
+    except (OSError, EOFError) as e:
+        raise OSError(f"{gz_path}: corrupt/truncated gzip stream: {e}") from e
+    return gzip_isize(gz_path)
+
+
+def existing_uncompressed_size(path: Path) -> int:
+    """Size to compare against a new processed-byte length for the
+    keep-larger guard, regardless of whether `path` is a plain copy or a
+    .gz -- lets the guard compare like-for-like across a format migration.
+    """
+    if path.suffix == ".gz":
+        return validated_gzip_isize(path)
+    return path.stat().st_size
+
+
+# ---------------------------------------------------------------------------
 # File-level processing
 # ---------------------------------------------------------------------------
 
 
-def process_file(src: Path, dest: Path, kind: str, force: bool, dry_run: bool) -> str:
-    """Returns 'added', 'updated', 'skipped', 'kept-larger', or 'error:<msg>'."""
+def process_file(
+    src: Path, dest: Path, kind: str, force: bool, dry_run: bool, compress: bool = False
+) -> str:
+    """Returns 'added', 'updated', 'skipped', 'kept-larger', or 'error:<msg>'.
+
+    With compress=True, the archived copy lives at `dest` + '.gz' instead of
+    `dest`. Format migration: if the *other* format's copy exists (a plain
+    dest left over from a run with --compress off, or vice versa), it's
+    treated as the existing copy for the mtime-skip and keep-larger
+    decisions, and is deleted after a successful write in the new format --
+    same content, new wrapper, one file per source. This is the one
+    sanctioned deletion in an otherwise one-way archiver (see README).
+    """
     try:
         src_mtime = os.path.getmtime(src)
     except OSError as e:
         return f"error:stat src: {e}"
 
-    dest_exists = dest.exists()
-    if dest_exists and not force:
+    active_dest = dest.with_name(dest.name + ".gz") if compress else dest
+    other_dest = dest if compress else dest.with_name(dest.name + ".gz")
+
+    active_exists = active_dest.exists()
+    other_exists = other_dest.exists()
+
+    if active_exists and other_exists:
+        # Both formats present at once only happens when a prior run's
+        # migration cleanup (delete the old-format copy after a successful
+        # new-format write) didn't complete -- interrupted mid-way, or the
+        # unlink itself failed (permissions, race). Retry it unconditionally
+        # on every run, independent of the skip/write decision below, so a
+        # stale duplicate is never left on disk forever waiting for a human
+        # to notice: the mtime-skip check below is satisfied by active_dest
+        # alone and would otherwise return "skipped" without ever touching
+        # other_dest again.
         try:
-            dest_mtime = os.path.getmtime(dest)
+            other_dest.unlink()
+            other_exists = False
+        except OSError as e:
+            log(f"WARN: stale {other_dest} left behind after successful {active_dest} write: {e}")
+
+    existing_dest = active_dest if active_exists else (other_dest if other_exists else None)
+
+    if existing_dest is not None and not force:
+        try:
+            dest_mtime = os.path.getmtime(existing_dest)
         except OSError:
             dest_mtime = 0.0
         if dest_mtime >= src_mtime:
             return "skipped"
-    action = "updated" if dest_exists else "added"
+    action = "updated" if existing_dest is not None else "added"
 
     try:
         raw = src.read_bytes()
@@ -419,28 +525,47 @@ def process_file(src: Path, dest: Path, kind: str, force: bool, dry_run: bool) -
     # Never let a newer-but-smaller source clobber a larger archived copy --
     # transcript JSONL only grows within a session, so a shrink means the
     # source was truncated, rewritten, or restored from an older state.
-    if dest_exists and not force:
+    # Compared uncompressed-size to uncompressed-size, even across a format
+    # migration (existing_uncompressed_size reads the .gz ISIZE footer when
+    # the existing copy is compressed).
+    if existing_dest is not None and not force:
         try:
-            dest_size = dest.stat().st_size
+            existing_size = existing_uncompressed_size(existing_dest)
         except OSError:
-            dest_size = -1
-        if dest_size >= 0 and len(processed) < dest_size:
+            existing_size = -1
+        if existing_size >= 0 and len(processed) < existing_size:
             return "kept-larger"
 
     if dry_run:
         return action
 
     try:
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(processed)
-        os.utime(dest, (src_mtime, src_mtime))
+        active_dest.parent.mkdir(parents=True, exist_ok=True)
+        to_write = gzip_compress_deterministic(processed) if compress else processed
+        active_dest.write_bytes(to_write)
+        os.utime(active_dest, (src_mtime, src_mtime))
     except OSError as e:
         return f"error:write: {e}"
+
+    # The new-format write above already succeeded -- action is a success
+    # regardless of what happens to the old-format leftover below. Don't
+    # fold a cleanup failure into "error:write" (that would mislabel a
+    # successful write as an error in the SUMMARY's errors= count); log it
+    # distinctly instead. The active_exists/other_exists check at the top of
+    # this function retries the cleanup unconditionally on every future run
+    # until it succeeds.
+    if other_exists:
+        try:
+            other_dest.unlink()
+        except OSError as e:
+            log(f"WARN: stale {other_dest} left behind after successful {active_dest} write: {e}")
 
     return action
 
 
-def _process_file_safe(src: Path, dest: Path, kind: str, force: bool, dry_run: bool) -> str:
+def _process_file_safe(
+    src: Path, dest: Path, kind: str, force: bool, dry_run: bool, compress: bool = False
+) -> str:
     """process_file(), but any uncaught exception degrades to a per-file
     error instead of aborting the whole run. process_lines() already guards
     the individual failure modes we've found in the wild (malformed JSON,
@@ -449,7 +574,7 @@ def _process_file_safe(src: Path, dest: Path, kind: str, force: bool, dry_run: b
     source/file in the run its SUMMARY line.
     """
     try:
-        return process_file(src, dest, kind, force, dry_run)
+        return process_file(src, dest, kind, force, dry_run, compress)
     except Exception as e:
         return f"error:{type(e).__name__}: {e}"
 
@@ -583,6 +708,14 @@ def parse_args(argv=None) -> argparse.Namespace:
         action="store_true",
         help="Log what would be added/updated. Write nothing. Same exit codes.",
     )
+    parser.add_argument(
+        "--compress",
+        action="store_true",
+        help="Gzip (level 6, deterministic) every file written to the archive; dest "
+        "gains a .gz suffix. Content is identical to uncompressed mode -- compression "
+        "is a storage wrapper only. Migrates a plain<->gz copy in place on first write "
+        "after the flag changes; see README.",
+    )
     return parser.parse_args(argv)
 
 
@@ -610,14 +743,18 @@ def main(argv=None) -> None:
                 if not src.is_file():
                     continue
                 dest = spec.dest_root / src.relative_to(spec.src_root)
-                result = _process_file_safe(src, dest, spec.kind, args.force, args.dry_run)
+                result = _process_file_safe(
+                    src, dest, spec.kind, args.force, args.dry_run, args.compress
+                )
                 apply_result(result, src, counts, errors, args.dry_run)
         else:
             if not spec.src_root.exists():
                 log(f"WARN: single-file source not found, skipping: {spec.src_root}")
                 continue
             sources_seen += 1
-            result = _process_file_safe(spec.src_root, spec.dest_root, spec.kind, args.force, args.dry_run)
+            result = _process_file_safe(
+                spec.src_root, spec.dest_root, spec.kind, args.force, args.dry_run, args.compress
+            )
             apply_result(result, spec.src_root, counts, errors, args.dry_run)
 
     total = archive_file_count(machine_root)

@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 # install.sh -- one-command setup for tools/transcript-archive/backup.py.
 #
-# Usage: ./install.sh <ARCHIVE_DIR> [--machine-id ID] [--time HH:MM]
+# Usage: ./install.sh <ARCHIVE_DIR> [--machine-id ID] [--time HH:MM] [--compress]
 #
 # Registers a daily scheduled run of backup.py (launchd on macOS, cron on
 # Linux), then runs the first dump immediately in the foreground so the
 # archive is populated right away. Safe to re-run: re-running with a new
-# ARCHIVE_DIR / --time replaces the previous schedule for this machine.
+# ARCHIVE_DIR / --time / --compress replaces the previous schedule for this
+# machine -- re-running WITHOUT --compress removes it from the schedule too
+# (the schedule is always fully re-rendered from this run's flags, never
+# patched).
 set -euo pipefail
 
 DEFAULT_TIME="03:17"
 
 usage() {
   cat <<'EOF'
-Usage: install.sh <ARCHIVE_DIR> [--machine-id ID] [--time HH:MM]
+Usage: install.sh <ARCHIVE_DIR> [--machine-id ID] [--time HH:MM] [--compress]
 
   ARCHIVE_DIR   Destination root for the transcript archive (required).
                 Point this at a folder inside a synced drive (Dropbox,
@@ -23,10 +26,13 @@ Usage: install.sh <ARCHIVE_DIR> [--machine-id ID] [--time HH:MM]
                 machine's copy inside ARCHIVE_DIR (default: derived from
                 the local hostname).
   --time HH:MM  Local time for the daily scheduled run (default: 03:17).
+  --compress    Gzip every archived file (adds --compress to the scheduled
+                command and to the immediate first dump). Re-run without
+                this flag to drop it from the schedule again.
 
 Schedules a daily run (launchd on macOS, cron on Linux) and then runs the
-first dump immediately in the foreground. Re-run to change the destination
-or time -- this script is idempotent.
+first dump immediately in the foreground. Re-run to change the destination,
+time, or compression -- this script is idempotent.
 EOF
 }
 
@@ -72,15 +78,21 @@ default_machine_id() {
 # file at the $output path it is given.
 render_plist() {
   local template=$1 output=$2 python_bin=$3 backup_py=$4 archive_dir=$5
-  local machine_id=$6 hour=$7 minute=$8 log_out=$9 log_err=${10}
+  local machine_id=$6 hour=$7 minute=$8 log_out=$9 log_err=${10} compress=${11}
   RP_TEMPLATE="$template" RP_OUTPUT="$output" \
   RP_PYTHON="$python_bin" RP_BACKUP_PY="$backup_py" RP_ARCHIVE_DIR="$archive_dir" \
   RP_MACHINE_ID="$machine_id" RP_HOUR="$hour" RP_MINUTE="$minute" \
-  RP_LOG_OUT="$log_out" RP_LOG_ERR="$log_err" \
+  RP_LOG_OUT="$log_out" RP_LOG_ERR="$log_err" RP_COMPRESS="$compress" \
   "$python_bin" - <<'PYEOF'
 import os
 import re
 
+# @@COMPRESS_ARG@@ renders to an extra <string>--compress</string>
+# ProgramArguments entry when --compress was passed to install.sh this run,
+# or to nothing (a blank line, harmless in plist XML) otherwise -- the whole
+# plist is re-rendered from this run's flags every time, so re-running
+# without --compress drops it from the schedule just like --time replaces
+# the schedule time.
 TOKENS = {
     "@@PYTHON@@": os.environ["RP_PYTHON"],
     "@@BACKUP_PY@@": os.environ["RP_BACKUP_PY"],
@@ -90,6 +102,7 @@ TOKENS = {
     "@@MINUTE@@": os.environ["RP_MINUTE"],
     "@@LOG_OUT@@": os.environ["RP_LOG_OUT"],
     "@@LOG_ERR@@": os.environ["RP_LOG_ERR"],
+    "@@COMPRESS_ARG@@": "<string>--compress</string>" if os.environ["RP_COMPRESS"] == "1" else "",
 }
 
 
@@ -97,18 +110,30 @@ def xml_escape(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+# @@COMPRESS_ARG@@ is the one token whose value is itself a raw XML element
+# (or empty), not text content -- every other token's value gets XML-escaped
+# since it's substituted *inside* a <string>...</string>.
+RAW_TOKENS = {"@@COMPRESS_ARG@@"}
+
+
+def substitute(m: "re.Match") -> str:
+    token = m.group(0)
+    value = TOKENS[token]
+    return value if token in RAW_TOKENS else xml_escape(value)
+
+
 pattern = re.compile("|".join(re.escape(token) for token in TOKENS))
 with open(os.environ["RP_TEMPLATE"], encoding="utf-8") as f:
     content = f.read()
-content = pattern.sub(lambda m: xml_escape(TOKENS[m.group(0)]), content)
+content = pattern.sub(substitute, content)
 with open(os.environ["RP_OUTPUT"], "w", encoding="utf-8") as f:
     f.write(content)
 PYEOF
 }
 
 install_macos() {
-  local archive_dir=$1 machine_id=$2 hour=$3 minute=$4 backup_py=$5 template=$6
-  local python_bin label plist_dir plist_path log_dir log_out log_err
+  local archive_dir=$1 machine_id=$2 hour=$3 minute=$4 backup_py=$5 template=$6 compress=$7
+  local python_bin label plist_dir plist_path log_dir log_out log_err compress_flag
 
   python_bin=$(command -v python3) || die "python3 not found on PATH"
   label="com.skill-issue.transcript-archive"
@@ -117,12 +142,14 @@ install_macos() {
   log_dir="${archive_dir}/${machine_id}"
   log_out="${log_dir}/launchd.out"
   log_err="${log_dir}/launchd.err"
+  compress_flag=0
+  [[ "$compress" == "1" ]] && compress_flag=1
 
   mkdir -p "$plist_dir"
   mkdir -p "$log_dir"
 
   render_plist "$template" "$plist_path" "$python_bin" "$backup_py" \
-    "$archive_dir" "$machine_id" "$hour" "$minute" "$log_out" "$log_err"
+    "$archive_dir" "$machine_id" "$hour" "$minute" "$log_out" "$log_err" "$compress_flag"
 
   # Unload any previous registration for this label, then (re)register.
   # bootout fails (harmlessly) if the job wasn't loaded yet.
@@ -134,16 +161,18 @@ install_macos() {
 }
 
 install_linux() {
-  local archive_dir=$1 machine_id=$2 hour=$3 minute=$4 backup_py=$5
-  local python_bin cron_out cron_line existing filtered new_crontab
+  local archive_dir=$1 machine_id=$2 hour=$3 minute=$4 backup_py=$5 compress=$6
+  local python_bin cron_out cron_line existing filtered new_crontab compress_suffix
 
   python_bin=$(command -v python3) || die "python3 not found on PATH"
   mkdir -p "${archive_dir}/${machine_id}"
   cron_out="${archive_dir}/${machine_id}/cron.out"
+  compress_suffix=""
+  [[ "$compress" == "1" ]] && compress_suffix=" --compress"
 
   # shellcheck disable=SC2016
   # (values are interpolated deliberately below, not left literal)
-  cron_line="${minute} ${hour} * * * TRANSCRIPT_ARCHIVE_DIR=\"${archive_dir}\" TRANSCRIPT_ARCHIVE_MACHINE_ID=\"${machine_id}\" /usr/bin/env python3 \"${backup_py}\" >> \"${cron_out}\" 2>&1 # transcript-archive"
+  cron_line="${minute} ${hour} * * * TRANSCRIPT_ARCHIVE_DIR=\"${archive_dir}\" TRANSCRIPT_ARCHIVE_MACHINE_ID=\"${machine_id}\" /usr/bin/env python3 \"${backup_py}\"${compress_suffix} >> \"${cron_out}\" 2>&1 # transcript-archive"
 
   existing=$(crontab -l 2>/dev/null || true)
   filtered=$(printf '%s\n' "$existing" | grep -v '# transcript-archive$' || true)
@@ -156,7 +185,7 @@ install_linux() {
 }
 
 main() {
-  local archive_dir="" machine_id="" time_spec="$DEFAULT_TIME"
+  local archive_dir="" machine_id="" time_spec="$DEFAULT_TIME" compress=0
 
   if [[ $# -eq 0 ]]; then
     usage >&2
@@ -178,6 +207,10 @@ main() {
         [[ $# -ge 2 ]] || die "--time requires a value (HH:MM)"
         time_spec=$2
         shift 2
+        ;;
+      --compress)
+        compress=1
+        shift
         ;;
       --)
         shift
@@ -233,10 +266,10 @@ main() {
   case "$uname_s" in
     Darwin)
       [[ -f "$template" ]] || die "plist template not found at ${template}"
-      install_macos "$archive_dir" "$machine_id" "$hour" "$minute" "$backup_py" "$template"
+      install_macos "$archive_dir" "$machine_id" "$hour" "$minute" "$backup_py" "$template" "$compress"
       ;;
     Linux)
-      install_linux "$archive_dir" "$machine_id" "$hour" "$minute" "$backup_py"
+      install_linux "$archive_dir" "$machine_id" "$hour" "$minute" "$backup_py" "$compress"
       ;;
     *)
       die "unsupported OS: ${uname_s} (only macOS and Linux are supported)"
@@ -245,8 +278,13 @@ main() {
 
   echo "install.sh: running first dump now..." >&2
   set +e
-  env TRANSCRIPT_ARCHIVE_DIR="$archive_dir" TRANSCRIPT_ARCHIVE_MACHINE_ID="$machine_id" \
-    python3 "$backup_py"
+  if [[ "$compress" == "1" ]]; then
+    env TRANSCRIPT_ARCHIVE_DIR="$archive_dir" TRANSCRIPT_ARCHIVE_MACHINE_ID="$machine_id" \
+      python3 "$backup_py" --compress
+  else
+    env TRANSCRIPT_ARCHIVE_DIR="$archive_dir" TRANSCRIPT_ARCHIVE_MACHINE_ID="$machine_id" \
+      python3 "$backup_py"
+  fi
   local rc=$?
   set -e
   exit "$rc"

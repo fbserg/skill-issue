@@ -11,6 +11,7 @@ Two layers:
 
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import os
@@ -432,6 +433,261 @@ class TestProcessFile(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# --compress
+# ---------------------------------------------------------------------------
+
+
+class TestCompress(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def test_roundtrip_content_equality_vs_uncompressed(self):
+        # Same source, one run uncompressed and one compressed: the gzip's
+        # decompressed bytes must equal the uncompressed archive's bytes
+        # exactly -- compression is a storage wrapper, not a content change.
+        obj, _ = claude_tool_screenshot_line()
+        src = self.tmp / "src.jsonl"
+        src.write_bytes(json.dumps(obj).encode() + b"\n")
+
+        dest_plain = self.tmp / "plain" / "dest.jsonl"
+        backup.process_file(src, dest_plain, "strip-claude", force=False, dry_run=False)
+
+        dest_gz_base = self.tmp / "gz" / "dest.jsonl"
+        backup.process_file(
+            src, dest_gz_base, "strip-claude", force=False, dry_run=False, compress=True
+        )
+        gz_path = dest_gz_base.with_name(dest_gz_base.name + ".gz")
+        self.assertTrue(gz_path.exists())
+        self.assertFalse(dest_gz_base.exists())
+
+        with gzip.open(gz_path, "rb") as f:
+            decompressed = f.read()
+        self.assertEqual(decompressed, dest_plain.read_bytes())
+
+    def test_deterministic_recompression_byte_equality(self):
+        data = json.dumps({"a": 1, "b": "x" * 5000}).encode() * 3
+        first = backup.gzip_compress_deterministic(data)
+        second = backup.gzip_compress_deterministic(data)
+        self.assertEqual(first, second)
+
+    def test_mtime_skip_on_gz_dest(self):
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        src.write_bytes(b"hello world\n")
+
+        result1 = backup.process_file(src, dest, "raw", force=False, dry_run=False, compress=True)
+        self.assertEqual(result1, "added")
+        gz_path = dest.with_name(dest.name + ".gz")
+        self.assertTrue(gz_path.exists())
+
+        result2 = backup.process_file(src, dest, "raw", force=False, dry_run=False, compress=True)
+        self.assertEqual(result2, "skipped")
+
+        new_mtime = os.path.getmtime(src) + 5
+        src.write_bytes(b"hello world, updated\n")
+        os.utime(src, (new_mtime, new_mtime))
+        result3 = backup.process_file(src, dest, "raw", force=False, dry_run=False, compress=True)
+        self.assertEqual(result3, "updated")
+
+    def test_keep_larger_via_isize_compressed_smaller_uncompressed_larger(self):
+        # Existing .gz holds a bigger uncompressed payload than the new
+        # source, even though its compressed-on-disk size is small (highly
+        # compressible repeated content) -- the guard must compare
+        # uncompressed sizes, not on-disk gz sizes.
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        gz_path = dest.with_name(dest.name + ".gz")
+        gz_path.parent.mkdir(parents=True, exist_ok=True)
+
+        big_repetitive = b"x" * 100000  # compresses tiny, but uncompressed size is huge
+        gz_path.write_bytes(backup.gzip_compress_deterministic(big_repetitive))
+        self.assertLess(gz_path.stat().st_size, len(big_repetitive))  # sanity: compressed shrinks
+        os.utime(gz_path, (1000, 1000))
+
+        src.write_bytes(b"y" * 10)  # much smaller uncompressed than existing
+        os.utime(src, (2000, 2000))  # newer
+
+        result = backup.process_file(src, dest, "raw", force=False, dry_run=False, compress=True)
+        self.assertEqual(result, "kept-larger")
+        # untouched
+        with gzip.open(gz_path, "rb") as f:
+            self.assertEqual(f.read(), big_repetitive)
+
+    def test_keep_larger_via_isize_compressed_larger_uncompressed_smaller(self):
+        # Inverse: existing .gz's on-disk (compressed) size is bigger than
+        # the new source's raw byte length, but its *uncompressed* payload
+        # is smaller -- so the guard must NOT kick in, and the write must
+        # proceed.
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        gz_path = dest.with_name(dest.name + ".gz")
+        gz_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # High-entropy small payload compresses poorly (grows on disk).
+        small_incompressible = os.urandom(200)
+        gz_path.write_bytes(backup.gzip_compress_deterministic(small_incompressible))
+        os.utime(gz_path, (1000, 1000))
+
+        new_content = b"z" * 5000  # bigger uncompressed than the existing payload
+        src.write_bytes(new_content)
+        os.utime(src, (2000, 2000))
+
+        self.assertGreater(gz_path.stat().st_size, len(new_content) - 4900)  # sanity, loose
+        result = backup.process_file(src, dest, "raw", force=False, dry_run=False, compress=True)
+        self.assertEqual(result, "updated")
+        with gzip.open(gz_path, "rb") as f:
+            self.assertEqual(f.read(), new_content)
+
+    def test_plain_to_gz_migration_removes_plain_only_after_successful_write(self):
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"old plain content\n")
+        os.utime(dest, (1000, 1000))
+
+        src.write_bytes(b"new content, longer than old\n")
+        os.utime(src, (2000, 2000))
+
+        result = backup.process_file(src, dest, "raw", force=False, dry_run=False, compress=True)
+        self.assertEqual(result, "updated")
+        gz_path = dest.with_name(dest.name + ".gz")
+        self.assertTrue(gz_path.exists())
+        self.assertFalse(dest.exists())  # plain removed after successful .gz write
+        with gzip.open(gz_path, "rb") as f:
+            self.assertEqual(f.read(), b"new content, longer than old\n")
+
+    def test_plain_to_gz_migration_mtime_skip_uses_plain_mtime(self):
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        dest.write_bytes(b"content\n")
+        os.utime(dest, (5000, 5000))
+        src.write_bytes(b"content\n")
+        os.utime(src, (1000, 1000))  # older than the existing plain copy
+
+        result = backup.process_file(src, dest, "raw", force=False, dry_run=False, compress=True)
+        self.assertEqual(result, "skipped")
+        self.assertTrue(dest.exists())  # nothing written, nothing migrated
+        self.assertFalse(dest.with_name(dest.name + ".gz").exists())
+
+    def test_gz_to_plain_reverse_migration(self):
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        gz_path = dest.with_name(dest.name + ".gz")
+        gz_path.parent.mkdir(parents=True, exist_ok=True)
+        gz_path.write_bytes(backup.gzip_compress_deterministic(b"old gz content\n"))
+        os.utime(gz_path, (1000, 1000))
+
+        src.write_bytes(b"new plain content\n")
+        os.utime(src, (2000, 2000))
+
+        result = backup.process_file(src, dest, "raw", force=False, dry_run=False, compress=False)
+        self.assertEqual(result, "updated")
+        self.assertTrue(dest.exists())
+        self.assertEqual(dest.read_bytes(), b"new plain content\n")
+        self.assertFalse(gz_path.exists())  # old .gz removed after successful plain write
+
+    def test_force_bypasses_guards_with_compress(self):
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        gz_path = dest.with_name(dest.name + ".gz")
+        gz_path.parent.mkdir(parents=True, exist_ok=True)
+        gz_path.write_bytes(backup.gzip_compress_deterministic(b"x" * 1000))
+        os.utime(gz_path, (5000, 5000))
+
+        src.write_bytes(b"y" * 10)  # older AND smaller uncompressed
+        os.utime(src, (1000, 1000))
+
+        result = backup.process_file(src, dest, "raw", force=True, dry_run=False, compress=True)
+        self.assertEqual(result, "updated")
+        with gzip.open(gz_path, "rb") as f:
+            self.assertEqual(f.read(), b"y" * 10)
+
+    def test_dry_run_writes_nothing_with_compress(self):
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        src.write_bytes(b"hello\n")
+
+        result = backup.process_file(src, dest, "raw", force=False, dry_run=True, compress=True)
+        self.assertEqual(result, "added")
+        self.assertFalse(dest.exists())
+        self.assertFalse(dest.with_name(dest.name + ".gz").exists())
+
+    def test_gzip_isize_matches_uncompressed_length(self):
+        with tempfile.TemporaryDirectory() as td:
+            gz_path = Path(td) / "f.jsonl.gz"
+            payload = b"abc" * 12345
+            gz_path.write_bytes(backup.gzip_compress_deterministic(payload))
+            self.assertEqual(backup.gzip_isize(gz_path), len(payload))
+            self.assertEqual(backup.existing_uncompressed_size(gz_path), len(payload))
+
+    def test_corrupt_gz_does_not_permanently_wedge_keep_larger_guard(self):
+        # A truncated/corrupted .gz (e.g. left by a non-atomic write
+        # interrupted mid-way) must NOT be trusted for its trailing 4 bytes
+        # -- those can decode to an arbitrary huge "uncompressed size" that
+        # would make every future run's real content compare smaller
+        # forever, silently and permanently wedging the corrupt copy.
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        gz_path = dest.with_name(dest.name + ".gz")
+        gz_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # 8-byte "gzip" whose header is well-formed enough to have a magic
+        # byte pair but whose trailing 4 bytes are not a real ISIZE footer
+        # for any actual compressed stream.
+        gz_path.write_bytes(b"\x1f\x8b\x08\x00" + b"\xff\xff\xff\xff")
+        os.utime(gz_path, (1000, 1000))
+
+        src.write_bytes(b"real content, correctly archived this time\n")
+        os.utime(src, (2000, 2000))  # newer, so mtime-skip doesn't trip first
+
+        result = backup.process_file(src, dest, "raw", force=False, dry_run=False, compress=True)
+        self.assertNotEqual(result, "kept-larger")
+        self.assertEqual(result, "updated")
+        with gzip.open(gz_path, "rb") as f:
+            self.assertEqual(f.read(), b"real content, correctly archived this time\n")
+
+    def test_corrupt_gz_bad_magic_raises_in_existing_uncompressed_size(self):
+        with tempfile.TemporaryDirectory() as td:
+            gz_path = Path(td) / "f.jsonl.gz"
+            gz_path.write_bytes(b"not a gzip file at all")
+            with self.assertRaises(OSError):
+                backup.existing_uncompressed_size(gz_path)
+
+    def test_stale_other_format_cleanup_retried_on_later_run(self):
+        # Simulates a prior run whose new-format (.gz) write succeeded but
+        # whose old-format-cleanup unlink() didn't complete (interrupted, or
+        # failed and was logged rather than crashing the run): both the
+        # active .gz and the stale plain file exist on disk from the start.
+        # A later run -- even with no source change at all -- must still
+        # remove the stale leftover rather than leaving it forever, since
+        # the mtime-skip check alone (satisfied by the .gz) would otherwise
+        # never reach the migration-cleanup code path again.
+        src = self.tmp / "src.jsonl"
+        dest = self.tmp / "dest.jsonl"
+        gz_path = dest.with_name(dest.name + ".gz")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+
+        src.write_bytes(b"content\n")
+        os.utime(src, (1000, 1000))
+        gz_path.write_bytes(backup.gzip_compress_deterministic(b"content\n"))
+        os.utime(gz_path, (1000, 1000))
+        dest.write_bytes(b"content\n")  # stale leftover from an incomplete migration
+        os.utime(dest, (1000, 1000))
+
+        self.assertTrue(dest.exists())
+        self.assertTrue(gz_path.exists())
+
+        result = backup.process_file(src, dest, "raw", force=False, dry_run=False, compress=True)
+        self.assertEqual(result, "skipped")  # no new content -- but cleanup still runs
+        self.assertTrue(gz_path.exists())
+        self.assertFalse(dest.exists())  # stale plain file finally removed
+
+
+# ---------------------------------------------------------------------------
 # Log rotation
 # ---------------------------------------------------------------------------
 
@@ -605,6 +861,26 @@ class TestIntegration(unittest.TestCase):
         sess_dest = self.archive / "testmachine" / "codex" / "sessions" / "sess1.jsonl"
         out_obj = json.loads(sess_dest.read_text())
         self.assertTrue(out_obj["payload"]["output"][0]["image_url"].startswith("__IMAGE_TOMBSTONE("))
+
+    def test_compress_flag_end_to_end(self):
+        projects = self.fake_home / ".claude" / "projects"
+        projects.mkdir(parents=True)
+        (projects / "s.jsonl").write_text(json.dumps({"a": 1}) + "\n")
+
+        proc = run_backup(self._env(), args=["--compress"])
+        self.assertEqual(proc.returncode, 0)
+        last_line = proc.stdout.strip().splitlines()[-1]
+        self.assertIn("added=1", last_line)
+        dest_gz = self.archive / "testmachine" / "claude" / "projects" / "s.jsonl.gz"
+        self.assertTrue(dest_gz.exists())
+        with gzip.open(dest_gz, "rb") as f:
+            self.assertEqual(json.loads(f.read()), {"a": 1})
+
+        proc2 = run_backup(self._env(), args=["--compress"])
+        self.assertEqual(proc2.returncode, 0)
+        last_line2 = proc2.stdout.strip().splitlines()[-1]
+        self.assertIn("skipped=1", last_line2)
+        self.assertIn("added=0", last_line2)
 
     def test_error_exit_code_when_source_unreadable(self):
         projects = self.fake_home / ".claude" / "projects"
