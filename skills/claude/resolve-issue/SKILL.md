@@ -198,15 +198,21 @@ worktree. The lane-runner:
 
 1. **Worktree-or-abort first (hard rule)**, on branch `fix/issue-<N>-<slug>`
    (`git worktree add`). Verify `pwd` casing (APFS is case-insensitive).
-2. *Before any code*: push an empty initial commit and open the **stub draft
+2. **Amendment re-poll, before any commit.** `gh issue view <N> --comments` and
+   diff comment timestamps against the `PLAN_COMMENT` snapshot time. A newer
+   scope-relevant comment is folded into the plan before proceeding, or
+   explicitly called out-of-scope with a reply on the issue — never silently
+   implemented against a stale snapshot (issue #245: a 34-minutes-prior
+   amendment was missed this way and round-tripped through a follow-up PR).
+3. *Before any code*: push an empty initial commit and open the **stub draft
    PR** (`Draft: resolving #<N>`, plan summary) — a durable PR marker for the
    whole implement phase, closing the window where a plan comment exists but no
    PR does and a second run could race the branch. Run any `## Issue lane
    overrides` / bootstrap block (CLAUDE.md / AGENTS.md) verbatim.
-3. **Codex canary**: `codex exec --skip-git-repo-check "print ok and exit"`
+4. **Codex canary**: `codex exec --skip-git-repo-check "print ok and exit"`
    (~3s healthy). Fails → fall back to implementing itself as a plain Sonnet
    builder; note the fallback in the handoff.
-4. Write a **self-contained task file** (`/tmp/resolve-issue-<N>/codex-task.md`)
+5. Write a **self-contained task file** (`/tmp/resolve-issue-<N>/codex-task.md`)
    from the `PLAN`: goal, files to touch, exact symbols/helpers to reuse with
    signatures, steps, how to verify. Include, verbatim: the **no-git block**
    ("Do NOT git add/commit/push/reset/checkout/stash or create branches. Edit
@@ -216,15 +222,15 @@ worktree. The lane-runner:
    NOTHING."), the **no-tests rule** (code only — a separate agent authors
    tests), and the **sandbox-has-no-network warning** with the repo's offline
    escape hatch so its self-report means something.
-5. Run Codex in the worktree with a watchdog (default 1200s):
+6. Run Codex in the worktree with a watchdog (default 1200s):
    `codex exec --full-auto -C <worktree> "Implement this plan exactly. Make
    reasonable choices, don't ask. PLAN: $(cat codex-task.md)"`.
-6. **Verify for real — never trust Codex's self-report** (measured: it fixes
+7. **Verify for real — never trust Codex's self-report** (measured: it fixes
    the reported case and misses the symmetric one, and dismisses its own
    regressions as "environmental"). Run the plan's verify step itself, probe
    the neighboring/symmetric cases, reproduce any claimed failure. Codex
    stopped on a contradiction → surface it in the handoff, implement nothing.
-7. Commit exactly what the plan called for (never `git add -A` blindly — diff
+8. Commit exactly what the plan called for (never `git add -A` blindly — diff
    first), push.
 
 Handoff: `WORKTREE`, `BRANCH`, `PR_URL`, `COMMITS`, `BUILDER` (codex / sonnet
@@ -317,7 +323,10 @@ Review scales with tier:
    nit), file, and a concrete description. **Dedup across lenses** — the same
    bug surfaces under two lenses (an injection reads as both correctness and
    security); collapse by file+description, keeping the highest severity.
-   Handoff: `FINDINGS` (deduped), `VERDICT` (approve / needs-fixes).
+   Handoff: `FINDINGS` (deduped), `VERDICT` (approve / needs-fixes). **Post
+   findings on the PR itself** — `gh pr review --comment` or one comment per
+   finding — not just as issue-thread prose; a PR must be auditable without
+   cross-referencing the issue.
 2. **Blocker verification** (read-only, only if there are blocker findings):
    spawn one skeptic per blocker. Frame the blocker as a **prior reviewer's
    external claim** — "a prior reviewer concluded X; find the flaw in that
@@ -335,6 +344,9 @@ Review scales with tier:
    itself, commits and pushes. Nits may be fixed by the lane-runner directly
    (dispatching Codex for a two-line nit is overhead) or declined with a
    reason. Handoff: `RESOLVED` (per finding ID: fixed / declined + reason).
+   **Update each finding's PR comment with the fix commit** (finding ID → fix
+   SHA, or the decline reason) — the finding → fix-commit mapping lives on the
+   PR, not only in the handoff.
    **Opus escalation:** if a *blocker* survives a second fix cycle — the same
    finding came back after the builder already tried once — run that one
    finding's fix on an `opus-worker` subagent (`agentType: "opus-worker"`)
@@ -357,7 +369,10 @@ issue comment so a second attempt can pick up exactly there. See **Resume**.
 
 ## Step 4 — Finalize
 
-One subagent: rebase the branch onto the current base, then **detect and actually run the repo's real checks**, copied **verbatim** from the repo's `## Issue lane overrides` block / CLAUDE.md gate commands if present, else pytest / ruff / npm test / make check — never paraphrased (a paraphrased
+One subagent: **amendment re-poll, again** — `gh issue view <N> --comments`
+against the `PLAN_COMMENT` snapshot time, same rule as Step 1: fold in any
+newer scope-relevant comment or reply marking it out-of-scope before
+finalizing. Then rebase the branch onto the current base, then **detect and actually run the repo's real checks**, copied **verbatim** from the repo's `## Issue lane overrides` block / CLAUDE.md gate commands if present, else pytest / ruff / npm test / make check — never paraphrased (a paraphrased
 gate silently false-passes); READY is never allowed on unrun or red checks. Before
 marking ready, a **completeness pass** — is every acceptance criterion backed
 by a passing test, every boundary covered, every check green? Anything unproven
@@ -369,7 +384,13 @@ issue with **`Refs #<N>`, never `Closes #<N>`** so merging does not auto-close i
 while real criteria remain open; a deferral that can't be justified as truly
 un-worktree-able is a BLOCKER, not a deferral. Then assemble the full PR body.
 **Finalize gate: repo checks pass and each acceptance criterion has observed
-evidence in the PR body — content over headings.** Then mark the PR ready
+evidence in the PR body — content over headings.** **Draft-state gate: the
+state machine is draft vs ready, nothing else.** If any acceptance evidence is
+still pending, the PR stays in GitHub draft state — that *is* the gate. A PR
+body phrase like "Not merging" is not a control mechanism and is banned as
+one (PR #254 shipped one, then merged 50 seconds later); if it isn't ready,
+don't call `gh pr ready`, full stop. Only once every criterion is proven (or
+properly deferred per above) does the subagent mark the PR ready
 (`gh pr ready`).
 
 PR body sections:
