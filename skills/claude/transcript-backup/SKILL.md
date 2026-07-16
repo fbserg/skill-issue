@@ -15,7 +15,7 @@ Boundary: this skill installs and verifies the local backup job (`tools/transcri
    ./tools/transcript-archive/install.sh <destination-dir>
    ```
 
-   Pass through `--machine-id ID` or `--time HH:MM` only if the user specified them; otherwise let the script derive the machine id from the hostname and use its default time (03:17). This both registers the daily schedule (launchd on macOS, cron on Linux) and runs the **first dump immediately in the foreground** — that first run is the initial full archive, not just a schedule registration.
+   Pass through `--machine-id ID`, `--time HH:MM`, or `--compress` only if the user specified them; otherwise let the script derive the machine id from the hostname and use its default time (03:17). This both registers the daily schedule (launchd on macOS, cron on Linux) and runs the **first dump immediately in the foreground** — that first run is the initial full archive, not just a schedule registration. `--compress` gzips every archived file (~3.7x smaller measured on a real archive, lossless — see `tools/transcript-archive/README.md#compression-optional`); pass it through when the user asks to compress the archive or save space, and re-run install.sh without it to turn compression back off.
 
    Relay the `SUMMARY | ...` line from the output verbatim — it's the receipt: added/updated/skipped/kept_larger/errors counts plus archive size and free disk space on the destination volume.
 

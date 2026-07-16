@@ -181,6 +181,7 @@ Flags:
   codes.
 - `--force` — bypass the mtime-skip and keep-larger guards (repair mode, see
   [Image policy](#image-policy-the-heart-of-v2)).
+- `--compress` — gzip every archived file (see [Compression](#compression-optional) below).
 
 The last line of output is always a SUMMARY line:
 
@@ -202,6 +203,60 @@ already gone before this script ever sees it. If you've set
 broken upstream (issue #23710) and behaves unpredictably rather than
 disabling cleanup. Codex currently keeps session history forever with no
 pruning, so a first Codex dump can be large — that's expected, not a bug.
+
+## Compression (optional)
+
+`--compress` gzips (stdlib `gzip`, level 6) every file written to the
+archive; the destination path gains a `.gz` suffix. Measured on a real
+17,298-file archive (Claude + Codex transcripts, `~/.claude/tasks`, Codex
+`history.jsonl`): 7.0G uncompressed → 1.9G compressed, **~3.7x**. Actual
+ratio depends on how much of the corpus is already-high-entropy content
+(base64 thinking signatures, tombstoned-but-still-present hashes) versus
+plain JSON/prose, which compresses much better on its own.
+
+**Lossless, and a drop-in for analysis.** The bytes inside the `.gz` are
+exactly what uncompressed mode would have written — same stripped/
+tombstoned transcripts, same raw copies. Reading them back is one line:
+`gzip.open(path, "rt")` instead of `open(path)` in Python, or `zcat`/`zgrep`
+instead of `cat`/`grep` on the command line — the corpus is easier to ship
+around and scan through, not harder, once your tools go through the gzip
+layer. The cost: you can't `grep`/open a `.gz` file directly in an editor or
+naive `grep` without decompressing first (`zgrep` fixes command-line grep;
+editors mostly won't).
+
+**Format migration is automatic and one-way per file.** Turning `--compress`
+on or off for an archive that already has copies in the *other* format
+doesn't leave you with duplicates: on the next run, the existing plain (or
+`.gz`) copy is used for the mtime-skip and keep-larger decisions as if it
+were the target format, and once the new-format copy is written
+successfully, the old-format copy for that file is deleted. This is the one
+sanctioned deletion in an otherwise one-way, never-delete archiver — see
+`process_file()` in `backup.py` for exactly where it happens. Turning
+compression off later reverses it (`.gz` copies get replaced by plain ones
+and removed) the same way, one file at a time as each is next touched. If
+that cleanup unlink ever fails (permissions, an interrupted process), the
+run still counts as a success — the new-format copy was written correctly —
+but logs a distinct `WARN: stale ... left behind` line, and every
+subsequent run retries the cleanup unconditionally (independent of
+mtime-skip) until the stale duplicate is finally gone.
+
+**Corrupted `.gz` never wedges the guard.** The keep-larger comparison reads
+a `.gz`'s uncompressed size from its gzip ISIZE footer, but only after
+validating the file is actually a readable gzip stream (magic bytes plus a
+full decompress pass). A truncated or corrupted `.gz` — left by a
+non-atomic write interrupted mid-run (crash, `kill -9`, disk-full, a
+sync-client conflict copy) — fails that validation, so the guard treats its
+size as unknown and lets the correct new content overwrite it, instead of
+trusting garbage trailing bytes and refusing to ever re-archive that file
+without `--force`.
+
+**Enabling on an existing install:** re-run `install.sh` with `--compress`
+(it re-registers the schedule with the flag baked in, and runs an
+incremental dump immediately — only files newer than their archived copy get
+migrated). To convert the whole existing backlog to `.gz` in one pass rather
+than waiting for each file's next natural update, run the archiver once with
+both flags: `--compress --force` — `--force` bypasses the mtime-skip so every
+already-archived file gets picked up and compressed on that run.
 
 ## Schedule it
 
