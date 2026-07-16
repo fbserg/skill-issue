@@ -6,7 +6,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 
 - `skills/codex/` — skills installed into `~/.codex/skills/`
 - `skills/claude/` — skills installed into `~/.claude/skills/`
-- `skills/shared/` — skills symlinked into `~/.claude/skills/` (Claude-only now)
+- `skills/shared/` — skills symlinked into `~/.claude/skills/`; `zero` is also symlinked into `~/.codex/skills/`
 - `agents/` — named subagent types with pinned model/effort, installed into `~/.claude/agents/`
 - `hooks/claude/` — Claude Code hooks (PreToolUse / Stop event handlers)
 - `config/CLAUDE.md` — reference `CLAUDE.md` operating rules (sanitized); copy into a project or `~/.claude/`
@@ -84,6 +84,8 @@ Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/
 | claude-spend | `tools/claude-spend/spend.py` | Claude Code per-project spend analyzer (per-session/per-skill token+cost rollup, cache-tier aware); stolen from hong (https://github.com/hyang0129/dot-claude). Not symlinked by `install.sh` — run in place: `python3 tools/claude-spend/spend.py`. |
 | statusline | `tools/statusline/statusline.sh` | Claude Code status line: repo@branch +/- diff, model·effort, context bar calibrated to the real auto-compact trigger (window − 13k reserve), 5h/7d rate-limit bars with reset ETA and weekly pace delta. Not symlinked — point `statusLine.command` in settings.json at it. |
 | transcript-archive | `tools/transcript-archive/backup.py` | One-way, machine-namespaced, multi-machine archiver for Claude + Codex JSONL transcripts: JSON-aware image tombstoning (replaced the v1 base64 regex, which was corrupting thinking signatures/JWTs/PDFs), never clobbers a larger copy with a smaller one, optional gzip compression. Storage-agnostic — point it at any synced folder, git repo, or disk. `install.sh` + `/transcript-backup` skill for one-command setup. |
+| gmail-tools | `tools/gmail-tools/bin/gmail-tools` | Draft-only Gmail CLI (search, read threads, labels, attachments, compose) — every `send` endpoint is proxied to raise, so a message can only leave the mailbox via a human clicking send in Gmail. Symlinked to `~/.local/bin` by `install.sh`. |
+| secrets | `tools/secrets/secrets` | Encrypt a repo's `.env` to every collaborator's GitHub SSH public key with `age` — no shared passwords, no out-of-band exchange. Full docs: `docs/env-sharing.md`. |
 | check-install | `scripts/check-install.py` | Verify local symlinks point at this repo's copies, not stale older versions. |
 | check-links | `scripts/check-links.py` | Doc-link drift guard: verify every relative markdown link in tracked .md files resolves on disk. |
 | install | `scripts/install.sh` | Symlink all skills and delegate agents into the right runtime dirs. Idempotent. |

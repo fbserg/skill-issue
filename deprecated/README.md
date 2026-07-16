@@ -21,8 +21,12 @@ multi-lens blocker-verified review) path. `epic-plan` survives — rebuilt to ha
 - `tools/epic-tools/` — GitHub CLI used only by `epic-run`/`epic-retro`; the rebuilt `epic-plan` calls
   `gh` directly.
 
-### Codex → phased out
+### Codex → the 2026-06-20-era epic pipeline, not Codex itself
 
-The project is Claude-only now. The entire former `skills/codex/` tree (its epic skills plus
-`quick-research`, `tidy`, and symlinks to shared skills) lives at `skills/codex/`. The shared skills
-themselves remain active under the top-level `skills/shared/` for Claude.
+What's archived here is the *old* Codex epic pipeline (the `epic-run` family, `quick-research`,
+`tidy`) from the 2026-06-20 "full-Claude orchestration" ruling that retired it. The live
+`skills/codex/` tree was rebuilt afterward and is a going concern: DECISIONS.md 2026-07-05
+reinstated Codex as the default builder inside the Claude-judged `/resolve-issue` pipeline, and
+the 2026-07-16 entry separately sanctions `skills/codex/{blitz,issue,epic-plan,resolve-issue}` as
+standalone front doors for driving Codex CLI directly, outside Claude Code. Nothing about Codex
+itself is deprecated — only this specific pipeline shape.

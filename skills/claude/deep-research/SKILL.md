@@ -85,17 +85,17 @@ Refuted ≠ deleted. A skeptic-refuted claim is **demoted** to a `contested[]` b
 in the report — the reader sees the dispute. Supporting/tangential claims skip verification
 entirely and lean on extraction quality plus the critic.
 
-## Model mix (deliberate Opus override)
+## Model mix
 
 | Phase | Model |
 |---|---|
 | Scope, Critic, Reasoning, Synthesize | **Opus** |
 | Search, Fetch, Verify | Sonnet |
 
-This intentionally overrides the global "subagents are Sonnet-max" rule — user-authorized
-for this skill. Decomposition quality, gap-judgment, and non-sycophantic synthesis drive the
-whole run; retrieval and extraction stay on Sonnet. Dynamic sizing keeps simple queries cheap
-(2–3 Sonnet searches, no reasoning phase, 0 extra rounds).
+The Opus phases are ordinary use of the `opus-worker` rung — read-only judgment panels
+(decomposition quality, gap-judgment, non-sycophantic synthesis) are exactly what that rung is
+for. Retrieval and extraction stay on Sonnet. Dynamic sizing keeps simple queries cheap (2–3
+Sonnet searches, no reasoning phase, 0 extra rounds).
 
 ## Output
 
