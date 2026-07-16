@@ -1,8 +1,8 @@
 extends: existence
-message: "AI rhetorical drama: '%s'. Self-posed questions, mic-drop one-liners, and stacked repetition are common LLM cadences — integrate the point into ordinary prose."
+message: "AI rhetorical drama: '%s'. Self-posed questions, antithetical balance, and stacked repetition are common LLM cadences — integrate the point into ordinary prose."
 level: warning
 nonword: true
-scope: raw
+scope: paragraph
 tokens:
   # --- Rhetorical self-answer: "The result? It crashed." ---
   - "The result\\? [A-Z]"
@@ -44,21 +44,16 @@ tokens:
   - "The bottom line\\? [A-Z]"
   - "The big picture\\? [A-Z]"
 
-  # --- Mic-drop: short dramatic sentence closers ---
-  - "(?:It|This|That) (?:matters|works|shows|helps|scales|compounds|counts|adds up|pays off|depends)\\."
-  - "(?:It|This|That)(?:'s| is| was) (?:key|crucial|critical|intentional|deliberate|by design|no accident|no coincidence)\\."
-  - "Full stop\\."
-  - "And that'?s (?:okay|fine|enough|it|the point)\\."
   # Antithetical balance: "Tools change, principles don't." / "Frameworks come and go, fundamentals remain."
-  - "(?:changes?|evolves?|shifts?|varies|vary|comes? and go(?:es)?)[,;—] (?:the |a |an )?(?:\\w+ ){0,4}(?:stays? the same|remains?(?: the same)?|holds?|persists?|endures?|(?:doesn't|don't) change)\\."
+  - "(?:changes?|evolves?|shifts?|varies|vary|comes? and go(?:es)?)[,;—] (?:the |a |an )?(?:\\w+ ){0,4}(?:stays? the same|remains?(?: the same)?|holds?|persists?|endures?|(?:doesn't|don't|didn't) change|doesn't|don't|didn't)\\."
   - "(?:stays? the same|remains?(?: the same)?|holds?|persists?|endures?)[,;—] (?:the |a |an )?(?:\\w+ ){0,4}(?:changes?|evolves?|shifts?|varies|vary|comes? and go(?:es)?)\\."
 
   # --- Stacked anaphora: "No X. No Y. No Z." / repeated rhetorical questions ---
-  - "No [^.]+\\. No [^.]+\\. No [^.]+"
+  - "No [^.!?]+\\. No [^.!?]+\\. No [^.!?]+"
   - "No [^,.!?]+, no [^,.!?]+, no [^.!?]+"
-  - "Not [^.]+\\. Not [^.]+\\. Not [^.]+"
-  - "It'?s [^.]+\\. It'?s [^.]+\\. It'?s [^.]+"
-  - "This is [^.]+\\. This is [^.]+\\. This is [^.]+"
+  - "Not [^.!?]+\\. Not [^.!?]+\\. Not [^.!?]+"
+  - "It'?s [^.!?]+\\. It'?s [^.!?]+\\. It'?s [^.!?]+"
+  - "This is [^.!?]+\\. This is [^.!?]+\\. This is [^.!?]+"
   - "(?:What|Why|How|Where|When|Who|Which|Is|Are|Can|Could|Should|Would|Do|Does) [^?]+\\? (?:What|Why|How|Where|When|Who|Which|Is|Are|Can|Could|Should|Would|Do|Does) [^?]+\\? (?:What|Why|How|Where|When|Who|Which|Is|Are|Can|Could|Should|Would|Do|Does) [^?]+\\?"
-  - "Every [^.]+\\. Every [^.]+\\. Every [^.]+"
-  - "Each [^.]+\\. Each [^.]+\\. Each [^.]+"
+  - "Every [^.!?]+\\. Every [^.!?]+\\. Every [^.!?]+"
+  - "Each [^.!?]+\\. Each [^.!?]+\\. Each [^.!?]+"

@@ -4,4 +4,4 @@ level: warning
 ignorecase: true
 link: https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing
 raw:
-  - "so-called ['\"].+?['\"]"
+  - "so-called ['\"“”‘’].+?['\"“”‘’]"

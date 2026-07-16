@@ -1,0 +1,10 @@
+extends: existence
+message: "Possible mic-drop: '%s'. Short dramatic one-liners for emphasis are a common AI tell, but this pattern also matches ordinary human sentences — verify before acting."
+level: suggestion
+nonword: true
+scope: paragraph
+tokens:
+  - "(?:It|This|That) (?:matters|works|shows|helps|scales|compounds|counts|adds up|pays off|depends)\\."
+  - "(?:It|This|That)(?:'s| is| was) (?:key|crucial|critical|intentional|deliberate|by design|no accident|no coincidence)\\."
+  - "Full stop\\."
+  - "And that'?s (?:okay|fine|enough|it|the point)\\."

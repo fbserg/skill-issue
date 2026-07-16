@@ -111,9 +111,10 @@ zip's layout. Commit the rebuilt zip alongside the source changes.
 | `VagueAttribution.yml` | warning | "experts say", "studies show" with no source (base) |
 | `DespiteChallenges.yml` | warning | "despite these challenges" dismissal formula |
 | `CopulaDodge.yml` | warning | "serves as an"/"represents a significant"/"boasts a" copula-inflation dodges |
-| `RhetoricalDrama.yml` | warning | Self-answered rhetorical questions, mic-drop one-liners, stacked anaphora |
+| `RhetoricalDrama.yml` | warning | Self-answered rhetorical questions, antithetical-balance pairs, stacked anaphora |
 | `ChatRegister.yml` | warning | Chatbot pleasantries, sycophancy, and explainer announcements leaking into prose |
-| `ScareQuotes.yml` | warning | "so-called 'X'" scare quotes |
+| `ScareQuotes.yml` | warning | "so-called 'X'" scare quotes (straight and curly quotes) |
+| `MicDrop.yml` | suggestion | Short dramatic sentence closers ("It matters.", "Full stop.") — matches ordinary human sentences too, so kept speculative |
 | `Hedging.yml` | suggestion | Hedging-phrase density (>2 per scope) |
 | `FormalTransitions.yml` | suggestion | However/therefore/consequently-style formal connectors |
 | `FormalVocabulary.yml` | suggestion | "aspect"/"facet" overuse plus stuffy register (facilitate, commence, ascertain) |
