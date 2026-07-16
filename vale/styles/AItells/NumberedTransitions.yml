@@ -1,0 +1,7 @@
+extends: existence
+message: "Firstly/secondly/thirdly scaffolding in one paragraph — cut the numbering."
+level: warning
+scope: paragraph
+ignorecase: true
+raw:
+  - '\bfirst(?:ly)?\b[\s\S]{0,400}\bsecond(?:ly)?\b[\s\S]{0,400}\bthird(?:ly)?\b'

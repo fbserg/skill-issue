@@ -1,0 +1,7 @@
+extends: existence
+message: "AI tell: em dash. Recast with a period, comma, colon, or parentheses."
+level: warning
+nonword: true
+tokens:
+  - '—'
+  - '&mdash;'

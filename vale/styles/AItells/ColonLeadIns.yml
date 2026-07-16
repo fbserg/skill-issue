@@ -1,0 +1,12 @@
+extends: existence
+message: "Colon lead-in ('%s') — recast as a plain sentence."
+level: warning
+ignorecase: true
+nonword: true
+tokens:
+  - ': including'
+  - ': such as'
+  - ': for example'
+  - ': notably'
+  - ': specifically'
+  - ': particularly'

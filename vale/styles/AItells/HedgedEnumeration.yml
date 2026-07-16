@@ -1,0 +1,8 @@
+extends: existence
+message: "Hedged enumeration ('%s') — name the actual rank or cut the hedge."
+level: warning
+ignorecase: true
+tokens:
+  - one of the (most|first|few|largest)
+  - among the (most|first|earliest)
+  - some of the most

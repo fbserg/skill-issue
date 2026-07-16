@@ -1,0 +1,17 @@
+extends: existence
+message: "Chatbot paste artifact: '%s'. This is raw LLM output — remove it."
+level: error
+ignorecase: true
+nonword: true
+tokens:
+  - 'contentReference\[oaicite'
+  - oai_citation
+  - 'sandbox:/mnt/data'
+  - as an AI (language )?model
+  - I hope this helps
+  - 'Certainly! Here'
+  - 'Great question'
+  - '↩\d+'
+  - '\[↩\]'
+  - '<sup>\[↩\]</sup>'
+  - '\{\{cite[^}]+\}\}<sup>\[\d+\]</sup>'

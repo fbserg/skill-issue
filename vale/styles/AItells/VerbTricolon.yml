@@ -1,0 +1,41 @@
+extends: existence
+message: "Possible verb tricolon: '%s'. Exactly-three parallel verb phrases are a common LLM fingerprint — speculative, verify before acting: plain A-B-and-C tricolons are also just normal prose."
+level: suggestion
+nonword: true
+tokens:
+  # ==========================================================================
+  # Verb tricolons: three parallel verb phrases in a comma series. LLMs
+  # over-produce enumerations that land on exactly three items. High
+  # false-positive rate against ordinary human writing — suggestion tier only.
+  # ==========================================================================
+
+  # --- Gerund: "[adv] verbing X, [adv] verbing Y, and/or [adv] verbing Z" ---
+  - "(?:\\w+ly )?\\w+ing [^,.!?]+, (?:\\w+ly )?\\w+ing [^,.!?]+, and (?:\\w+ly )?\\w+ing [^.!?]+"
+  - "(?:\\w+ly )?\\w+ing [^,.!?]+, (?:\\w+ly )?\\w+ing [^,.!?]+, or (?:\\w+ly )?\\w+ing [^.!?]+"
+
+  # --- Past tense -ed ---
+  - "(?:\\w+ly )?\\w+ed [^,.!?]+, (?:\\w+ly )?\\w+ed [^,.!?]+, and (?:\\w+ly )?\\w+ed [^.!?]+"
+  - "(?:\\w+ly )?\\w+ed [^,.!?]+, (?:\\w+ly )?\\w+ed [^,.!?]+, or (?:\\w+ly )?\\w+ed [^.!?]+"
+
+  # --- Third person -s ---
+  - "(?:\\w+ly )?\\w+s [^,.!?]+, (?:\\w+ly )?\\w+s [^,.!?]+, and (?:\\w+ly )?\\w+s [^.!?]+"
+  - "(?:\\w+ly )?\\w+s [^,.!?]+, (?:\\w+ly )?\\w+s [^,.!?]+, or (?:\\w+ly )?\\w+s [^.!?]+"
+
+  # --- Base form after modals ---
+  - "(?:can|could|will|would|should|shall|may|might|must) (?:\\w+ly )?\\w+ [^,.!?]+, (?:\\w+ly )?\\w+ [^,.!?]+, and (?:\\w+ly )?\\w+ [^.!?]+"
+  - "(?:can|could|will|would|should|shall|may|might|must) (?:\\w+ly )?\\w+ [^,.!?]+, (?:\\w+ly )?\\w+ [^,.!?]+, or (?:\\w+ly )?\\w+ [^.!?]+"
+
+  # --- Infinitive (shared "to") ---
+  - "to (?:\\w+ly )?\\w+ [^,.!?]+, (?:\\w+ly )?\\w+ [^,.!?]+, and (?:\\w+ly )?\\w+ [^.!?]+"
+  - "to (?:\\w+ly )?\\w+ [^,.!?]+, (?:\\w+ly )?\\w+ [^,.!?]+, or (?:\\w+ly )?\\w+ [^.!?]+"
+
+  # --- Infinitive (repeated "to") ---
+  - "to (?:\\w+ly )?\\w+ [^,.!?]+, to (?:\\w+ly )?\\w+ [^,.!?]+, and to (?:\\w+ly )?\\w+ [^.!?]+"
+  - "to (?:\\w+ly )?\\w+ [^,.!?]+, to (?:\\w+ly )?\\w+ [^,.!?]+, or to (?:\\w+ly )?\\w+ [^.!?]+"
+
+  # ==========================================================================
+  # Asyndetic tricolons: three parallel verb phrases with no conjunction.
+  # ==========================================================================
+  - "(?:\\w+ly )?\\w+ing [^,.!?]+, (?:\\w+ly )?\\w+ing [^,.!?]+, (?:\\w+ly )?\\w+ing [^,.!?]+"
+  - "(?:\\w+ly )?\\w+ed [^,.!?]+, (?:\\w+ly )?\\w+ed [^,.!?]+, (?:\\w+ly )?\\w+ed [^,.!?]+"
+  - "(?:\\w+ly )?\\w+s [^,.!?]+, (?:\\w+ly )?\\w+s [^,.!?]+, (?:\\w+ly )?\\w+s [^,.!?]+"
