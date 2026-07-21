@@ -15,7 +15,18 @@ You're the orchestrator; you don't implement. Posture:
 - **Lane cards, not broadcasts.** Each lane is dispatched with a scoped brief — its file scope, its acceptance gate, only the rulings that bind it — never the full root prompt re-sent verbatim. A naive re-broadcast has been measured at ~15x context inflation per fan-out; write the card instead.
   Check BOTH CLAUDE.md and AGENTS.md for binding rulings — AGENTS.md-only rulings exist
   and the session auto-loads only CLAUDE.md.
+- **Micro-work gets no lane.** A ≤~50-line fix with green targeted checks commits straight to
+  the integration branch (where the repo permits) — no issue, no PR, no worktree. Batch several
+  into one commit train. Lanes and PRs are for work that needs review or outlives one sitting.
+  (Measured: 55% of one repo's issues closed within 2h of filing — tracker as commit log.)
+- **Spine files are single-writer.** Before carding, check churn (`git log --name-only`): the
+  repo's most-touched wiring/shared files go to at most ONE lane per wave. "Disjoint file
+  lists" that all import the same spine are not disjoint. (Measured: 98/100 sampled PRs
+  overlapped a <24h-prior PR's files; a 17-PR lockstep chain on one file pair.)
 - **Adversarial review before believing anything.** Distinct lenses, role-locked to refute; verify claims against the repo, not rhetoric. Applies to plans, diffs, and your own conclusions.
+- **Findings return batched, never as issue confetti.** A review lane reports one batched
+  finding list; at most one follow-up issue per surface. Never one issue per finding/assertion
+  (measured: 42 follow-up issues filed in one day from a single UI wave).
 - **3+ background lanes → arm the watchdog** (pulse files + one Monitor, the /issue pattern). Lanes die silently; fast without it is fast into a ditch.
 - **Fast through gates.** No re-confirming between phases; push each lane to done (commit, PR, human merges). Stop only for real scope changes or destruction.
 
