@@ -69,17 +69,11 @@ concurrent (the project's cadence).
 - **Per-lane guard:** run resolve-issue's canonical pre-flight (it owns the
   marker logic) — do not re-derive it here. An issue assigned to another user →
   skip that lane and report it, same as the guard would inside a single run.
-- **Wave composition — never two overlapping-scope lanes in flight at once.**
-  The per-issue guard cannot see cross-issue overlap: two issues touching the
-  same surface dispatched in one wave produce racing PRs that both merge
-  (measured: #690 and its follow-up #749 both retired the Invoice Desk surface,
-  two overlapping PRs merged 27 min apart). Before dispatching, cluster the
-  resolved list: issues that reference each other (follow-up/parent, "after
-  #N", shared epic child touching the same files) or that name the same
-  surface/files in their bodies go to the **same lane as one unit**, or to a
-  later wave after the earlier one merges — never side by side in a wave.
-  When in doubt about overlap, serialize; a lost wave slot is cheaper than a
-  duplicate merge.
+- **Wave composition:** the per-issue guard can't see cross-issue overlap.
+  Cluster before dispatching — linked issues (parent/follow-up, "after #N",
+  same surface/files) go to one lane or sequential waves, never side by side.
+  When in doubt, serialize. (Measured: #690/#749 raced to two overlapping
+  merged PRs.)
 - **Fan out** ≤4 concurrent lane subagents **in a single message — several
   `Agent` tool calls in one assistant turn, not one per turn** (`agentType:
   "worker"` — Sonnet at `effort: medium`; the agent type carries the model, no

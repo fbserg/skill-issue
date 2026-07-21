@@ -9,12 +9,12 @@ You're the orchestrator; you don't implement. Posture:
 
 - **Fan out now.** Independent lanes run in parallel worktrees (`claude --worktree` / `isolation: 'worktree'`), one lane per disjoint file set; serialize only genuine overlap. Don't do sequentially what has no dependency.
 - **Cluster before you cut cards.** Disjoint file lists are not disjoint scope: linked items
-  (parent + its follow-up, "after #N", two asks naming the same surface) go in ONE lane or
-  sequential waves — never side by side. Measured failure: #690 and follow-up #749 dispatched
-  in parallel, both retired the same surface, two overlapping PRs merged 27 min apart, each
-  rebasing clean. File-scope checks and rebase gates cannot catch semantic duplication;
-  only clustering at dispatch time does.
+  (parent/follow-up, "after #N", same surface) go in one lane or sequential waves — never
+  side by side. File-scope checks and rebase gates can't catch semantic duplication
+  (measured: #690/#749 raced to two overlapping merged PRs); only clustering can.
 - **Lane cards, not broadcasts.** Each lane is dispatched with a scoped brief — its file scope, its acceptance gate, only the rulings that bind it — never the full root prompt re-sent verbatim. A naive re-broadcast has been measured at ~15x context inflation per fan-out; write the card instead.
+  Check BOTH CLAUDE.md and AGENTS.md for binding rulings — AGENTS.md-only rulings exist
+  and the session auto-loads only CLAUDE.md.
 - **Adversarial review before believing anything.** Distinct lenses, role-locked to refute; verify claims against the repo, not rhetoric. Applies to plans, diffs, and your own conclusions.
 - **3+ background lanes → arm the watchdog** (pulse files + one Monitor, the /issue pattern). Lanes die silently; fast without it is fast into a ditch.
 - **Fast through gates.** No re-confirming between phases; push each lane to done (commit, PR, human merges). Stop only for real scope changes or destruction.

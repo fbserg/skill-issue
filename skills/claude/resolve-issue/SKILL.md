@@ -214,7 +214,10 @@ worktree. The lane-runner:
    builder; note the fallback in the handoff.
 5. Write a **self-contained task file** (`/tmp/resolve-issue-<N>/codex-task.md`)
    from the `PLAN`: goal, files to touch, exact symbols/helpers to reuse with
-   signatures, steps, how to verify. Include, verbatim: the **no-git block**
+   signatures, steps, how to verify. Copy in any CLAUDE.md/AGENTS.md rulings
+   that bind the diff — Codex reads only AGENTS.md on its own; CLAUDE.md-only
+   invariants never reach it unless transcribed here. Include, verbatim: the
+   **no-git block**
    ("Do NOT git add/commit/push/reset/checkout/stash or create branches. Edit
    and test only; leave changes unstaged."), the **contradiction-stop block**
    ("If the spec contradicts itself or two requirements cannot both hold: STOP,
