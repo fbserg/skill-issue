@@ -3,6 +3,58 @@
 Durable rulings on contested choices. Check here before re-litigating; a
 standing ruling short-circuits the debate unless its reopen condition fired.
 
+## 2026-07-24 — Subtraction pass: prose rules that measurement showed were dead letters
+
+**Decision:** rules the estate could not enforce were deleted rather than
+re-asserted, and the mechanisms they stood in for were built instead.
+- `/ww` deleted. It restated the worktree rule already present in every context
+  window; its only unique content was a boundary sentence `/blitz` states from
+  the other side. **Supersedes the fourth bullet of the 2026-07-10 lineup.**
+- `/issue` Single mode deleted — it was a pure pass-through to `/resolve-issue`.
+- `/resolve-issue` tiers collapsed 1/2/3 → light/full/epic. Tier 2 vs 3 differed
+  only in the plan panel (independently gated anyway) and whether correctness
+  and security shared a context window.
+- Three global CLAUDE.md rules deleted as unenforceable: "expensive model never
+  edits", "pre-commit before first commit", and the >2000-line review-batching
+  trigger. The edit-guard hooks enforcing the first were deleted with it.
+- "Subagents never delegate" converted from prose to mechanism: `tools:`
+  frontmatter omitting `Agent` on worker/bulk/opus-worker, plus a new `lane`
+  agent type that keeps `Agent` for the sanctioned /issue batch exception.
+- Watchdog remediation made executable: `TaskStop` kill-before-restart,
+  dispatcher-seeded pulse files, per-batch namespacing, one shared threshold
+  contract in `docs/lane-watchdog.md`.
+
+**Evidence:** forensics over 14,509 local transcripts (2026-06 → 2026-07):
+expensive-model edits 3,266/3,479 (94%) against a guard that fired 510 times
+and was overridden every time; worktree-first violated in 76% of editing
+sessions; pre-commit absent from 70% of committing sessions. `lane-watchdog.log`
+showed 3 true wedges against 13+ annotated false positives, and one batch
+alarming every 60s for 51 minutes with zero remediation because its only
+remediation step called a tool unavailable to the caller. Six installed skills
+had zero invocations across the entire corpus.
+
+**Reopen when:** a deleted rule's failure mode actually bites — an unreviewed
+main-thread edit ships a defect a delegate would have caught, or a missing
+pre-commit run lands a hook-catchable error on main. Re-add as a mechanism,
+never as prose.
+
+## 2026-07-21 — Subagents never dispatch Codex
+
+**Decision:** `/codex-go` and Codex worktree lanes are MAIN-THREAD-ONLY
+dispatch. A subagent that cannot make an edit itself reports up; it never
+launches Codex. This is a component of the broader "subagents never delegate"
+rule, called out separately because Codex dispatch is the expensive failure.
+
+**Evidence:** a `worker` spun up a Codex worktree for a one-line change and then
+idled waiting on it, burning a lane on work it could have done directly.
+Measured on 2026-07-24: 8 subagent transcripts had dispatched
+`codex:codex-rescue` after this ruling — prose alone did not hold it, which is
+why the rule now also has `tools:` enforcement (see 2026-07-24).
+
+**Reopen when:** a subagent-launched Codex lane demonstrably outperforms
+reporting up — i.e. the subagent could not have made the edit itself AND the
+round-trip through the main thread measurably cost more than the lane.
+
 ## 2026-07-16 — Codex standalone front doors are sanctioned; "never orchestrates" scoped to the Claude-run pipeline
 
 **Decision:** `skills/codex/{blitz,issue,epic-plan,resolve-issue}` stay live and installed.
@@ -52,6 +104,22 @@ lanes repeatedly die despite the watchdog line.
 **Consciously skipped** (simplicity ruling): retro/playbook-capture skill,
 PR-babysitting/merge-queue skill, generic "what's in flight" command. Revisit
 on second occurrence of the pain.
+
+## 2026-07-06 — Review agents default to Sonnet
+
+**Decision:** review lenses, blocker skeptics, and simplify passes run on Sonnet
+by default. `opus-worker` is reserved for deliberate high-stakes panels — the
+same read-only-judgment-panel case that governs its use elsewhere, not a
+separate review-model policy.
+
+**Evidence:** review is a bounded, well-specified reading task where the lens
+prompt carries the judgment; Opus's advantage did not show up in review output
+quality proportional to its cost, while lens diversity did. Consistent with the
+2026-07-05 tiering (Sonnet researches, Opus judges, Codex builds) — review lenses
+are structured reading, not open judgment.
+
+**Reopen when:** a Sonnet review panel misses a blocker that a spot-check Opus
+pass catches, twice on comparable diffs.
 
 ## 2026-07-05 — Codex is the default builder in resolve-issue
 
