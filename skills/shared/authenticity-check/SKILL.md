@@ -101,12 +101,10 @@ guess is instantly correctable.
    `references/voice-matching.md` for how to read a voice off a sample or
    profile; here you read it to measure *deviation from* that voice, not to
    reproduce it.
-2. **Look for a profile.** `Glob` the working directory and up to two parent
-   levels, in this priority order: `VOICE.md`, then `STYLE-GUIDE.md`, then
-   `voice-profile.md` / `.yaml` / `.json`, then `.manuscript/STYLE-GUIDE.md`,
-   then a voice or style section inside `AGENTS.md` or `CLAUDE.md`. One strong
-   match plus a "sounds like me" intent puts you in voice-deviation mode.
-   Several plausible matches: ask one short question to pick.
+2. **Look for a profile.** Glob for a voice-profile file — see
+   `references/common-core.md` for the priority order to search in. One
+   strong match plus a "sounds like me" intent puts you in voice-deviation
+   mode. Several plausible matches: ask one short question to pick.
 3. **Otherwise, generic mode.** No voice target. Score AI-authenticity against
    the catalog and the internal-consistency heuristics only. Do not invent a
    persona to measure against; an imagined target voice is its own failure.
@@ -118,31 +116,26 @@ without assuming this skill is the only one installed.
 ## Step 0b: density pre-check (match scrutiny to evidence)
 
 Before scoring, skim the whole text once and judge how heavily it is
-AI-marked. Count only the **dead-giveaway** tells, not the weak surface
-signals: chat-UI contamination (pattern 31), knowledge-cutoff disclaimers
-(29), collaborative chatbot artifacts (28), significance inflation (1),
-promotional language (5), AI-vocabulary clustering (16), sycophantic tone (7),
-generic positive conclusion (13). Estimate roughly how many appear per 100
-words, then set the scrutiny level and announce it in the output header:
+AI-marked. Count only the dead-giveaway tells catalogued in
+`references/common-core.md`, not the weak surface signals. Judge the overall
+density, then set the scrutiny level and announce it in the output header:
 
-- **Low (about 0 to 2 per 100 words): light scrutiny**, unless the rhythm is
-  uniform and no human markers are present (the relocated-signature override
-  below). Likely human-first text (a journal, rough notes, a real draft).
-  Bias hard toward a high score and a near-empty flag list. Over-flagging
-  genuine human prose is the worst error this skill can make; when density is
-  low, restraint is the default. But low lexical density is evidence of a
-  human only when the text also carries human markers or variance; clean
-  vocabulary with even rhythm and no specificity is laundered prose, not a
-  low-density human draft.
-- **Medium (about 3 to 5 per 100 words): standard scrutiny.** Mixed
-  authorship. Run the full catalog with the restraint of do-not-flag.md.
-- **High (6 or more per 100 words): full scrutiny.** AI-first text. Run the
-  full catalog thoroughly and weigh the internal-consistency heuristics fully.
+- **Low: light scrutiny**, unless the rhythm is uniform and no human markers
+  are present (the relocated-signature override below). Likely human-first
+  text (a journal, rough notes, a real draft). Bias hard toward a high score
+  and a near-empty flag list. Over-flagging genuine human prose is the worst
+  error this skill can make; when density is low, restraint is the default.
+  But low lexical density is evidence of a human only when the text also
+  carries human markers or variance; clean vocabulary with even rhythm and no
+  specificity is laundered prose, not a low-density human draft.
+- **Medium: standard scrutiny.** Mixed authorship. Run the full catalog with
+  the restraint of do-not-flag.md.
+- **High: full scrutiny.** AI-first text. Run the full catalog thoroughly and
+  weigh the internal-consistency heuristics fully.
 
-This is calibration, not a number you report mechanically. One exception
-overrides density: any chat-UI contamination string (pattern 31) is decisive
-on its own and is always flagged, whatever the overall density, because its
-presence is near-certain confirmation rather than a weak signal.
+This is calibration, not a number you report mechanically, not a per-100-word
+count. The one exception that overrides density either way is in
+`references/common-core.md` (pattern 31, decisive alone).
 
 A second exception overrides density in the other direction, the
 relocated-signature override. The trigger: the dead-giveaway count is Low
@@ -233,12 +226,10 @@ does not support.
 These are inline because every run needs them. Do not flag in isolation:
 
 - Perfect grammar. Correctness is not a confession.
-- A single em dash. Only dash frequency and monotony is a tell.
 - Curly quotes or smart apostrophes. Word processors insert these for humans;
   never flag this in isolation.
-- Formal or elevated vocabulary. Register is not origin.
-- Common transitions ("however," "therefore," "for example").
-- One passive sentence, one tricolon, one topic sentence.
+- The shared subset in `references/common-core.md` (em dash, formal
+  vocabulary, common transitions, one passive/tricolon/topic sentence).
 
 Escalate to a flag only on recurrence or co-occurrence. When unsure, do not
 flag. The full treatment, including human markers to credit and per-model
@@ -322,6 +313,9 @@ refusal hold even when both are installed together.
 
 Read these on demand, not upfront:
 
+- `references/common-core.md` during Step 0 and Step 0b. Shared with
+  `humanizer`: the voice-profile glob order, the dead-giveaway tell catalog,
+  the pattern-31 override, and a false-positive guardrail subset.
 - `references/tell-patterns.md` during Pass 1. The 32-pattern catalog in six
   families. A vendored, synced copy of the humanizer repo's canonical file;
   see its header.
@@ -333,5 +327,5 @@ Read these on demand, not upfront:
   header.
 - `references/scoring.md` for the band and 0-100 rubric and the
   internal-consistency heuristic definitions. Native to this repo.
-- `references/examples.md` when you are unsure what good output looks like.
-  Worked diagnostic runs in the exact output contract. Native to this repo.
+- `references/calibration-cases.md` when you are unsure what good output
+  looks like. Native to this repo.
