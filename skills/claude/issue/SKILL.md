@@ -23,7 +23,8 @@ assess→plan→implement→test→review pipeline, a true epic bounces to
 
 ## Invocation
 
-- `/issue <N>` — one existing issue → **Single**.
+- `/issue <N>` — one existing issue → literal alias for **`/resolve-issue <N>`**
+  (see **Single**, below).
 - `/issue <free text>` (e.g. `/issue website slow`) — no issue yet → **Scope**.
 - `/issue last 5` / `/issue 42 43 44` — multiple → **Batch**. Modifiers stack:
   `oldest`, `mine`/`assigned`, `label:<x>` (e.g. `/issue last 5 mine`).
@@ -46,13 +47,13 @@ No number yet, and a fuzzy symptom isn't dispatchable — scope it first.
 
 ## Single (`/issue <N>`)
 
-Dispatch **`/resolve-issue <N>`** and relay what it returns — don't pre-guard or
-pre-assess here, the executor owns both. Its pre-flight runs the canonical
-concurrency/resume guard: a plan comment or draft PR for `<N>` → it switches to
-`--resume`; a ready PR or an issue assigned to another user → it surfaces and
-stops. It then assesses, claims, and runs the right-sized pipeline; if its
-assessor finds a true epic it stops and points at `/epic-plan`. Relay the
-terminal state verbatim.
+`/issue <N>` is a literal alias for `/resolve-issue <N>` — dispatch it and
+relay what it returns verbatim. Don't pre-guard or pre-assess here; the
+executor owns both. Its pre-flight runs the canonical concurrency/resume
+guard: a plan comment or draft PR for `<N>` → it switches to `--resume`; a
+ready PR or an issue assigned to another user → it surfaces and stops. It
+then assesses, claims, and runs the right-sized pipeline; if its assessor
+finds a true epic it stops and points at `/epic-plan`.
 
 ## Batch (multiple issues)
 
@@ -76,42 +77,57 @@ concurrent (the project's cadence).
   merged PRs.)
 - **Fan out** ≤4 concurrent lane subagents **in a single message — several
   `Agent` tool calls in one assistant turn, not one per turn** (`agentType:
-  "worker"` — Sonnet at `effort: medium`; the agent type carries the model, no
-  separate `model:` needed). Spawning lanes across separate turns serializes them
-  and defeats the batch; emit the whole wave at once and collect the handoffs
-  together. For more than 4 issues, dispatch in waves of ≤4 — one full message per
-  wave, await it, then the next. **Before dispatching each new wave**, check the
-  tracker/parent issue for a `stop` label (`gh issue view <N> --json labels`,
-  reusing the guard calls already made) — present → halt cleanly and report what's
-  in flight, don't start the wave. Phone-reachable: the label can be added from
-  GitHub mobile. Beyond the `gh` guard/list calls above you run no
-  `Bash`/`Read`/`Edit` yourself — all code work is inside the lanes (the same
+  "lane"` — Sonnet at `effort: medium`, the one agent type permitted to spawn
+  its own subagents; see `agents/lane.md`). Spawning lanes across separate turns
+  serializes them and defeats the batch; emit the whole wave at once and collect
+  the handoffs together. For more than 4 issues, dispatch in waves of ≤4 — one
+  full message per wave, await it, then the next. **Before dispatching each new
+  wave**, check the tracker/parent issue for a `stop` label (`gh issue view <N>
+  --json labels`, reusing the guard calls already made) — present → halt cleanly
+  and report what's in flight, don't start the wave. Phone-reachable: the label
+  can be added from GitHub mobile. Beyond the `gh` guard/list calls above you run
+  no `Bash`/`Read`/`Edit` yourself — all code work is inside the lanes (the same
   no-code-context rule resolve-issue holds).
   Each lane is **explicitly the orchestrator of
   `/resolve-issue` for its one issue** — it runs the resolve-issue skill end to
   end in isolation (its own worktree, its own phase subagents; this is the
-  sanctioned exception to "subagents don't delegate") and returns that issue's
+  sanctioned exception to "subagents don't delegate," which is why the lane
+  fans out on `agentType: "lane"` and not `"worker"`) and returns that issue's
   terminal state: `READY` + PR URL, `BLOCKER` + continuation comment URL, or
   `epic → /epic-plan`.
 - **Watchdog — arm it BEFORE dispatching wave 1; the batch is not launched until
   it's running.** Lanes die silently (measured: a lane's inner Codex job died and
   the lane sat idle 20+ min); awaiting the wave doesn't catch this, and a cron
-  heartbeat depends on the orchestrator remembering. Make launch-and-watch atomic:
-  1. `PULSE=<scratchpad>/issue-lanes && mkdir -p $PULSE`. Every lane spawn prompt
-     includes: *"At every phase transition (and at least every 5 minutes of
-     activity) append a timestamped status line to `$PULSE/lane-<N>.pulse`; write
-     a final line starting `TERMINAL` when you return."*
-  2. Arm one persistent `Monitor` whose script loops every 60s over
+  heartbeat depends on the orchestrator remembering. Full contract, cadence, and
+  remediation steps: `docs/lane-watchdog.md` — this is the canonical copy;
+  `/blitz` and `/simplify-sweep` point here rather than restating it. Make
+  launch-and-watch atomic:
+  1. `PULSE=<scratchpad>/issue-lanes-<batch-id> && mkdir -p $PULSE` (batch id:
+     timestamp or the tracker/issue set — never a bare `issue-lanes/`, which
+     collides with a concurrent `/blitz` or `/simplify-sweep` batch).
+  2. **Seed each lane's pulse file yourself, in the same message that spawns
+     it** — `$PULSE/lane-<N>.pulse` with one initial line — before the lane has
+     run at all. A lane that dies before writing its own first line is otherwise
+     invisible to the monitor forever. Every lane spawn prompt also includes:
+     *"At every phase transition (and at least every 5 minutes of activity)
+     append a timestamped status line to `$PULSE/lane-<N>.pulse`; write a final
+     line starting `TERMINAL` when you return."*
+  3. Arm one persistent `Monitor` whose script loops every 60s over
      `$PULSE/*.pulse`, and emits a line only for a lane whose file has no
-     `TERMINAL` line and hasn't been touched in >12 min:
+     `TERMINAL` line and hasn't been touched in >20 min:
      `STALE lane <N>: last pulse <age>m ago`. Every emission is also appended to
      `~/.claude/logs/lane-watchdog.log` (timestamp, batch id, lane, age, action
      taken) — this log is the evidence for whether the watchdog earns its keep.
-  3. On a `STALE` event: check the lane (`TaskOutput` non-blocking). Dead or
-     wedged → restart it via the idempotent resume path below, **from its
-     existing worktree/GitHub state — never discard uncommitted lane work** —
-     and log the restart. Alive and merely slow → log `false-positive`.
-  4. `TaskStop` the monitor after the batch report; a batch isn't done while its
+  4. On a `STALE` event: check the lane's real status with `claude agents --json
+     --cwd <lane-worktree>` (never `TaskOutput` — deprecated, unavailable to
+     subagents, and returns a transcript symlink that can overflow this
+     session's context on read). Dead or wedged → `TaskStop` it **first** (kill
+     before restart — a wedged-but-alive lane and its restart would otherwise
+     both hold the same branch and both push), then restart via the idempotent
+     resume path below, **from its existing worktree/GitHub state — never
+     discard uncommitted lane work** — and log the restart. Alive and merely
+     slow → log `false-positive`.
+  5. `TaskStop` the monitor after the batch report; a batch isn't done while its
      watchdog is still armed.
 - **Idempotent.** Re-running the same batch re-derives each lane's state from
   GitHub — ready PR → skip, draft PR → resume, neither → fresh. No local ledger.

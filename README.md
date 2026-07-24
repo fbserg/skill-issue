@@ -31,7 +31,7 @@ cd skill-issue
 |---|---|
 | [`adversarial-review`](skills/codex/adversarial-review/SKILL.md) | Read-only red-team pass over a plan or diff before risky work lands. |
 | [`blitz`](skills/codex/blitz/SKILL.md) | Fast execution of ad-hoc lanes in parallel worktrees with adversarial review. |
-| [`epic-plan`](skills/codex/epic-plan/SKILL.md) | Scope broad work into a tracker issue and right-sized child issues; creates nothing until GO. |
+| [`epic-plan`](skills/codex/epic-plan/SKILL.md) | Scope broad work into a tracker issue and right-sized child issues; materializes on GitHub as soon as the reviewed decomposition is ready — no approval gate. |
 | [`issue`](skills/codex/issue/SKILL.md) | Front door for GitHub issue work; scopes ideas or routes issue numbers to resolve-issue. |
 | [`refactor-dupes`](skills/codex/refactor-dupes/SKILL.md) | Tool-first duplicate detection, architecture brief, approved worktree refactor, draft PR. |
 | [`resolve-issue`](skills/codex/resolve-issue/SKILL.md) | One issue to review-ready PR in an isolated worktree; never merges. |
@@ -46,8 +46,8 @@ cd skill-issue
 | [`blitz`](skills/claude/blitz/SKILL.md) | Lightweight executor for ad-hoc lanes: parallel worktrees + adversarial review, no pipeline ceremony. The fast alternative to /issue batch. |
 | [`deep-research`](skills/claude/deep-research/SKILL.md) | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
 | [`epic-plan`](skills/claude/epic-plan/SKILL.md) | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /issue → /resolve-issue; re-enters from GitHub state. |
-| [`issue`](skills/claude/issue/SKILL.md) | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by tier. Never writes code, never merges. |
-| [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | Self-scaling pipeline for one issue: light path for tier-1, full assess→plan→implement→test→review for tier 2-3, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
+| [`issue`](skills/claude/issue/SKILL.md) | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by size. Never writes code, never merges. |
+| [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | Self-scaling pipeline for one issue: light path for a small single-area issue, full assess→plan→implement→test→review otherwise, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
 | [`simplify-sweep`](skills/claude/simplify-sweep/SKILL.md) | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 
 Claude skills remain available for Claude Code. Codex uses the separate
@@ -57,7 +57,6 @@ Claude skills remain available for Claude Code. Codex uses the separate
 
 | Skill | Description |
 |---|---|
-| [`authentic-writing`](skills/shared/authentic-writing/SKILL.md) | Router: delegates prose audits to authenticity-check and rewrites to humanizer. |
 | [`authenticity-check`](skills/shared/authenticity-check/SKILL.md) | Score human authenticity and flag AI-sounding spans without rewriting. |
 | [`humanizer`](skills/shared/humanizer/SKILL.md) | De-slop AI prose: remove generative tells while preserving meaning. |
 | [`zero`](skills/shared/zero/SKILL.md) | Destructive repo reset: checkpoint, merge all branches/worktrees into main, push. Read before use. |
@@ -66,7 +65,7 @@ Claude skills remain available for Claude Code. Codex uses the separate
 
 | You have | Use |
 |---|---|
-| An issue number | `/issue <N>` — hands it to `/resolve-issue`, which self-scales by tier |
+| An issue number | `/issue <N>` — hands it to `/resolve-issue`, which self-scales by size |
 | A rough idea (no issue yet) | `/issue <free text>` — scopes it, files the issue, then dispatches |
 | Multiple issues | `/issue 42 43 44` — fans out ≤4 concurrent `/resolve-issue` lanes |
 | Ad-hoc lanes, nothing filed | `/blitz` — parallel worktrees, adversarial review, no pipeline |
@@ -139,7 +138,7 @@ See [`hooks/claude/README.md`](hooks/claude/README.md) for per-hook `settings.js
 
 ## Credits
 
-The `authenticity-check` and `humanizer` skills (and the `authentic-writing` wrapper)
+The `authenticity-check` and `humanizer` skills
 are vendored from [aihxp](https://github.com/aihxp)'s Scriveno project
 ([authenticity-check](https://github.com/aihxp/authenticity-check),
 [humanizer](https://github.com/aihxp/humanizer)) and used under the MIT License.

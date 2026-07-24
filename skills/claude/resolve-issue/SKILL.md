@@ -1,6 +1,6 @@
 ---
 name: resolve-issue
-description: "Pipeline for one GitHub issue, self-scaling by tier: a light path for tier-1 (single planner → implement → test → one reviewer → finalize), the full assess → plan → implement → test → multi-lens + blocker-verified review → finalize for tier 2-3, and a stop-with-/epic-plan for a true epic. The default executor behind /issue (single or batch). Role-separated subagents exchange typed handoffs; the orchestrator never reads code. Never merges. Re-run as /resolve-issue --resume <N> to continue an in-flight pipeline (existing draft PR + plan comment)."
+description: "Pipeline for one GitHub issue, self-scaling to one of two sizes: light (single planner → implement → test → one reviewer → finalize) for a small, fully-specified, single-area issue, or full (assess → plan [+ panel when contested] → implement → test → four-lens + blocker-verified review → finalize) for everything else — plus a stop-with-/epic-plan for a true epic. The default executor behind /issue (single or batch). Role-separated subagents exchange typed handoffs; the orchestrator never reads code. Never merges. Re-run as /resolve-issue --resume <N> to continue an in-flight pipeline (existing draft PR + plan comment)."
 ---
 
 # Resolve Issue
@@ -43,8 +43,9 @@ hard rules.
     trivial prose/config where a cross-model builder buys nothing.
   The **test writer stays Claude regardless of builder** — its independence from
   the implementer is the safety net that makes a Codex builder safe (Codex's
-  green self-reports are unreliable; measured). Tier 1 stays cheap by running
-  *fewer* judgment passes (one reviewer, no panel), not by downgrading models.
+  green self-reports are unreliable; measured). The light path stays cheap by
+  running *fewer* judgment passes (one reviewer, no panel), not by downgrading
+  models.
   The fixer escalates to `opus-worker` when a blocker survives a second builder
   cycle (Step 3).
 - **Role separation:** the implementer writes no tests; the test writer changes
@@ -70,8 +71,8 @@ Sequential by default — each phase is a fresh-context subagent consuming the
 prior handoff, and you exercise judgment between them. Three phases fan out,
 each pinned to a specific failure mode (not to "we could parallelize"):
 
-- **plan panel** (Step 1, tier-3 only) — counters a plan that boxes into a
-  dead end;
+- **plan panel** (Step 1, full path only, gated on its own condition — see
+  Step 1) — counters a plan that boxes into a dead end;
 - **review panel** (Step 3) — perspective-diverse lenses (up to four) counter
   the blind spot a single reviewer gets when several concerns compete in one
   pass;
@@ -132,31 +133,37 @@ concurrent-run guard — `/issue` dispatches here rather than re-spelling it:
 ## Step 0 — Assess (read-only subagent)
 
 Spawn a read-only assessor: fetch the issue and all comments (`gh issue view
-<N> --json ...`), detect the base branch, score the tier, and probe blast
+<N> --json ...`), detect the base branch, score the size, and probe blast
 radius — for each candidate file, `git grep -l` its module/symbol names and
 count importers; a widely imported file is a shared-interface hit.
 
-Tier signals:
-- **Tier 1** — one area, fully specified, roughly sub-200-line diff.
-- **Tier 2** — 2–4 loosely coupled areas, clear requirements.
-- **Tier 3** — open questions, shared-interface changes, cross-subsystem work.
+Size signals — only two real paths below the epic line, because everything
+past "how big" collapses to the same downstream pipeline:
+- **Light** — one area, fully specified, roughly sub-200-line diff, no open
+  questions, no shared-interface hit.
+- **Full** — everything else that is still one `/resolve-issue` session:
+  multiple areas, open questions, a shared-interface change, cross-subsystem
+  work. The full path always runs the same downstream steps; two conditions
+  inside it (the plan panel, Step 1; the review-lens count is *not*
+  conditional — see Step 3) key off their own signals below, not off a
+  second size tier.
 - **Epic** — multiple separable deliverables, multi-session, or depends on
   in-flight work. Not a resolve-issue job.
 
-Handoff: `TIER`, `RATIONALE`, `OPEN_QUESTIONS`, `IMPACT_SET` (files/areas),
-`SHARED_INTERFACE_HIT` (yes/no + which), `BASE_BRANCH`,
+Handoff: `SIZE` (light/full), `RATIONALE`, `OPEN_QUESTIONS`, `IMPACT_SET`
+(files/areas), `SHARED_INTERFACE_HIT` (yes/no + which), `BASE_BRANCH`,
 `ACCEPTANCE_CRITERIA` (extracted or inferred, numbered).
 
-**Tier 1 → light path.** Don't bounce it — run the trimmed pipeline: single
+**Light → light path.** Don't bounce it — run the trimmed pipeline: single
 planner (Step 1, no panel), implementer, test writer (Step 2), one combined
-reviewer instead of the full review panel (Step 3, no maintainability lens),
-finalize (Step 4). Skip the
-plan panel and the per-blocker skeptic panel; the issue isn't wide enough to pay
-for them. **Epic → stop:** if the assessor lands on Epic (multiple separable
-deliverables / multi-session / depends on in-flight work), don't implement —
-tell the user to run `/epic-plan <N>` and carry the assessment forward so it
-isn't re-derived. Tier 3 with substantive `OPEN_QUESTIONS`: surface them to the
-user before implementing — an answered question is cheaper than a rejected PR.
+reviewer instead of the four-lens review panel (Step 3), finalize (Step 4).
+Skip the plan panel and the per-blocker skeptic panel; the issue isn't wide
+enough to pay for them. **Epic → stop:** if the assessor lands on Epic
+(multiple separable deliverables / multi-session / depends on in-flight
+work), don't implement — tell the user to run `/epic-plan <N>` and carry the
+assessment forward so it isn't re-derived. **Full** with substantive
+`OPEN_QUESTIONS`: surface them to the user before implementing — an answered
+question is cheaper than a rejected PR.
 
 ## Step 1 — Plan, then implement
 
@@ -166,13 +173,16 @@ criterion to the change that satisfies it. This mapping is the gate — a plan
 that can't say which change satisfies which criterion isn't done. Handoff:
 `PLAN` (numbered steps), `CRITERION_MAP`, `RISKS`.
 
-**Tier 3 — plan panel.** When the solution space is genuinely contested
-(`OPEN_QUESTIONS` substantive or a `SHARED_INTERFACE_HIT`, and surfacing the
-questions to the user hasn't already settled the approach), spawn 2–3 planners
-concurrently, each pinned to a different stance — minimal-diff, refactor-first,
-framework-idiomatic — then one synthesis subagent picks the strongest spine and
-grafts the runners-up's edge-case catches into a single `PLAN`. Tier 2 uses the
-single planner above; the space isn't wide enough to pay for a panel.
+**Plan panel — gated on its own condition, not on size.** When the solution
+space is genuinely contested (`OPEN_QUESTIONS` substantive or a
+`SHARED_INTERFACE_HIT`, and surfacing the questions to the user hasn't already
+settled the approach), spawn 2–3 planners concurrently, each pinned to a
+different stance — minimal-diff, refactor-first, framework-idiomatic — then
+one synthesis subagent picks the strongest spine and grafts the runners-up's
+edge-case catches into a single `PLAN`. Full-path issues that don't trip
+either condition use the single planner above — the space isn't wide enough
+to pay for a panel. (The light path never reaches this check: it always uses
+the single planner.)
 
 **Optional prior-art lane.** When an open question is "what's the standard way to
 do this" rather than "how does our code work," add one web/docs research agent to
@@ -209,32 +219,12 @@ worktree. The lane-runner:
    whole implement phase, closing the window where a plan comment exists but no
    PR does and a second run could race the branch. Run any `## Issue lane
    overrides` / bootstrap block (CLAUDE.md / AGENTS.md) verbatim.
-4. **Codex canary**: `codex exec --skip-git-repo-check "print ok and exit"`
-   (~3s healthy). Fails → fall back to implementing itself as a plain Sonnet
-   builder; note the fallback in the handoff.
-5. Write a **self-contained task file** (`/tmp/resolve-issue-<N>/codex-task.md`)
-   from the `PLAN`: goal, files to touch, exact symbols/helpers to reuse with
-   signatures, steps, how to verify. Copy in any CLAUDE.md/AGENTS.md rulings
-   that bind the diff — Codex reads only AGENTS.md on its own; CLAUDE.md-only
-   invariants never reach it unless transcribed here. Include, verbatim: the
-   **no-git block**
-   ("Do NOT git add/commit/push/reset/checkout/stash or create branches. Edit
-   and test only; leave changes unstaged."), the **contradiction-stop block**
-   ("If the spec contradicts itself or two requirements cannot both hold: STOP,
-   write the contradiction and your recommended resolution, implement
-   NOTHING."), the **no-tests rule** (code only — a separate agent authors
-   tests), and the **sandbox-has-no-network warning** with the repo's offline
-   escape hatch so its self-report means something.
-6. Run Codex in the worktree with a watchdog (default 1200s):
-   `codex exec --full-auto -C <worktree> "Implement this plan exactly. Make
-   reasonable choices, don't ask. PLAN: $(cat codex-task.md)"`.
-7. **Verify for real — never trust Codex's self-report** (measured: it fixes
-   the reported case and misses the symmetric one, and dismisses its own
-   regressions as "environmental"). Run the plan's verify step itself, probe
-   the neighboring/symmetric cases, reproduce any claimed failure. Codex
-   stopped on a contradiction → surface it in the handoff, implement nothing.
-8. Commit exactly what the plan called for (never `git add -A` blindly — diff
-   first), push.
+4–8. **Canary, task file, launch, verify, commit** — the shared builder-lane
+   contract in `docs/codex-builder-lane.md` (canary check, task-file
+   contents including the no-git / contradiction-stop / no-tests /
+   no-network blocks, watchdog launch, distrust-the-self-report
+   verification, diff-first commit). The task file for this step goes to
+   `/tmp/resolve-issue-<N>/codex-task.md`, built from the `PLAN`.
 
 Handoff: `WORKTREE`, `BRANCH`, `PR_URL`, `COMMITS`, `BUILDER` (codex / sonnet
 fallback + reason), `DEVIATIONS_FROM_PLAN`, `CRITERION_STATUS` (per criterion:
@@ -273,19 +263,16 @@ Handoff: `TEST_IDS` (ID → one-line contract each), `NEGATIVE_CONTROL`
 
 ## Step 3 — Review cycle (default: one cycle)
 
-Review scales with tier:
-- **Tier 1 — single reviewer:** one pass covering correctness + tests-actually-assert
-  (add the security lens only if the change touches input / IO / untrusted data),
-  and skip the separate blocker-verification panel — one inline skeptic re-check of
-  any blocker is enough.
-- **Tier 2 — three reviewers:** (1) correctness **with security & robustness
-  merged in** — security stays unconditional at this blast radius, never gated on
-  a guess about whether the change "touches IO"; (2) tests-actually-assert; (3)
-  maintainability & structure (advisory — see below). Run blocker verification.
-- **Tier 3 — four separate fresh-context lenses** (the full panel) plus blocker
-  verification.
+Review has exactly two shapes:
+- **Light path — single reviewer:** one pass covering correctness +
+  tests-actually-assert (add the security lens only if the change touches
+  input / IO / untrusted data), and skip the separate blocker-verification
+  panel — one inline skeptic re-check of any blocker is enough.
+- **Full path — four separate fresh-context lenses** (the full panel, always
+  all four — security is never merged into correctness or gated on a guess
+  about whether the change "touches IO") plus blocker verification.
 
-1. **Review panel** (read-only): spawn the reviewer lenses for the tier
+1. **Review panel** (read-only): spawn the reviewer lenses for the path
    concurrently over the full PR diff, each fresh context —
    - **correctness** — each criterion satisfied; logic, return values, edge
      inputs, the `CRITERION_MAP`. Also verify the diff against the acceptance
@@ -296,7 +283,7 @@ Review scales with tier:
    - **tests-actually-assert** — do the new tests exercise the contract,
      survive the negative control, cover the boundaries; flag any criterion
      with no real assertion.
-   - **maintainability & structure** (tier 2–3 only) — the strict-quality lens.
+   - **maintainability & structure** (full path only) — the strict-quality lens.
      Hunt structural regressions, not style nits: abstraction quality, files
      crossing ~1000 lines without strong justification, ad-hoc conditional
      sprawl grafted onto existing code, type/boundary cleanliness, logic kept in
@@ -331,14 +318,12 @@ Review scales with tier:
    finding — not just as issue-thread prose; a PR must be auditable without
    cross-referencing the issue.
 2. **Blocker verification** (read-only, only if there are blocker findings):
-   spawn one skeptic per blocker. Frame the blocker as a **prior reviewer's
-   external claim** — "a prior reviewer concluded X; find the flaw in that
-   reasoning" — not as the skeptic's own finding to second-guess. Evaluating an
-   external claim is cleaner than introspecting your own, and it costs nothing to
-   word it that way. Real defect or misread? A blocker that can't survive the
-   refutation is downgraded to should-fix or dropped, with the reason recorded,
-   before the fixer runs. Skip should-fix and nits — verifying a nit costs more
-   than the nit. Handoff: `VERIFIED` (per blocker: upheld / downgraded + reason).
+   spawn one skeptic per blocker, per the shared re-check contract in
+   `docs/adversarial-review-panel.md` (the prior-reviewer-claim framing,
+   verify-against-code where checkable). A blocker that can't survive the
+   refutation is downgraded to should-fix or dropped, with the reason
+   recorded, before the fixer runs. Handoff: `VERIFIED` (per blocker: upheld /
+   downgraded + reason).
 3. **Fixer — builder lane again** (fresh context, only if findings remain):
    the same Sonnet lane-runner + Codex shape as Step 1's implementer, reusing
    the existing worktree — task file is the finding list (ID, file, concrete
@@ -446,7 +431,7 @@ nothing to resume — tell the user and run normally.
 
 ## Final report
 
-Report to the user: tier and rationale, PR URL and state, every acceptance
+Report to the user: size and rationale, PR URL and state, every acceptance
 criterion pass/fail (nothing hidden — a failed criterion is reported, not
 omitted), test IDs with the negative-control result, review findings and
 resolutions, and anything UNCOVERED or declined. On BLOCKER, point at the

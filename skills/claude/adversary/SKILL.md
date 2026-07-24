@@ -1,6 +1,6 @@
 ---
 name: adversary
-description: "Cross-model adversarial review: dispatch Codex (gpt-5.5, fast tier) to attack a plan or diff before you commit to it. Use after /epic-plan, before risky merges/deletions, or whenever a second model's red-team pass is worth 2 minutes."
+description: "Cross-model adversarial review: dispatch Codex to attack a plan or diff before you commit to it. Use after /epic-plan, before risky merges/deletions, or whenever a second model's red-team pass is worth 2 minutes."
 ---
 
 Send the artifact under review to **OpenAI Codex** for an adversarial pass. The point is
@@ -22,10 +22,10 @@ never edits.
 1. Write the artifact to `/tmp/adversary-$RUN-input.md` with
    `RUN=$(date +%Y%m%d-%H%M%S)`.
 
-2. Dispatch Codex read-only on the fast tier (relieves the main-profile quota):
+2. Dispatch Codex read-only:
 
    ```bash
-   codex exec --profile trusted-fast --sandbox read-only -C "$(git rev-parse --show-toplevel)" \
+   codex exec --sandbox read-only -C "$(git rev-parse --show-toplevel)" \
      -o /tmp/adversary-$RUN-out.md \
      "$(cat <<'PROMPT'
    You are a chaos engineer and adversarial reviewer. Your job is to break the plan
@@ -50,7 +50,7 @@ never edits.
    ```
 
    Run it in the background with a 600s timeout if the session should stay free; otherwise
-   foreground is fine — fast tier usually returns in 1–3 minutes.
+   foreground is fine — usually returns in 1–3 minutes.
 
 3. **Triage the report, don't relay it.** Read `/tmp/adversary-$RUN-out.md`. For each finding:
    confirm it against the actual code (Codex hallucinates too), then either fix the plan,

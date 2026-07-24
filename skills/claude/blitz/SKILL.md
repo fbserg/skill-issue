@@ -27,7 +27,10 @@ You're the orchestrator; you don't implement. Posture:
 - **Findings return batched, never as issue confetti.** A review lane reports one batched
   finding list; at most one follow-up issue per surface. Never one issue per finding/assertion
   (measured: 42 follow-up issues filed in one day from a single UI wave).
-- **3+ background lanes → arm the watchdog** (pulse files + one Monitor, the /issue pattern). Lanes die silently; fast without it is fast into a ditch.
+- **3+ background lanes → arm the watchdog.** Full contract (cadence, pulse
+  seeding, namespacing, kill-before-restart remediation): `docs/lane-watchdog.md`
+  — this skill doesn't restate it. Lanes die silently; fast without it is fast
+  into a ditch.
 - **Fast through gates.** No re-confirming between phases; push each lane to done (commit, PR, human merges). Stop only for real scope changes or destruction.
 
 ## Keep fast lanes fast
@@ -39,8 +42,7 @@ You're the orchestrator; you don't implement. Posture:
 - Clear golden drift, formatting, static analysis, resource parity, and literal audits in preflight. Do not interleave each finding with a full-suite rerun.
 - Reject retry-only flake greens: stress the focused failure and fix lifecycle, dispatcher, shared-state, or isolation defects. Record non-reproduction evidence once.
 - Reserve build mutexes, emulators, and backend records explicitly; release them between commands. Treat stale reservations as blockers.
-- Emit a concrete progress pulse at least every 60 seconds: current command/gate, last observed result, next terminal condition. Repeated waits are not progress.
-- Two silent pulse intervals trigger intervention: request a ledger update, then interrupt/re-scope a lane that remains silent or repeats the same gate.
+- Pulse cadence and stale-intervention threshold follow the shared contract in `docs/lane-watchdog.md` (pulse at every phase transition and at least every 5 minutes; a lane stale past 20 minutes gets checked, killed-before-restarted if wedged, or logged false-positive if merely slow). Repeated waits with no new pulse line are not progress.
 - Before opening any PR: test-count delta complies with the repo's stated posture (fire in velocity mode: existing suites neither grow nor shrink), and the branch rebases clean against current main and against every sibling lane already pushed. Fix or abandon a PR that fails this before it opens — a final triage lane rejecting finished PRs is a process failure, not a safety net.
 - Merge only after required hosted checks pass; any permitted post-merge failure becomes an urgent repair before downstream landing.
 

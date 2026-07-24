@@ -21,10 +21,12 @@ CODEX_SKILLS = (
     "ww",
 )
 
-# Claude-only skills remaining under skills/claude/ (the five shared skills
-# that used to be duplicated here — authentic-writing, authenticity-check,
-# humanizer, ww, zero — now live solely under skills/shared/, see
-# SHARED_SKILLS below).
+# Claude-only skills remaining under skills/claude/ (the shared skills that
+# used to be duplicated here — authenticity-check, humanizer, zero — now live
+# solely under skills/shared/, see SHARED_SKILLS below. authentic-writing and
+# transcript-backup were deleted: zero invocations across 14,509 transcripts;
+# skills/shared/ww was deleted: its only unique content was a boundary
+# sentence blitz already states from the other side).
 CLAUDE_SKILLS = (
     "adversary",
     "blitz",
@@ -33,15 +35,12 @@ CLAUDE_SKILLS = (
     "issue",
     "resolve-issue",
     "simplify-sweep",
-    "transcript-backup",
 )
 
 # Shared skill sources. All install into Claude; zero also installs into Codex.
 SHARED_SKILLS = (
-    "authentic-writing",
     "authenticity-check",
     "humanizer",
-    "ww",
     "zero",
 )
 
@@ -49,6 +48,7 @@ SHARED_SKILLS = (
 AGENTS = (
     "bulk.md",
     "explore-mid.md",
+    "lane.md",
     "opus-worker.md",
     "worker.md",
 )
@@ -60,7 +60,6 @@ CODEX_PARITY_PAIRS = (
     ("skills/claude/epic-plan", "skills/codex/epic-plan"),
     ("skills/claude/issue", "skills/codex/issue"),
     ("skills/claude/resolve-issue", "skills/codex/resolve-issue"),
-    ("skills/shared/ww", "skills/codex/ww"),
 )
 
 EXPECTED_LINKS = {
@@ -124,6 +123,19 @@ def check_codex_skill_parity() -> None:
         fail(f"Codex skill review is stale: {pairs}")
 
 
+def check_refs() -> None:
+    result = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "scripts" / "check-refs.py")],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        fail(f"reference-drift check failed:\n{result.stderr}")
+    print(result.stdout, end="")
+
+
 def main() -> int:
     for link, expected in EXPECTED_LINKS.items():
         if link.parent.is_symlink():
@@ -132,6 +144,7 @@ def main() -> int:
         check_link(link, expected)
 
     check_codex_skill_parity()
+    check_refs()
 
     print(f"OK skill-issue install: {REPO_ROOT}")
     return 0

@@ -14,8 +14,7 @@ machine or a whole team, without machines clobbering each other's history.
 
 ## Quickstart
 
-The primary setup path is `install.sh`, or the `/transcript-backup` skill if
-you're driving this from a running Claude Code session:
+The setup path is `install.sh`:
 
 ```bash
 ./install.sh "$HOME/Dropbox/transcript-archive"
@@ -24,11 +23,9 @@ you're driving this from a running Claude Code session:
 This resolves `python3`, renders and installs the schedule (launchd on macOS,
 cron on Linux), and runs the **first dump in the foreground** so you see the
 SUMMARY line and a non-zero exit fails loudly instead of silently at 3am.
-Re-run it any time to change the destination or schedule — it's idempotent.
-
-From inside a Claude Code session, `/transcript-backup <destination-dir>` does
-the same thing and verifies the install afterward (second run shows
-`skipped>0`, checks the launchd/cron entry exists).
+Re-run it any time to change the destination or schedule — it's idempotent
+(second run shows `skipped>0`, and you can confirm the launchd/cron entry
+exists directly).
 
 Manual setup (no install.sh) is documented under [Schedule it](#schedule-it)
 below as a fallback for anyone who wants to see every moving part.

@@ -25,8 +25,8 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | blitz | `skills/claude/blitz/SKILL.md` | Lightweight executor for ad-hoc lanes: parallel worktrees + adversarial review, no pipeline ceremony. The fast alternative to /issue batch. |
 | deep-research | `skills/claude/deep-research/SKILL.md` | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
 | epic-plan | `skills/claude/epic-plan/SKILL.md` | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /issue → /resolve-issue; re-enters from GitHub state. |
-| issue | `skills/claude/issue/SKILL.md` | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by tier. Never writes code, never merges. |
-| resolve-issue | `skills/claude/resolve-issue/SKILL.md` | Self-scaling pipeline for one issue: light path for tier-1, full assess→plan→implement→test→review for tier 2-3, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
+| issue | `skills/claude/issue/SKILL.md` | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by size. Never writes code, never merges. |
+| resolve-issue | `skills/claude/resolve-issue/SKILL.md` | Self-scaling pipeline for one issue: light path for a small single-area issue, full assess→plan→implement→test→review otherwise, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
 | simplify-sweep | `skills/claude/simplify-sweep/SKILL.md` | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 
 ---
@@ -37,7 +37,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 |---|---|---|
 | adversarial-review | `skills/codex/adversarial-review/SKILL.md` | Read-only adversarial review of a plan or diff before risky work lands. |
 | blitz | `skills/codex/blitz/SKILL.md` | Fast execution of ad-hoc lanes in parallel worktrees with adversarial review. |
-| epic-plan | `skills/codex/epic-plan/SKILL.md` | Scope broad work into tracker + child issues; no GitHub writes until GO. |
+| epic-plan | `skills/codex/epic-plan/SKILL.md` | Scope broad work into tracker + child issues; materializes on GitHub immediately once reviewed — no approval gate. |
 | issue | `skills/codex/issue/SKILL.md` | Front door for GitHub issue work; scope ideas or route issue numbers to resolve-issue. |
 | refactor-dupes | `skills/codex/refactor-dupes/SKILL.md` | Detect duplicates, approve an architecture brief, refactor one cluster in a worktree PR. |
 | resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR in an isolated worktree; never merges. |
@@ -50,7 +50,6 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 
 | Name | Path | TLDR |
 |---|---|---|
-| authentic-writing | `skills/shared/authentic-writing/SKILL.md` | Router: delegates prose audits to authenticity-check and rewrites to humanizer; keeps diagnosis and rewriting separate. |
 | authenticity-check | `skills/shared/authenticity-check/SKILL.md` | Score how authentically text reads as human-written; returns band + 0-100 score + span-level flags. Never rewrites. |
 | humanizer | `skills/shared/humanizer/SKILL.md` | De-slop AI prose: remove generative tells (delve, em-dash overuse, rule-of-three padding) while preserving meaning. |
 | zero | `skills/shared/zero/SKILL.md` | Destructive repo reset: checkpoint, merge all branches/worktrees into main, push. Read before use. |
@@ -84,7 +83,7 @@ Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/
 |---|---|---|
 | claude-spend | `tools/claude-spend/spend.py` | Claude Code per-project spend analyzer (per-session/per-skill token+cost rollup, cache-tier aware); stolen from hong (https://github.com/hyang0129/dot-claude). Not symlinked by `install.sh` — run in place: `python3 tools/claude-spend/spend.py`. |
 | statusline | `tools/statusline/statusline.sh` | Claude Code status line: repo@branch +/- diff, model·effort, context bar calibrated to the real auto-compact trigger (window − 13k reserve), 5h/7d rate-limit bars with reset ETA and weekly pace delta. Not symlinked — point `statusLine.command` in settings.json at it. |
-| transcript-archive | `tools/transcript-archive/backup.py` | One-way, machine-namespaced, multi-machine archiver for Claude + Codex JSONL transcripts: JSON-aware image tombstoning (replaced the v1 base64 regex, which was corrupting thinking signatures/JWTs/PDFs), never clobbers a larger copy with a smaller one, optional gzip compression, atomic writes, an identity handshake guarding against machine-id collisions and unmounted/wrong destinations, symlinked source dirs followed (cycle-safe). Storage-agnostic — point it at any synced folder, git repo, or disk. `install.sh` + `/transcript-backup` skill for one-command setup. |
+| transcript-archive | `tools/transcript-archive/backup.py` | One-way, machine-namespaced, multi-machine archiver for Claude + Codex JSONL transcripts: JSON-aware image tombstoning (replaced the v1 base64 regex, which was corrupting thinking signatures/JWTs/PDFs), never clobbers a larger copy with a smaller one, optional gzip compression, atomic writes, an identity handshake guarding against machine-id collisions and unmounted/wrong destinations, symlinked source dirs followed (cycle-safe). Storage-agnostic — point it at any synced folder, git repo, or disk. `install.sh` for one-command setup (`tools/transcript-archive/install.sh <destination-dir>`; the former transcript-backup skill front-end was deleted as never-invoked). |
 | gmail-tools | `tools/gmail-tools/bin/gmail-tools` | Draft-only Gmail CLI (search, read threads, labels, attachments, compose) — every `send` endpoint is proxied to raise, so a message can only leave the mailbox via a human clicking send in Gmail. Symlinked to `~/.local/bin` by `install.sh`. |
 | secrets | `tools/secrets/secrets` | Encrypt a repo's `.env` to every collaborator's GitHub SSH public key with `age` — no shared passwords, no out-of-band exchange. Full docs: `docs/env-sharing.md`. |
 | check-install | `scripts/check-install.py` | Verify local symlinks point at this repo's copies, not stale older versions. |
