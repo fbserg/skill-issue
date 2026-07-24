@@ -37,13 +37,6 @@ You're the orchestrator; you don't implement. Posture:
 
 - A lane's first action, before any edit: record the baseline test count and restate its file scope from the card; confirm that scope doesn't overlap any sibling lane's card. Skipped, this is how four lanes collide and only find out at triage.
 - Define a gate ladder per lane: targeted checks → one batched preflight → one expensive full gate. Never use the full gate to discover one failure at a time.
-- On failure, collect the complete failure set, fix it as one batch, and prove the batch with narrow checks before repeating the full gate.
 - Never run the same expensive gate more than twice without a new diagnosis or changed hypothesis. After the second failure, inspect orchestration/test topology and report the blocker.
-- Clear golden drift, formatting, static analysis, resource parity, and literal audits in preflight. Do not interleave each finding with a full-suite rerun.
-- Reject retry-only flake greens: stress the focused failure and fix lifecycle, dispatcher, shared-state, or isolation defects. Record non-reproduction evidence once.
-- Reserve build mutexes, emulators, and backend records explicitly; release them between commands. Treat stale reservations as blockers.
 - Pulse cadence and stale-intervention threshold follow the shared contract in `docs/lane-watchdog.md` (pulse at every phase transition and at least every 5 minutes; a lane stale past 20 minutes gets checked, killed-before-restarted if wedged, or logged false-positive if merely slow). Repeated waits with no new pulse line are not progress.
 - Before opening any PR: test-count delta complies with the repo's stated posture (fire in velocity mode: existing suites neither grow nor shrink), and the branch rebases clean against current main and against every sibling lane already pushed. Fix or abandon a PR that fails this before it opens — a final triage lane rejecting finished PRs is a process failure, not a safety net.
-- Merge only after required hosted checks pass; any permitted post-merge failure becomes an urgent repair before downstream landing.
-
-<!-- accreting reminders — add one line each time the user has to repeat something -->
