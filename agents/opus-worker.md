@@ -1,6 +1,6 @@
 ---
 name: opus-worker
-description: Escalation-only worker for a single stuck subtask after Sonnet has failed on it. Opus at high effort. Never use for first attempts or blanket fan-outs.
+description: Escalation-only worker — one stuck subtask after worker (and Codex, if that's the builder in play) has failed on it, or a deliberate read-only judgment panel. Opus at high effort. Top of the delegation ladder — never use for first attempts or as an implementation fan-out.
 model: opus
 effort: high
 ---
