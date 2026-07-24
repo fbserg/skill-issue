@@ -130,7 +130,6 @@ Nine Claude Code hooks — the live set the author actually runs — mirrored in
 | [`effort_spawn_guard.py`](hooks/claude/effort_spawn_guard.py) | Block `Agent`/`Workflow` spawns that would inherit the main thread's effort level instead of naming a custom agent type. |
 | [`guard-settings-json.sh`](hooks/claude/guard-settings-json.sh) | Block invalid fields (`mcpServers`, `disabledSkills`) from landing in `settings.json`; protect `~/.claude/CLAUDE.md` from edits. |
 | [`pretool-bash.sh`](hooks/claude/pretool-bash.sh) | Block destructive Bash commands, filter verbose test output, apply RTK's token-saving rewrite, gate `git push` on a clean build. |
-| [`sessionstart-context.sh`](hooks/claude/sessionstart-context.sh) | Inject current branch + last 5 commits into every session automatically. |
 | [`notify-done.sh`](hooks/claude/notify-done.sh) | Ring the terminal bell when Claude's last message is actually a question. |
 | [`confetti-gate.sh`](hooks/claude/confetti-gate.sh) | Fire Raycast confetti after a successful deploy. macOS + Raycast only. |
 | [`quality/`](hooks/claude/quality/) | Format-on-write + unresolved-failure Stop gate, four cooperating hooks sharing one state file. |

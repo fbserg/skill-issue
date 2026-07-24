@@ -1,6 +1,6 @@
 # Do Not Flag: Restraint Reference
 
-Read this during Pass 3 (self-audit). Its job is to stop the single most
+Its job is to stop the single most
 damaging failure of any humanizer: over-editing that strips the fingerprints
 of a real writer and replaces them with smooth, average prose. Smooth average
 prose is itself an AI tell. When this file and tell-patterns.md disagree about

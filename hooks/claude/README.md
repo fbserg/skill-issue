@@ -5,7 +5,7 @@ copies run from a private config repo** (`~/.claude/hooks` is a symlink into
 it); this directory is synced here manually, so it can lag the live set.
 Treat it as reference/install material, not a live-editable source.
 
-Ten hooks, wired via `~/.claude/settings.json`. Paths below assume you drop
+Nine hooks, wired via `~/.claude/settings.json`. Paths below assume you drop
 these files under `~/.claude/hooks/` (adjust if you install elsewhere).
 
 ## expensive_model_edit_guard.py
@@ -102,23 +102,6 @@ published mirror and live only in the private config repo.
     "matcher": "Bash",
     "hooks": [
       {"type": "command", "command": "~/.claude/hooks/pretool-bash.sh"}
-    ]
-  }
-]
-```
-
-## sessionstart-context.sh
-
-On `SessionStart`, injects the current git branch and last 5 commits as
-additional context, so a fresh session opens already oriented instead of
-needing a `git log`/`git status` round trip.
-
-```json
-"SessionStart": [
-  {
-    "matcher": "",
-    "hooks": [
-      {"type": "command", "command": "~/.claude/hooks/sessionstart-context.sh"}
     ]
   }
 ]
