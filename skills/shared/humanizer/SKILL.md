@@ -141,8 +141,11 @@ density, then pick the pass intensity and announce it in the output header:
   push real structural variance.
 
 This is calibration, not a scan you report mechanically. Effort should match
-evidence, not a per-100-word count. The one exception that overrides density
-either way is in `references/common-core.md` (pattern 31, decisive alone).
+evidence, not a per-100-word count. One exception overrides density either
+way: any chat-UI contamination string (pattern 31) is decisive on its own and
+is always removed, whatever the overall density, because its presence is
+near-certain confirmation rather than a weak signal (catalog in
+`references/common-core.md`).
 
 ## The multi-pass workflow
 
@@ -278,7 +281,8 @@ Read these on demand, not upfront:
   `authenticity-check`: the voice-profile glob order, the dead-giveaway tell
   catalog, the pattern-31 override, and a false-positive guardrail subset.
 - `references/tell-patterns.md` during Pass 2. The 32-pattern catalog in six
-  families, each with detect / why / before-after / restraint.
+  families, each with detect / why / restraint; a concrete before/after pair
+  is kept only for patterns 15, 31, and 32.
 - `references/do-not-flag.md` during Pass 3. False positives, human markers to
   preserve, LLM idiolects, and the hard stop conditions.
 - `references/voice-matching.md` whenever Step 0 found a voice. How to extract

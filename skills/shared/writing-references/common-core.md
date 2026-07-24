@@ -22,8 +22,9 @@ AI-vocabulary clustering (16), sycophantic tone (7), generic positive
 conclusion (13).
 
 One exception always overrides density: any chat-UI contamination string
-(pattern 31) is decisive on its own, whatever the overall count, because its
-presence is near-certain confirmation rather than a weak signal.
+(pattern 31) is decisive on its own and is always removed or flagged (removed
+by humanizer, flagged by authenticity-check), whatever the overall count,
+because its presence is near-certain confirmation rather than a weak signal.
 
 ## Core insight
 

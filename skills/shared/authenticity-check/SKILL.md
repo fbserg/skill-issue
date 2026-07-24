@@ -134,8 +134,10 @@ density, then set the scrutiny level and announce it in the output header:
   weigh the internal-consistency heuristics fully.
 
 This is calibration, not a number you report mechanically, not a per-100-word
-count. The one exception that overrides density either way is in
-`references/common-core.md` (pattern 31, decisive alone).
+count. One exception overrides density either way: any chat-UI contamination
+string (pattern 31) is decisive on its own and is always flagged, whatever
+the overall density, because its presence is near-certain confirmation rather
+than a weak signal (catalog in `references/common-core.md`).
 
 A second exception overrides density in the other direction, the
 relocated-signature override. The trigger: the dead-giveaway count is Low
