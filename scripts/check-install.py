@@ -2,7 +2,6 @@
 """Verify the local skill-issue install is not split across checkouts."""
 from __future__ import annotations
 
-import argparse
 import os
 import subprocess
 import sys
@@ -138,25 +137,11 @@ def check_refs() -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--parity-only",
-        action="store_true",
-        help=(
-            "Check only Codex-skill review parity (skip the machine-install "
-            "symlink checks). Symlinks resolve against whichever checkout "
-            "~/.claude and ~/.codex point at, which is wrong from inside a "
-            "worktree; this is what pre-commit runs on every commit."
-        ),
-    )
-    args = parser.parse_args()
-
-    if not args.parity_only:
-        for link, expected in EXPECTED_LINKS.items():
-            if link.parent.is_symlink():
-                print(f"SKIP: {link.parent} is externally managed")
-                continue
-            check_link(link, expected)
+    for link, expected in EXPECTED_LINKS.items():
+        if link.parent.is_symlink():
+            print(f"SKIP: {link.parent} is externally managed")
+            continue
+        check_link(link, expected)
 
     check_codex_skill_parity()
     check_refs()

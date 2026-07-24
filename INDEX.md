@@ -39,6 +39,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | blitz | `skills/codex/blitz/SKILL.md` | Fast execution of ad-hoc lanes in parallel worktrees with adversarial review. |
 | epic-plan | `skills/codex/epic-plan/SKILL.md` | Scope broad work into tracker + child issues; materializes on GitHub immediately once reviewed — no approval gate. |
 | issue | `skills/codex/issue/SKILL.md` | Front door for GitHub issue work; scope ideas or route issue numbers to resolve-issue. |
+| refactor-dupes | `skills/codex/refactor-dupes/SKILL.md` | Detect duplicates, approve an architecture brief, refactor one cluster in a worktree PR. |
 | resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR in an isolated worktree; never merges. |
 | ww | `skills/codex/ww/SKILL.md` | Worktree workflow: branch, plan, implement, check, draft PR; main untouched. |
 | zero | `skills/shared/zero/SKILL.md` | Shared destructive cleanup with proof-before-delete classification. |

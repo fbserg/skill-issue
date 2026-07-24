@@ -206,3 +206,4 @@ For risky epics (deletions, migrations, multi-file behavior changes), suggest an
 
 1. **Materialize autonomously.** No approval gate — create the issues as soon as the reviewed decomposition is ready, and present the plan report with the real issue numbers. Only a genuine contract ambiguity (§1) stops for input.
 2. **Don't invent scope.** "Audit backups" means backups — the Out-of-scope line is the fence.
+3. **No PRD bloat.** Tracker = Goal + Contract + Children; child = the template, nothing else.

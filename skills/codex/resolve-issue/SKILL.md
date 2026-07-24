@@ -63,8 +63,13 @@ Record acceptance criteria, impact set, shared-interface hits, base branch, and 
 3. Push an initial commit and open a stub draft PR before substantive implementation so the lane remains visible throughout the write phase.
 4. Implement the change in the worktree.
 5. Hand the implementation to an independent test pass. Map tests to changed boundaries and acceptance criteria.
-6. Prove at least one new test discriminates the fix by temporarily reversing or disabling its core behavior, observing failure, restoring it, and confirming green.
-7. Commit and push.
+<!-- gate:negative-control carried from skills/claude/resolve-issue/SKILL.md -->
+- **Negative control:** temporarily invert the core fix, record which tests
+  fail (they must), restore, confirm green. A fix whose tests survive its own
+  reversal has tests that assert nothing. **At least one** committed test must
+  fail under the inversion (`NEGATIVE_CONTROL` N≥1); if N=0 the suite doesn't
+  discriminate the fix — add a discriminating test before proceeding.
+6. Commit and push.
 
 ## Review and Finalize
 
