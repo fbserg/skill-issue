@@ -9,7 +9,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 - `skills/shared/` — skills symlinked into `~/.claude/skills/`; `zero` is also symlinked into `~/.codex/skills/`
 - `agents/` — named subagent types with pinned model/effort, installed into `~/.claude/agents/`
 - `hooks/claude/` — Claude Code hooks (PreToolUse / Stop event handlers)
-- `config/CLAUDE.md` — reference `CLAUDE.md` operating rules (sanitized); copy into a project or `~/.claude/`
+- `config/CLAUDE.md` — stale fork, not deployed; pointer to the live operating rules. Do not copy into a project or `~/.claude/`.
 - `deprecated/` — archived skills/tools (epic-run family, Codex, epic-tools); not installed. See `deprecated/README.md`.
 - `scripts/` — repo maintenance scripts
 - `docs/` — install guide, env sharing, publication checklist

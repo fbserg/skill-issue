@@ -41,7 +41,7 @@ You're the orchestrator; you don't implement. Posture:
 - Reserve build mutexes, emulators, and backend records explicitly; release them between commands. Treat stale reservations as blockers.
 - Emit a concrete progress pulse at least every 60 seconds: current command/gate, last observed result, next terminal condition. Repeated waits are not progress.
 - Two silent pulse intervals trigger intervention: request a ledger update, then interrupt/re-scope a lane that remains silent or repeats the same gate.
-- Before opening any PR: test-count delta complies with the repo's stated posture (fire in velocity mode: existing suites neither grow nor shrink), and the branch rebases clean against current main and against every sibling lane already pushed. Fix or abandon a PR that fails this before it opens — a final triage lane rejecting finished PRs is a process failure, not a safety net.
+- Before opening any PR: test-count delta complies with the repo's stated posture, and the branch rebases clean against current main and against every sibling lane already pushed. Fix or abandon a PR that fails this before it opens — a final triage lane rejecting finished PRs is a process failure, not a safety net.
 - Merge only after required hosted checks pass; any permitted post-merge failure becomes an urgent repair before downstream landing.
 
 <!-- accreting reminders — add one line each time the user has to repeat something -->
