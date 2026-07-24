@@ -1,7 +1,7 @@
 # Voice Matching
 
-Read this only when Step 0 found a voice source. Its job: rewrite so the text
-sounds like a specific writer, not like generic "human-ish" prose. Generic
+Read this only when a voice source was found. Its job is to make the text
+sound like a specific writer, not like generic "human-ish" prose. Generic
 de-slopping removes a machine signature. Voice matching replaces it with a
 person's signature, which is far harder to flag and far more useful.
 
@@ -107,13 +107,3 @@ real prose beats self-description.
 - **Confidence honesty.** If the sample was thin or the profile sparse, say so
   in the output header ("Voice: from VOICE.md, low-confidence: 60-word
   sample") so the user can supply more.
-
-## Part 5: When voice and de-slopping cooperate
-
-Voice-first ordering exists because voice is generative and de-slopping is
-subtractive. Establish cadence, diction, and stance in Pass 1, then run Pass 2
-tell removal *within* that voice: a tell fix that would flatten the
-established rhythm is the wrong fix; find one that keeps the voice. Pass 3 then
-checks both that machine tells are gone and that the voice is intact and not
-caricatured. A rewrite that is clean but no longer sounds like the writer has
-failed, even if every tell is gone.

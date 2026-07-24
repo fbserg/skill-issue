@@ -43,7 +43,7 @@ You're the orchestrator; you don't implement. Posture:
 - Reject retry-only flake greens: stress the focused failure and fix lifecycle, dispatcher, shared-state, or isolation defects. Record non-reproduction evidence once.
 - Reserve build mutexes, emulators, and backend records explicitly; release them between commands. Treat stale reservations as blockers.
 - Pulse cadence and stale-intervention threshold follow the shared contract in `docs/lane-watchdog.md` (pulse at every phase transition and at least every 5 minutes; a lane stale past 20 minutes gets checked, killed-before-restarted if wedged, or logged false-positive if merely slow). Repeated waits with no new pulse line are not progress.
-- Before opening any PR: test-count delta complies with the repo's stated posture (fire in velocity mode: existing suites neither grow nor shrink), and the branch rebases clean against current main and against every sibling lane already pushed. Fix or abandon a PR that fails this before it opens — a final triage lane rejecting finished PRs is a process failure, not a safety net.
+- Before opening any PR: test-count delta complies with the repo's stated posture, and the branch rebases clean against current main and against every sibling lane already pushed. Fix or abandon a PR that fails this before it opens — a final triage lane rejecting finished PRs is a process failure, not a safety net.
 - Merge only after required hosted checks pass; any permitted post-merge failure becomes an urgent repair before downstream landing.
 
 <!-- accreting reminders — add one line each time the user has to repeat something -->
