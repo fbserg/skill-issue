@@ -90,6 +90,48 @@ fi
 # PHASE 1: Block catastrophic commands
 # ============================================================
 
+# Worktree escape guard: a session isolated in .claude/worktrees/<name> must
+# not use Bash to cd, redirect, or otherwise write into the shared checkout
+# by absolute path — Edit/Write/git-tool calls already refuse this, Bash did
+# not (observed this session: `cd /Users/serg/projects/skill-issue && python3
+# ...` silently wrote into the shared checkout from a worktree agent). Reads
+# of the shared checkout (git -C <root> diff/log/status, cat, grep, ls, …)
+# stay allowed — an agent legitimately diffs against the main checkout.
+WORKTREE_PWD="${CLAUDE_PROJECT_DIR:-$PWD}"
+if [[ "$WORKTREE_PWD" == *"/.claude/worktrees/"* ]]; then
+  SHARED_ROOT="${WORKTREE_PWD%%/.claude/worktrees/*}"
+  # shellcheck disable=SC2016  # literal sed regex, no expansion intended
+  ESC_ROOT=$(printf '%s' "$SHARED_ROOT" | sed -e 's/[.[\*^$()+?{|]/\\&/g')
+  # shellcheck disable=SC2016  # literal sed regex, no expansion intended
+  ESC_WORKTREE=$(printf '%s' "$WORKTREE_PWD" | sed -e 's/[.[\*^$()+?{|]/\\&/g')
+
+  # An absolute path into THIS agent's own worktree (.claude/worktrees/<name>/…)
+  # is a subpath of SHARED_ROOT but is not an escape — strip those tokens
+  # before matching so the checks below only see references that land
+  # directly in the shared checkout (or a sibling worktree).
+  CHECK_CMD=$(echo "$COMMAND" | sed -E "s#${ESC_WORKTREE}(/[^\"'[:space:]]*)?##g")
+
+  # cd/pushd straight into the shared checkout — the exact observed escape.
+  CD_ESCAPE_RE="(^|[;&|[:space:]])(cd|pushd)[[:space:]]+[\"']?${ESC_ROOT}([\"']?([[:space:]]|/|\$))"
+  # Redirection (>, >>) or tee writing a file under the shared checkout.
+  REDIR_ESCAPE_RE="(^|[[:space:]])>>?[[:space:]]*[\"']?${ESC_ROOT}(/|[\"']|[[:space:]]|\$)|(^|[;&|[:space:]])tee([[:space:]]+-a)?[[:space:]]+[\"']?${ESC_ROOT}"
+  # sed -i editing a file under the shared checkout in place.
+  SEDI_ESCAPE_RE="(^|[;&|[:space:]])sed[[:space:]]+(-i|--in-place)([[:space:]]|=).*${ESC_ROOT}"
+  # git -C <shared root> paired with a write subcommand (reads stay allowed).
+  GITC_ESCAPE_RE="git[[:space:]]+-C[[:space:]]+[\"']?${ESC_ROOT}[\"']?[[:space:]]+(commit|push|reset|checkout|stash|merge|rebase|cherry-pick|revert|apply|add|mv|rm|clean|tag|branch|worktree|gc|filter-branch|submodule)\b"
+  # python/perl opening a path under the shared checkout in a write mode.
+  PYWRITE_ESCAPE_RE="${ESC_ROOT}.*(open\\([^)]*['\"][wax]['\"]|write_text\\(|\\.write\\()|(open\\([^)]*['\"][wax]['\"]|write_text\\(|\\.write\\().*${ESC_ROOT}"
+
+  if echo "$CHECK_CMD" | grep -qE "$CD_ESCAPE_RE" \
+     || echo "$CHECK_CMD" | grep -qE "$REDIR_ESCAPE_RE" \
+     || echo "$CHECK_CMD" | grep -qE "$SEDI_ESCAPE_RE" \
+     || echo "$CHECK_CMD" | grep -qE "$GITC_ESCAPE_RE" \
+     || echo "$CHECK_CMD" | grep -qE "$PYWRITE_ESCAPE_RE"; then
+    echo "BLOCKED: this session is isolated in the worktree $WORKTREE_PWD — this command writes into (or cd's into) the shared checkout $SHARED_ROOT by absolute path. Use $WORKTREE_PWD instead. Read-only commands against $SHARED_ROOT (cat, grep, ls, git -C <root> diff/log/status, …) are fine." >&2
+    exit 2
+  fi
+fi
+
 # git stash safety gate: block bare stash when working tree is dirty
 if echo "$COMMAND" | grep -qE '(^|[;&|[:space:]])git[[:space:]]+stash\b' && ! echo "$COMMAND" | grep -qE '(--keep-index|-p|--patch|-k|pop|apply|list|show|drop|branch)'; then
   UNSTAGED_COUNT=$(git -C "${CLAUDE_PROJECT_DIR:-$PWD}" status --porcelain 2>/dev/null | wc -l)
