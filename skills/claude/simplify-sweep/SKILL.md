@@ -37,8 +37,9 @@ launch each run with `run_in_background`, then per finished batch export
 `git -C <worktree> diff > patch`, apply to the main checkout, review, test,
 commit, and finally `git worktree remove` them. Batches are disjoint, so patches
 never conflict. Sequential in the main checkout is the fallback for 1–2 batches.
-**3+ background batches → arm the watchdog** (pulse files + one Monitor, the
-/issue pattern) — detached lanes die silently.
+**3+ background batches → arm the watchdog** per the shared contract in
+`docs/lane-watchdog.md` (pulse files + one Monitor, kill-before-restart) —
+detached lanes die silently.
 
 ```bash
 claude -p --model sonnet --permission-mode acceptEdits \

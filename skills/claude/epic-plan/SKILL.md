@@ -87,12 +87,11 @@ Review the **decomposition, not code**. Fan out **`opus-worker` critics concurre
 | **Feasibility & testability** | Is each child one-session-sized on evidence, not vibes? Is each AC a command or observation that can pass or fail as written? Vague AC detonates at execution. |
 | **Premortem** | "This epic shipped and failed. Reconstruct exactly how." The blind spot the author can't see. |
 
-Synthesize once — **no loops**:
-
-1. Union the findings; dedup by area (highest severity wins).
-2. Severity by **impact, not vote count**: a finding that invalidates the DAG (wrong ordering, missing child, unbuildable child) is a **blocker** even if only one lens raised it — the lenses are orthogonal by design, so real defects often live in exactly one lens's domain. Everything else is advisory.
-3. **One re-check per blocker** (`opus-worker`): where the claim is checkable against the repo (does the file overlap exist? does the consumer actually consume?), the re-check MUST verify against the code, not argue rhetorically. Only genuinely unverifiable claims (premortem-style) get the framing "a prior reviewer concluded X; find the flaw in that reasoning." Upheld blockers stand; refuted ones drop to advisory. Skip advisories — verifying a nit costs more than the nit.
-4. **Revise the decomposition once** against the upheld blockers. Advisories are nudges, not gates.
+Synthesize once — **no loops** — per the shared contract in
+`docs/adversarial-review-panel.md` (fan-out, dedup, severity-by-impact,
+the prior-reviewer-claim re-check framing). Run the re-check on
+`opus-worker`. Revise the decomposition once against the upheld blockers;
+advisories are nudges, not gates.
 
 Cache upheld blockers + revised DAG to `/tmp/epic-plan/<slug>/review.md`.
 

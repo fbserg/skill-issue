@@ -33,7 +33,6 @@ ln -sfn "$PWD/skills/claude/epic-plan"       ~/.claude/skills/epic-plan
 ln -sfn "$PWD/skills/claude/issue"           ~/.claude/skills/issue
 ln -sfn "$PWD/skills/claude/resolve-issue"   ~/.claude/skills/resolve-issue
 ln -sfn "$PWD/skills/claude/simplify-sweep"  ~/.claude/skills/simplify-sweep
-ln -sfn "$PWD/skills/claude/transcript-backup" ~/.claude/skills/transcript-backup
 ```
 
 ### Shared (Claude)
@@ -43,10 +42,8 @@ Claude only — do not duplicate them under `skills/claude/`.
 
 ```bash
 mkdir -p ~/.claude/skills
-ln -sfn "$PWD/skills/shared/authentic-writing"   ~/.claude/skills/authentic-writing
 ln -sfn "$PWD/skills/shared/authenticity-check"  ~/.claude/skills/authenticity-check
 ln -sfn "$PWD/skills/shared/humanizer"           ~/.claude/skills/humanizer
-ln -sfn "$PWD/skills/shared/ww"                  ~/.claude/skills/ww
 ln -sfn "$PWD/skills/shared/zero"                ~/.claude/skills/zero
 ```
 
@@ -66,7 +63,7 @@ ln -sfn "$PWD/skills/shared/zero"              ~/.codex/skills/zero
 
 ### Agents
 
-The four delegate agent definitions (see `docs/subagent-model-effort.md`) are
+The five delegate agent definitions (see `docs/subagent-model-effort.md`) are
 symlinked into `~/.claude/agents/` automatically by `scripts/install.sh`. To
 install by hand instead:
 
@@ -74,6 +71,7 @@ install by hand instead:
 mkdir -p ~/.claude/agents
 ln -sfn "$PWD/agents/bulk.md"        ~/.claude/agents/bulk.md
 ln -sfn "$PWD/agents/explore-mid.md" ~/.claude/agents/explore-mid.md
+ln -sfn "$PWD/agents/lane.md"        ~/.claude/agents/lane.md
 ln -sfn "$PWD/agents/opus-worker.md" ~/.claude/agents/opus-worker.md
 ln -sfn "$PWD/agents/worker.md"      ~/.claude/agents/worker.md
 ```
@@ -98,8 +96,8 @@ the runtime picked up the symlinked files.
 ## Codex exclusions
 
 The Codex install intentionally does not include `deep-research`,
-`authentic-writing`, `authenticity-check`, `humanizer`, or the old Claude
-`simplify-sweep` workflow.
+`authenticity-check`, `humanizer`, or the old Claude `simplify-sweep`
+workflow.
 
 ## Deprecated components
 
@@ -114,11 +112,11 @@ and the old Codex skills are deprecated and archived under `deprecated/`. See
 rm ~/.claude/skills/adversary ~/.claude/skills/blitz
 rm ~/.claude/skills/deep-research ~/.claude/skills/epic-plan
 rm ~/.claude/skills/issue ~/.claude/skills/resolve-issue
-rm ~/.claude/skills/simplify-sweep ~/.claude/skills/transcript-backup
+rm ~/.claude/skills/simplify-sweep
 
 # Remove shared skill symlinks (installed for Claude)
-rm ~/.claude/skills/authentic-writing ~/.claude/skills/authenticity-check
-rm ~/.claude/skills/humanizer ~/.claude/skills/ww ~/.claude/skills/zero
+rm ~/.claude/skills/authenticity-check
+rm ~/.claude/skills/humanizer ~/.claude/skills/zero
 
 # Remove Codex skill symlinks
 rm ~/.codex/skills/adversarial-review ~/.codex/skills/blitz ~/.codex/skills/epic-plan
@@ -127,5 +125,6 @@ rm ~/.codex/skills/resolve-issue ~/.codex/skills/ww ~/.codex/skills/zero
 
 # Remove agent symlinks
 rm ~/.claude/agents/bulk.md ~/.claude/agents/explore-mid.md
+rm ~/.claude/agents/lane.md
 rm ~/.claude/agents/opus-worker.md ~/.claude/agents/worker.md
 ```
