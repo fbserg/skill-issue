@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -124,6 +125,50 @@ def check_codex_skill_parity() -> None:
         fail(f"Codex skill review is stale: {pairs}")
 
 
+GUARD_MARKER_RE = re.compile(r"^[ \t]*([A-Za-z_][A-Za-z0-9_]*_RE)=", re.MULTILINE)
+
+
+def check_hook_guard_marker_parity() -> None:
+    """hooks/claude/*.sh in this repo is a mirror only — scripts/install.sh
+    does not install it. The harness executes whatever ~/.claude/hooks (a
+    symlink) points at instead. A guard added to the mirror but never ported
+    to the live file silently does nothing (this happened in PR #23: a
+    worktree-escape guard landed in the mirror, not the live hook).
+
+    Byte-parity is too strict — the two files have legitimately diverged
+    (e.g. the live file's Heartwood-VM PHASE 1.5 block has no mirror
+    counterpart). Instead this checks that every ALL-CAPS `..._RE=` guard
+    regex variable defined in a mirror hook is also defined, by name, in the
+    corresponding live hook file.
+    """
+    live_hooks_dir = Path("~/.claude/hooks").expanduser()
+    if not live_hooks_dir.is_symlink():
+        print(f"SKIP: {live_hooks_dir} is not installed (hooks are opt-in, "
+              "see hooks/claude/README.md) — cannot check guard-marker parity")
+        return
+    live_hooks_dir = live_hooks_dir.resolve()
+
+    mirror_dir = REPO_ROOT / "hooks" / "claude"
+    for mirror_file in sorted(mirror_dir.glob("*.sh")):
+        mirror_markers = set(GUARD_MARKER_RE.findall(mirror_file.read_text()))
+        if not mirror_markers:
+            continue
+        live_file = live_hooks_dir / mirror_file.name
+        if not live_file.exists():
+            fail(
+                f"{mirror_file.relative_to(REPO_ROOT)} defines guard marker(s) "
+                f"{sorted(mirror_markers)} but the live hook {live_file} does not exist"
+            )
+        live_markers = set(GUARD_MARKER_RE.findall(live_file.read_text()))
+        missing = mirror_markers - live_markers
+        if missing:
+            fail(
+                f"{mirror_file.relative_to(REPO_ROOT)} has guard marker(s) {sorted(missing)} "
+                f"not present in the live hook {live_file} — a mirror-only fix the harness "
+                "never executes (see PR #23)"
+            )
+
+
 def main() -> int:
     for link, expected in EXPECTED_LINKS.items():
         if link.parent.is_symlink():
@@ -132,6 +177,7 @@ def main() -> int:
         check_link(link, expected)
 
     check_codex_skill_parity()
+    check_hook_guard_marker_parity()
 
     print(f"OK skill-issue install: {REPO_ROOT}")
     return 0
