@@ -66,13 +66,10 @@ guess is instantly correctable.
 1. **Explicit input wins.** Did the user paste a writing sample, point to a
    file, or name a well-known author to match? Use that. Read
    `references/voice-matching.md` and proceed in voice mode.
-2. **Otherwise, look for a profile.** `Glob` the working directory and up to
-   two parent levels, in this priority order:
-   `VOICE.md`, then `STYLE-GUIDE.md`, then
-   `voice-profile.md` / `.yaml` / `.json`, then `.manuscript/STYLE-GUIDE.md`,
-   then a voice or style section inside `AGENTS.md` or `CLAUDE.md`. One strong
-   match: read it, then read `references/voice-matching.md`, proceed in voice
-   mode. Several plausible matches: ask one short question to pick.
+2. **Otherwise, look for a profile.** Glob for a voice-profile file — see
+   `references/common-core.md` for the priority order to search in. One
+   strong match: read it, then read `references/voice-matching.md`, proceed
+   in voice mode. Several plausible matches: ask one short question to pick.
 3. **Otherwise, generic mode.** No voice target. De-slop toward natural,
    varied human prose. Do not invent a persona or a backstory; an invented
    voice is its own failure. Generic mode skips Pass 1 and starts at Pass 2.
@@ -127,31 +124,25 @@ the user can dial it back.
 ## Step 0c: Density pre-check (match effort to evidence)
 
 Before rewriting, skim the whole text once and judge how heavily it is
-AI-marked. Count only the **dead-giveaway** tells, not the weak surface
-signals: chat-UI contamination (pattern 31), knowledge-cutoff disclaimers
-(29), collaborative chatbot artifacts (28), significance inflation (1),
-promotional language (5), AI-vocabulary clustering (16), sycophantic tone
-(7), generic positive conclusion (13). Estimate roughly how many appear per
-100 words, then pick the pass intensity and announce it in the output header:
+AI-marked. Count only the dead-giveaway tells catalogued in
+`references/common-core.md`, not the weak surface signals. Judge the overall
+density, then pick the pass intensity and announce it in the output header:
 
-- **Low (about 0 to 2 per 100 words): light pass.** The text is human-first
-  (a journal, rough notes, a real person's draft). Fix only the dead-giveaway
-  artifacts. Leave lower-tier patterns, rhythm, and voice alone, and bias hard
-  toward "Deliberately left alone." All-or-nothing rewriting here is exactly
-  what strips the quirks that made the writing sound like a person; that is
-  the worst failure this skill can commit, so when density is low, restraint
-  is the default and edits are the exception.
-- **Medium (about 3 to 5 per 100 words): standard pass.** Mixed authorship.
-  Apply the full catalog, but with the restraint of do-not-flag.md; do not
-  flatten what already works.
-- **High (6 or more per 100 words): full pass.** AI-first text. Apply the
-  full catalog thoroughly and push real structural variance.
+- **Low: light pass.** The text is human-first (a journal, rough notes, a
+  real person's draft). Fix only the dead-giveaway artifacts. Leave lower-tier
+  patterns, rhythm, and voice alone, and bias hard toward "Deliberately left
+  alone." All-or-nothing rewriting here is exactly what strips the quirks
+  that made the writing sound like a person; that is the worst failure this
+  skill can commit, so when density is low, restraint is the default and
+  edits are the exception.
+- **Medium: standard pass.** Mixed authorship. Apply the full catalog, but
+  with the restraint of do-not-flag.md; do not flatten what already works.
+- **High: full pass.** AI-first text. Apply the full catalog thoroughly and
+  push real structural variance.
 
 This is calibration, not a scan you report mechanically. Effort should match
-evidence. One exception overrides density: any chat-UI contamination string
-(pattern 31) is decisive on its own and is always removed, whatever the
-overall density, because its presence is near-certain confirmation rather
-than a weak signal.
+evidence, not a per-100-word count. The one exception that overrides density
+either way is in `references/common-core.md` (pattern 31, decisive alone).
 
 ## The multi-pass workflow
 
@@ -204,12 +195,10 @@ every tell is gone.
 These are inline because every run needs them. Do not flag in isolation:
 
 - Perfect grammar. Correctness is not a confession; never add errors.
-- A single em dash. Only dash frequency and monotony is a tell.
 - Curly quotes or smart apostrophes. Word processors insert these for humans;
   normalize only for consistency with the surrounding text, never as evidence.
-- Formal or elevated vocabulary. Register is not origin.
-- Common transitions ("however," "therefore," "for example").
-- One passive sentence, one tricolon, one topic sentence.
+- The shared subset in `references/common-core.md` (em dash, formal
+  vocabulary, common transitions, one passive/tricolon/topic sentence).
 
 Escalate to a flag only on recurrence or co-occurrence. When unsure, do not
 cut. The full treatment, including human markers to preserve and per-model
@@ -285,12 +274,14 @@ skill actually does well.
 
 Read these on demand, not upfront:
 
+- `references/common-core.md` during Step 0 and Step 0c. Shared with
+  `authenticity-check`: the voice-profile glob order, the dead-giveaway tell
+  catalog, the pattern-31 override, and a false-positive guardrail subset.
 - `references/tell-patterns.md` during Pass 2. The 32-pattern catalog in six
   families, each with detect / why / before-after / restraint.
 - `references/do-not-flag.md` during Pass 3. False positives, human markers to
   preserve, LLM idiolects, and the hard stop conditions.
 - `references/voice-matching.md` whenever Step 0 found a voice. How to extract
   and apply a voice, the optional VOICE.md schema, and conflict resolution.
-- `references/examples.md` when you are unsure what good output looks like.
-  Four full worked runs: generic de-slop, voice-first, a restraint case, and
-  a stance-mode case.
+- `references/calibration-cases.md` when you are unsure what good output
+  looks like.
