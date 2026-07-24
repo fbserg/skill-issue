@@ -42,13 +42,22 @@ from typing import Iterator
 # these numbers for billing decisions. Marked for easy editing.
 # ---------------------------------------------------------------------------
 PRICING: dict[str, dict[str, float]] = {
-    # claude-opus-4, claude-opus-4-5, older opus-3
+    # claude-fable-5 / claude-mythos-5
+    "fable": {
+        "in": 10.00,
+        "out": 50.00,
+        "cache_5m": 12.50,
+        "cache_1h": 20.00,
+        "cache_read": 1.00,
+    },
+    # Opus 4.5 and later ($5/$25). NOTE: Opus 4.1 and earlier were $15/$75;
+    # transcripts from before Nov 2025 will undercount at these rates.
     "opus": {
-        "in": 15.00,  # input tokens
-        "out": 75.00,  # output tokens
-        "cache_5m": 18.75,  # cache-creation (5-minute ephemeral)
-        "cache_1h": 30.00,  # cache-creation (1-hour ephemeral)  -- 2x input
-        "cache_read": 1.50,  # cache-read
+        "in": 5.00,  # input tokens
+        "out": 25.00,  # output tokens
+        "cache_5m": 6.25,  # cache-creation (5-minute ephemeral)
+        "cache_1h": 10.00,  # cache-creation (1-hour ephemeral)  -- 2x input
+        "cache_read": 0.50,  # cache-read
     },
     # claude-sonnet-4, claude-sonnet-3-7, claude-sonnet-3-5
     "sonnet": {
@@ -76,6 +85,8 @@ def model_family(model: str) -> str | None:
     if not model:
         return None
     m = model.lower()
+    if "fable" in m or "mythos" in m:
+        return "fable"
     if "opus" in m:
         return "opus"
     if "sonnet" in m:
