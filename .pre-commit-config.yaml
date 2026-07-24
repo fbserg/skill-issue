@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: check-install-parity
+        name: check-install --parity-only (codex skill review staleness)
+        entry: python3 scripts/check-install.py --parity-only
+        language: system
+        pass_filenames: false
+        always_run: true
