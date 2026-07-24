@@ -54,15 +54,6 @@ AGENTS = (
     "worker.md",
 )
 
-# Runtime-native counterparts are allowed to differ in prose and tools, but a
-# newer source-side edit must be explicitly reviewed on the Codex side.
-CODEX_PARITY_PAIRS = (
-    ("skills/claude/blitz", "skills/codex/blitz"),
-    ("skills/claude/epic-plan", "skills/codex/epic-plan"),
-    ("skills/claude/issue", "skills/codex/issue"),
-    ("skills/claude/resolve-issue", "skills/codex/resolve-issue"),
-)
-
 EXPECTED_LINKS = {
     Path(f"~/.codex/skills/{name}").expanduser(): REPO_ROOT / f"skills/codex/{name}"
     for name in CODEX_SKILLS
@@ -102,26 +93,17 @@ def check_link(link: Path, expected: Path) -> None:
         fail(f"{resolved} is not executable")
 
 
-def last_change_timestamp(relative_path: str) -> int:
+def check_codex_skill_parity() -> None:
     result = subprocess.run(
-        ["git", "log", "-1", "--format=%ct", "--", relative_path],
+        [sys.executable, str(REPO_ROOT / "scripts" / "generate-codex-skills.py"), "--check"],
         cwd=REPO_ROOT,
-        check=True,
         capture_output=True,
         text=True,
     )
-    return int(result.stdout.strip())
-
-
-def check_codex_skill_parity() -> None:
-    stale = [
-        (source, codex)
-        for source, codex in CODEX_PARITY_PAIRS
-        if last_change_timestamp(source) > last_change_timestamp(codex)
-    ]
-    if stale:
-        pairs = ", ".join(f"{source} -> {codex}" for source, codex in stale)
-        fail(f"Codex skill review is stale: {pairs}")
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        fail(f"Codex skill gate content is stale:\n{result.stderr}")
+    print(result.stdout, end="")
 
 
 def check_refs() -> None:
