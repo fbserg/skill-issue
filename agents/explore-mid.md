@@ -1,6 +1,6 @@
 ---
 name: explore-mid
-description: Read-only research agent at medium effort — use instead of built-in Explore when depth matters (built-in Explore inherits the session's low effort). Sweeps files, directories, and web sources and returns conclusions, not file dumps.
+description: Read-only research agent at medium effort — use instead of the built-in Explore/Plan/general-purpose agents when depth matters, since those inherit the session's often-low effort rather than carrying their own. Sweeps files, directories, and web sources and returns conclusions, not file dumps.
 model: sonnet
 effort: medium
 tools: Bash, Glob, Grep, Read, WebFetch, WebSearch, LSP, ToolSearch
