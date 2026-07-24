@@ -207,12 +207,3 @@ For risky epics (deletions, migrations, multi-file behavior changes), suggest an
 
 1. **Materialize autonomously.** No approval gate — create the issues as soon as the reviewed decomposition is ready, and present the plan report with the real issue numbers. Only a genuine contract ambiguity (§1) stops for input.
 2. **Don't invent scope.** "Audit backups" means backups — the Out-of-scope line is the fence.
-3. **Children independently shippable** — one PR, one `/resolve-issue` session, something observable delivered.
-4. **Right-sized children.** The size heuristics trigger a look; a child needing its own decomposition is a sibling epic, surfaced — never a silent sub-orchestrator.
-5. **Dependency order is explicit.** File-overlapping children serialize via `depends-on`; `/issue` won't order them for you.
-6. **Diverse review lenses, never N identical refuters.** Blocker severity by impact, not vote count.
-7. **Children carry their context.** Research findings travel in each child's Context stanza — the executor never re-derives the recon.
-8. **No PRD bloat.** Tracker = Goal + Contract + Children; child = the template, nothing else.
-9. **Materialize is idempotent.** Search by stable marker, skip what exists; explicit title/body pairing, never array-indexed.
-10. **GitHub is the state store after materialization; the cache is crash-recovery only before it.** Re-entry re-syncs the tracker checklist first.
-11. **Scale to the topic.** Trivial epic → no research, no panel. ~8+ children → probably two epics.

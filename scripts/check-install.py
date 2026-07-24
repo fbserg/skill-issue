@@ -16,15 +16,13 @@ CODEX_SKILLS = (
     "blitz",
     "epic-plan",
     "issue",
-    "refactor-dupes",
     "resolve-issue",
     "ww",
 )
 
-# Claude-only skills remaining under skills/claude/ (the five shared skills
-# that used to be duplicated here — authentic-writing, authenticity-check,
-# humanizer, ww, zero — now live solely under skills/shared/, see
-# SHARED_SKILLS below).
+# Claude-only skills remaining under skills/claude/ (the shared skills that
+# used to be duplicated here — authenticity-check, humanizer, zero — now live
+# solely under skills/shared/, see SHARED_SKILLS below).
 CLAUDE_SKILLS = (
     "adversary",
     "blitz",
@@ -38,10 +36,8 @@ CLAUDE_SKILLS = (
 
 # Shared skill sources. All install into Claude; zero also installs into Codex.
 SHARED_SKILLS = (
-    "authentic-writing",
     "authenticity-check",
     "humanizer",
-    "ww",
     "zero",
 )
 
@@ -60,7 +56,6 @@ CODEX_PARITY_PAIRS = (
     ("skills/claude/epic-plan", "skills/codex/epic-plan"),
     ("skills/claude/issue", "skills/codex/issue"),
     ("skills/claude/resolve-issue", "skills/codex/resolve-issue"),
-    ("skills/shared/ww", "skills/codex/ww"),
 )
 
 EXPECTED_LINKS = {
