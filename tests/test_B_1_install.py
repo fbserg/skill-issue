@@ -18,10 +18,8 @@ CHECK_INSTALL_PY = REPO_ROOT / "scripts" / "check-install.py"
 
 AGENT_NAMES = ("bulk.md", "explore-mid.md", "opus-worker.md", "worker.md")
 SHARED_SKILL_NAMES = (
-    "authentic-writing",
     "authenticity-check",
     "humanizer",
-    "ww",
     "zero",
 )
 

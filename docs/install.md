@@ -43,10 +43,8 @@ Claude only — do not duplicate them under `skills/claude/`.
 
 ```bash
 mkdir -p ~/.claude/skills
-ln -sfn "$PWD/skills/shared/authentic-writing"   ~/.claude/skills/authentic-writing
 ln -sfn "$PWD/skills/shared/authenticity-check"  ~/.claude/skills/authenticity-check
 ln -sfn "$PWD/skills/shared/humanizer"           ~/.claude/skills/humanizer
-ln -sfn "$PWD/skills/shared/ww"                  ~/.claude/skills/ww
 ln -sfn "$PWD/skills/shared/zero"                ~/.claude/skills/zero
 ```
 
@@ -58,7 +56,6 @@ ln -sfn "$PWD/skills/codex/adversarial-review" ~/.codex/skills/adversarial-revie
 ln -sfn "$PWD/skills/codex/blitz"             ~/.codex/skills/blitz
 ln -sfn "$PWD/skills/codex/epic-plan"          ~/.codex/skills/epic-plan
 ln -sfn "$PWD/skills/codex/issue"              ~/.codex/skills/issue
-ln -sfn "$PWD/skills/codex/refactor-dupes"     ~/.codex/skills/refactor-dupes
 ln -sfn "$PWD/skills/codex/resolve-issue"      ~/.codex/skills/resolve-issue
 ln -sfn "$PWD/skills/codex/ww"                 ~/.codex/skills/ww
 ln -sfn "$PWD/skills/shared/zero"              ~/.codex/skills/zero
@@ -98,7 +95,7 @@ the runtime picked up the symlinked files.
 ## Codex exclusions
 
 The Codex install intentionally does not include `deep-research`,
-`authentic-writing`, `authenticity-check`, `humanizer`, or the old Claude
+`authenticity-check`, `humanizer`, or the old Claude
 `simplify-sweep` workflow.
 
 ## Deprecated components
@@ -117,12 +114,12 @@ rm ~/.claude/skills/issue ~/.claude/skills/resolve-issue
 rm ~/.claude/skills/simplify-sweep ~/.claude/skills/transcript-backup
 
 # Remove shared skill symlinks (installed for Claude)
-rm ~/.claude/skills/authentic-writing ~/.claude/skills/authenticity-check
-rm ~/.claude/skills/humanizer ~/.claude/skills/ww ~/.claude/skills/zero
+rm ~/.claude/skills/authenticity-check
+rm ~/.claude/skills/humanizer ~/.claude/skills/zero
 
 # Remove Codex skill symlinks
 rm ~/.codex/skills/adversarial-review ~/.codex/skills/blitz ~/.codex/skills/epic-plan
-rm ~/.codex/skills/issue ~/.codex/skills/refactor-dupes
+rm ~/.codex/skills/issue
 rm ~/.codex/skills/resolve-issue ~/.codex/skills/ww ~/.codex/skills/zero
 
 # Remove agent symlinks

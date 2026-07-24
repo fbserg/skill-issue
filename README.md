@@ -33,7 +33,6 @@ cd skill-issue
 | [`blitz`](skills/codex/blitz/SKILL.md) | Fast execution of ad-hoc lanes in parallel worktrees with adversarial review. |
 | [`epic-plan`](skills/codex/epic-plan/SKILL.md) | Scope broad work into a tracker issue and right-sized child issues; creates nothing until GO. |
 | [`issue`](skills/codex/issue/SKILL.md) | Front door for GitHub issue work; scopes ideas or routes issue numbers to resolve-issue. |
-| [`refactor-dupes`](skills/codex/refactor-dupes/SKILL.md) | Tool-first duplicate detection, architecture brief, approved worktree refactor, draft PR. |
 | [`resolve-issue`](skills/codex/resolve-issue/SKILL.md) | One issue to review-ready PR in an isolated worktree; never merges. |
 | [`ww`](skills/codex/ww/SKILL.md) | Isolated worktree workflow; plan first, PR by default, main untouched. |
 | [`zero`](skills/shared/zero/SKILL.md) | Shared destructive cleanup workflow with proof-before-delete classification. |
@@ -57,7 +56,6 @@ Claude skills remain available for Claude Code. Codex uses the separate
 
 | Skill | Description |
 |---|---|
-| [`authentic-writing`](skills/shared/authentic-writing/SKILL.md) | Router: delegates prose audits to authenticity-check and rewrites to humanizer. |
 | [`authenticity-check`](skills/shared/authenticity-check/SKILL.md) | Score human authenticity and flag AI-sounding spans without rewriting. |
 | [`humanizer`](skills/shared/humanizer/SKILL.md) | De-slop AI prose: remove generative tells while preserving meaning. |
 | [`zero`](skills/shared/zero/SKILL.md) | Destructive repo reset: checkpoint, merge all branches/worktrees into main, push. Read before use. |
@@ -139,8 +137,7 @@ See [`hooks/claude/README.md`](hooks/claude/README.md) for per-hook `settings.js
 
 ## Credits
 
-The `authenticity-check` and `humanizer` skills (and the `authentic-writing` wrapper)
-are vendored from [aihxp](https://github.com/aihxp)'s Scriveno project
+The `authenticity-check` and `humanizer` skills are vendored from [aihxp](https://github.com/aihxp)'s Scriveno project
 ([authenticity-check](https://github.com/aihxp/authenticity-check),
 [humanizer](https://github.com/aihxp/humanizer)) and used under the MIT License.
 Each vendored skill keeps its original `LICENSE` (copyright preserved as required);

@@ -39,7 +39,6 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | blitz | `skills/codex/blitz/SKILL.md` | Fast execution of ad-hoc lanes in parallel worktrees with adversarial review. |
 | epic-plan | `skills/codex/epic-plan/SKILL.md` | Scope broad work into tracker + child issues; no GitHub writes until GO. |
 | issue | `skills/codex/issue/SKILL.md` | Front door for GitHub issue work; scope ideas or route issue numbers to resolve-issue. |
-| refactor-dupes | `skills/codex/refactor-dupes/SKILL.md` | Detect duplicates, approve an architecture brief, refactor one cluster in a worktree PR. |
 | resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR in an isolated worktree; never merges. |
 | ww | `skills/codex/ww/SKILL.md` | Worktree workflow: branch, plan, implement, check, draft PR; main untouched. |
 | zero | `skills/shared/zero/SKILL.md` | Shared destructive cleanup with proof-before-delete classification. |
@@ -50,7 +49,6 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 
 | Name | Path | TLDR |
 |---|---|---|
-| authentic-writing | `skills/shared/authentic-writing/SKILL.md` | Router: delegates prose audits to authenticity-check and rewrites to humanizer; keeps diagnosis and rewriting separate. |
 | authenticity-check | `skills/shared/authenticity-check/SKILL.md` | Score how authentically text reads as human-written; returns band + 0-100 score + span-level flags. Never rewrites. |
 | humanizer | `skills/shared/humanizer/SKILL.md` | De-slop AI prose: remove generative tells (delve, em-dash overuse, rule-of-three padding) while preserving meaning. |
 | zero | `skills/shared/zero/SKILL.md` | Destructive repo reset: checkpoint, merge all branches/worktrees into main, push. Read before use. |

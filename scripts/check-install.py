@@ -2,6 +2,7 @@
 """Verify the local skill-issue install is not split across checkouts."""
 from __future__ import annotations
 
+import argparse
 import os
 import subprocess
 import sys
@@ -16,15 +17,13 @@ CODEX_SKILLS = (
     "blitz",
     "epic-plan",
     "issue",
-    "refactor-dupes",
     "resolve-issue",
     "ww",
 )
 
-# Claude-only skills remaining under skills/claude/ (the five shared skills
-# that used to be duplicated here — authentic-writing, authenticity-check,
-# humanizer, ww, zero — now live solely under skills/shared/, see
-# SHARED_SKILLS below).
+# Claude-only skills remaining under skills/claude/ (the shared skills that
+# used to be duplicated here — authenticity-check, humanizer, zero — now live
+# solely under skills/shared/, see SHARED_SKILLS below).
 CLAUDE_SKILLS = (
     "adversary",
     "blitz",
@@ -38,10 +37,8 @@ CLAUDE_SKILLS = (
 
 # Shared skill sources. All install into Claude; zero also installs into Codex.
 SHARED_SKILLS = (
-    "authentic-writing",
     "authenticity-check",
     "humanizer",
-    "ww",
     "zero",
 )
 
@@ -60,7 +57,6 @@ CODEX_PARITY_PAIRS = (
     ("skills/claude/epic-plan", "skills/codex/epic-plan"),
     ("skills/claude/issue", "skills/codex/issue"),
     ("skills/claude/resolve-issue", "skills/codex/resolve-issue"),
-    ("skills/shared/ww", "skills/codex/ww"),
 )
 
 EXPECTED_LINKS = {
@@ -125,11 +121,25 @@ def check_codex_skill_parity() -> None:
 
 
 def main() -> int:
-    for link, expected in EXPECTED_LINKS.items():
-        if link.parent.is_symlink():
-            print(f"SKIP: {link.parent} is externally managed")
-            continue
-        check_link(link, expected)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--parity-only",
+        action="store_true",
+        help=(
+            "Check only Codex-skill review parity (skip the machine-install "
+            "symlink checks). Symlinks resolve against whichever checkout "
+            "~/.claude and ~/.codex point at, which is wrong from inside a "
+            "worktree; this is what pre-commit runs on every commit."
+        ),
+    )
+    args = parser.parse_args()
+
+    if not args.parity_only:
+        for link, expected in EXPECTED_LINKS.items():
+            if link.parent.is_symlink():
+                print(f"SKIP: {link.parent} is externally managed")
+                continue
+            check_link(link, expected)
 
     check_codex_skill_parity()
 
