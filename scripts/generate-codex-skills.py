@@ -76,7 +76,8 @@ class Gate:
                  claude_anchor: str, claude_end_anchor: str,
                  codex_path: str, codex_marker: str,
                  codex_insert_after: str, codex_replace: str | None = None,
-                 renumber_after_heading: str | None = None):
+                 renumber_after_heading: str | None = None,
+                 bullet_prefix: str | None = None):
         self.skill = skill
         self.gate_id = gate_id
         self.claude_path = claude_path
@@ -91,16 +92,22 @@ class Gate:
         # the gate text carries its own claude-side "N. " prefix, which would
         # otherwise collide with the codex list's own numbering.
         self.renumber_after_heading = renumber_after_heading
+        self.bullet_prefix = bullet_prefix
 
     def extract_claude_text(self) -> str:
         text = (REPO_ROOT / self.claude_path).read_text(encoding="utf-8")
         start = text.index(self.claude_anchor)
-        end = text.index(self.claude_end_anchor, start)
+        try:
+            end = text.index(self.claude_end_anchor, start)
+        except ValueError:
+            end = len(text)
         return text[start:end].strip()
 
     def rendered_block(self) -> str:
         source = self.extract_claude_text()
         body = apply_terminology(source)
+        if self.bullet_prefix:
+            body = self.bullet_prefix + body
         return f"<!-- gate:{self.gate_id} carried from {self.claude_path} -->\n{body}"
 
 
@@ -142,6 +149,18 @@ GATES = [
             "worker owns its worktree and full issue lifecycle."
         ),
         codex_replace=None,
+    ),
+    Gate(
+        skill="epic-plan",
+        gate_id="dont-invent-scope",
+        claude_path="skills/claude/epic-plan/SKILL.md",
+        claude_anchor="**Don't invent scope.**",
+        claude_end_anchor="\n\nEOF_MARKER_NOT_PRESENT",
+        codex_path="skills/codex/epic-plan/SKILL.md",
+        codex_marker="dont-invent-scope",
+        codex_insert_after="- Do not implement code.",
+        codex_replace=None,
+        bullet_prefix="- ",
     ),
     Gate(
         skill="issue",

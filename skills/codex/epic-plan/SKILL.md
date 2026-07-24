@@ -46,6 +46,9 @@ Turn a broad topic into one tracker issue plus child issues that can each be han
 ## Boundaries
 
 - Do not implement code.
+
+<!-- gate:dont-invent-scope carried from skills/claude/epic-plan/SKILL.md -->
+- **Don't invent scope.** "Audit backups" means backups — the Out-of-scope line is the fence.
 - Do not open PRs.
 - Do not create GitHub artifacts that duplicate an existing tracker or child — always search markers first.
 - Browse only for information the repo cannot provide and that materially affects the plan.
