@@ -52,7 +52,10 @@ and reports on lanes it has no authority over.
    deprecated and unavailable to subagents, and even where it resolves it
    returns a symlink to the full subagent transcript, which can overflow the
    caller's context on read. `claude agents --json` plus the pulse file gives
-   the same signal without that cost.
+   the same signal without that cost. **A `TERMINAL` claim is verified, not
+   trusted** — grep the lane's own pulse file for the literal line before
+   treating it as done; a lane has been caught claiming a `TERMINAL` line it
+   never actually wrote.
 2. **Kill before restart.** A wedged-but-alive lane still holds its branch
    (`fix/issue-<N>-<slug>` or the batch's equivalent). Restarting without
    stopping it first means two live writers on the same branch, and both can

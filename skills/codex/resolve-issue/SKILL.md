@@ -54,21 +54,18 @@ Record acceptance criteria, impact set, shared-interface hits, base branch, and 
 1. Create branch `fix/issue-<N>-<short-slug>` in a worktree.
 
 <!-- gate:amendment-repoll carried from skills/claude/resolve-issue/SKILL.md -->
-2. **Amendment re-poll, before any commit.** `gh issue view <N> --comments` and
-   diff comment timestamps against the `PLAN_COMMENT` snapshot time. A newer
-   scope-relevant comment is folded into the plan before proceeding, or
-   explicitly called out-of-scope with a reply on the issue — never silently
-   implemented against a stale snapshot (issue #245: a 34-minutes-prior
-   amendment was missed this way and round-tripped through a follow-up PR).
+2. **Amendment re-poll, before any commit.** Diff issue-comment timestamps
+   against the `PLAN_COMMENT` snapshot; a newer scope-relevant comment is
+   folded in or explicitly declared out-of-scope with a reply — never silently
+   implemented against a stale snapshot (measured: issue #245).
 3. Push an initial commit and open a stub draft PR before substantive implementation so the lane remains visible throughout the write phase.
 4. Implement the change in the worktree.
 5. Hand the implementation to an independent test pass. Map tests to changed boundaries and acceptance criteria.
 <!-- gate:negative-control carried from skills/claude/resolve-issue/SKILL.md -->
-- **Negative control:** temporarily invert the core fix, record which tests
-  fail (they must), restore, confirm green. A fix whose tests survive its own
-  reversal has tests that assert nothing. **At least one** committed test must
-  fail under the inversion (`NEGATIVE_CONTROL` N≥1); if N=0 the suite doesn't
-  discriminate the fix — add a discriminating test before proceeding.
+- **Negative control:** temporarily invert the core fix — at least one new test
+  must fail (N≥1) — then restore and confirm green. A suite that survives
+  reversal of its own fix asserts nothing; add a discriminating test before
+  proceeding.
 6. Commit and push.
 
 ## Review and Finalize
@@ -84,14 +81,12 @@ Record acceptance criteria, impact set, shared-interface hits, base branch, and 
    - deferred operator-only verification, if any
 <!-- gate:draft-state-gate carried from skills/claude/resolve-issue/SKILL.md -->
 **Finalize gate: repo checks pass and each acceptance criterion has observed
-evidence in the PR body — content over headings.** **Draft-state gate: the
-state machine is draft vs ready, nothing else.** If any acceptance evidence is
-still pending, the PR stays in GitHub draft state — that *is* the gate. A PR
-body phrase like "Not merging" is not a control mechanism and is banned as
-one (PR #254 shipped one, then merged 50 seconds later); if it isn't ready,
-don't call `gh pr ready`, full stop. Only once every criterion is proven (or
-properly deferred per above) does the subagent mark the PR ready
-(`gh pr ready`).
+evidence in the PR body.** The state machine is GitHub draft vs ready, nothing
+else — a body phrase like "Not merging" is not a control mechanism and is
+banned as one (measured: PR #254 merged 50 s after shipping one). If it isn't
+ready, don't call `gh pr ready`, full stop. Mark ready only after `gh pr view
+--json mergeable,mergeStateStatus` reports `MERGEABLE`/`CLEAN`; anything else →
+rebase and recheck, never ship a PR GitHub can't merge.
 
 ## Resume
 

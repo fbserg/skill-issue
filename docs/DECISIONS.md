@@ -3,6 +3,37 @@
 Durable rulings on contested choices. Check here before re-litigating; a
 standing ruling short-circuits the debate unless its reopen condition fired.
 
+## 2026-07-30 — Evidence-bar review: the pipeline stops reviewing its own reviews
+
+**Decision:** `/resolve-issue`'s review loop was rebuilt around an evidence
+bar instead of stacked verification layers. One reviewer by default (up to
+three lenses only on a shared-interface hit or genuinely competing concerns).
+A blocker must name a concrete observable failure — a failing test, a repro
+command, or a broken invariant verified at file:line — or it is advisory and
+triggers nothing. Deleted outright: the always-all-four lens mandate, the
+blocker-verification skeptic panel, the intent validator, and the three-cycle
+cap (now one fix cycle + one opus-worker retry per surviving blocker). The
+skill went 487 → ~215 lines; `/issue` and `/epic-plan` were compressed in the
+same pass (watchdog mechanics live only in `docs/lane-watchdog.md`).
+
+**Rationale:** the panel was generating its own workload — reviewers
+role-locked to find findings found findings, then a refutation panel existed
+solely to kill the phantoms ("so the fixer never 'fixes' a phantom bug" was a
+written admission), then a validator checked the fixer. Layer N+1 correcting
+layer N is the over-specification anti-pattern; the evidence bar removes the
+phantoms at the source instead of downstream.
+
+**Evidence:** 8 of 18 pipeline sessions with findings ran a second review
+cycle; one session killed 32 findings as speculative; transcripts show
+routine blocker→should-fix downgrades by the skeptic panel. The 07-06
+Sonnet-review ruling already observed lens diversity mattered more than model
+strength — this ruling narrows *when* diversity is bought, not what model
+runs it.
+
+**Reopen when:** a merged PR ships a defect that a deleted lens or the
+skeptic panel would demonstrably have caught, twice on comparable diffs — then
+re-add the specific missing lens as a conditional, never the full stack.
+
 ## 2026-07-24 — Subtraction pass: prose rules that measurement showed were dead letters
 
 **Decision:** rules the estate could not enforce were deleted rather than
