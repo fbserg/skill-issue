@@ -1,13 +1,14 @@
 ---
 name: zero
-description: "Zero out a repo — destructive cleanup of pending work, PRs, branches, worktrees, and main push. Runs a read-only inventory before writes."
+description: "Zero out a repo — destructive cleanup of pending work, PRs, local and remote branches, worktrees, and main push. Runs a read-only inventory before writes."
 ---
 
 # /zero skill
 
 Zero out the repo: commit pending changes on `main`, merge open PRs and delete
-their branches, merge every non-main worktree and stray branch into `main`,
-drop worktrees, delete branches, push `main`, report open issues.
+their branches, merge every non-main worktree and every stray local or remote
+branch into `main`, drop worktrees, delete local and remote branches, push
+`main`, report open issues.
 
 Intentionally aggressive, only for the user's explicit "zero" point. The
 request itself authorizes the cleanup: run the read-only inventory, summarize,
@@ -26,29 +27,39 @@ restage, rerun once). A stale `.git/index.lock` may be removed only after `ps`
 proves no live Git process. A failed commit: report it, don't drop that
 worktree/branch, continue with the rest.
 
-### CLASSIFY(branch) — merged / squash-trash / real work
+### CLASSIFY(ref) — merged / squash-trash / real work
 
-Never treat a branch as unmerged solely because it isn't an ancestor of
-`main` — squash-merges change commit IDs while the patch content is already
-in `main`.
+Never treat a local or remote branch as unmerged solely because it isn't an
+ancestor of `main` — squash-merges change commit IDs while the patch content
+is already in `main`.
 
 ```bash
-git rev-list --count main..<branch>        # ahead count
-git merge-base --is-ancestor <branch> main # exit 0 = ancestor
-git cherry main <branch>                   # '+' lines = real unmerged patches
+git rev-list --count main..<ref>        # ahead count
+git merge-base --is-ancestor <ref> main # exit 0 = ancestor
+git cherry main <ref>                   # '+' lines = real unmerged patches
 ```
 
-- **Merged** (`ahead=0` or ancestor): `git branch -d` (`-D` allowed if `-d`
-  refuses only on upstream bookkeeping — it's metadata cleanup).
-- **Squash-trash** (`ahead>0`, no `+` lines): `git branch -D` — allowed only
-  because `git cherry` proves no patch content is missing from `main`.
+- **Merged** (`ahead=0` or ancestor): safe to delete after the deletion rules
+  below are satisfied.
+- **Squash-trash** (`ahead>0`, no `+` lines): safe to delete only because
+  `git cherry` proves no patch content is missing from `main`.
 - **Real work** (`+` lines): merge into `main` — via the repo's documented
-  integrate recipe (e.g. `just integrate <branch>`) if one exists, else plain
+  integrate recipe (e.g. `just integrate <ref>`) if one exists, else plain
   `git merge --no-edit` — then delete. Conflicts are part of the work: read
   both sides, keep good new behavior, run the narrowest relevant validation,
   commit. Ask the user only on a product decision code/tests can't answer.
   Never delete before the merge commit succeeds.
 - Upstream `[gone]` is suspect until proven merged/empty by the checks above.
+
+Deletion rules:
+
+- **Local ref:** use `git branch -d`; `-D` is allowed only for proven
+  squash-trash or when `-d` refuses solely because of upstream bookkeeping.
+- **Remote ref:** never delete it until all real work is merged, validated, and
+  the updated default branch is successfully pushed. Re-run CLASSIFY against
+  the pushed default branch, then use `git push <remote> --delete <branch>`.
+- Never delete a remote's default branch, its symbolic `HEAD`, or a branch
+  belonging to an open PR.
 
 ## Execution
 
@@ -58,9 +69,11 @@ git cherry main <branch>                   # '+' lines = real unmerged patches
    held by a live pid, or a repo-specific ship/deploy lock. Then
    `git fetch --prune --all && git worktree prune` and collect: default branch
    (`git symbolic-ref refs/remotes/origin/HEAD`), `git worktree list
-   --porcelain`, local branches + tracking, `gh pr list`, `gh issue list`.
-   Read-only commands may run in parallel; never run Git writers in parallel
-   with any other Git command in the same repo. Report counts, continue.
+   --porcelain`, local branches + tracking, every remote branch for every
+   configured remote, `gh pr list`, `gh issue list`. Exclude each remote's
+   symbolic `HEAD` and default branch from cleanup. Read-only commands may run
+   in parallel; never run Git writers in parallel with any other Git command
+   in the same repo. Report counts, continue.
 2. **Checkpoint main:** `git checkout $DEFAULT_BRANCH`, CHECKPOINT it.
 3. **Open PRs:** checkpoint any local worktree on the PR's head branch, then
    `gh pr merge <n> --merge --delete-branch`. Success → fetch/prune, CLASSIFY
@@ -71,24 +84,36 @@ git cherry main <branch>                   # '+' lines = real unmerged patches
    → CLASSIFY → `git worktree remove <path> --force` → delete branch per
    CLASSIFY.
 5. **Stray local branches:** same guard + CLASSIFY, one at a time.
-6. **Push main** via the repo's documented push recipe (e.g. `just
+6. **Remote branches:** for every non-default remote ref not already deleted
+   by a successful PR merge, run the open-PR guard and CLASSIFY it. Merge every
+   real patch into the local default branch and validate it. Record merged and
+   squash-trash remote branches for deletion, but do not delete any remote ref
+   yet.
+7. **Push main** via the repo's documented push recipe (e.g. `just
    push-main`), else `git push origin main`. Skips elsewhere don't block the
    push unless it would publish an incomplete merge.
-7. **Report:** counts for PRs merged / checkpoints / branches merged /
-   worktrees dropped / branches deleted / push status; every skip with its
-   reason; conflicts resolved; unmerged branches only if blocked; open PRs
-   and open issues (informational — never touched).
+8. **Delete remote branches:** fetch/prune, re-run the open-PR guard and
+   CLASSIFY each recorded remote ref against the now-pushed default branch,
+   then `git push <remote> --delete <branch>`. A failed delete is reported and
+   left alone; it never justifies a force push.
+9. **Report:** counts for PRs merged / checkpoints / branches merged /
+   worktrees dropped / local branches deleted / remote branches deleted / push
+   status; every skip with its reason; conflicts resolved; unmerged branches
+   only if blocked; open PRs and open issues (informational — never touched).
 
 ## Guardrails
 
-- Never delete `main`.
+- Never delete the default branch (`main`, `master`, or otherwise).
 - `git branch -D` only when CLASSIFY proves merged/empty (ahead=0, ancestor,
   or clean `git cherry`).
+- Remote branch deletion requires CLASSIFY proof, a successful default-branch
+  push containing any merged work, and a repeated open-PR guard immediately
+  before deletion.
 - Open PR branches are touched only via `gh pr merge --delete-branch`; if that
   fails, leave PR and branch alone.
 - Every dirty tree is CHECKPOINTed (inspected diff, real message) before any
   merge.
 - Conflicts are resolved, validated, committed — ask only on product
   decisions.
-- Remote pushes are limited to `gh pr merge` effects and the final `main`
-  push.
+- Remote pushes are limited to `gh pr merge` effects, the final default-branch
+  push, and deletion of non-default remote branches proven safe by CLASSIFY.
