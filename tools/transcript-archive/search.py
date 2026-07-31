@@ -168,7 +168,7 @@ def cmd_index() -> None:
         path: (mtime, size)
         for path, mtime, size in con.execute("SELECT path, mtime, size FROM sources")
     }
-    ingested = skipped = 0
+    ingested = skipped = failed = 0
     started = time.time()
     for src_name, src_root in resolve_sources().items():
         for path in src_root.rglob("*.jsonl*"):
@@ -181,14 +181,24 @@ def cmd_index() -> None:
                 continue
             project, session = project_and_session(src_root, path)
             con.execute("DELETE FROM messages WHERE path = ?", (key,))
-            con.executemany(
-                "INSERT INTO messages (src, project, session, path, role, ts, text)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    (src_name, project, session, key, role, ts, text)
-                    for role, ts, text in iter_message_rows(path)
-                ),
-            )
+            try:
+                con.executemany(
+                    "INSERT INTO messages (src, project, session, path, role, ts, text)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        (src_name, project, session, key, role, ts, text)
+                        for role, ts, text in iter_message_rows(path)
+                    ),
+                )
+            except (OSError, EOFError) as exc:
+                # Cloud-synced archives can time out mid-read or serve a
+                # truncated gz. Drop this file's partial rows and leave it out
+                # of `sources` so the next index run retries it.
+                con.execute("DELETE FROM messages WHERE path = ?", (key,))
+                failed += 1
+                print(f"  SKIP (read failed, will retry next run): {key}: {exc}",
+                      file=sys.stderr)
+                continue
             con.execute(
                 "INSERT OR REPLACE INTO sources (path, mtime, size) VALUES (?, ?, ?)",
                 (key, st.st_mtime, st.st_size),
@@ -199,8 +209,9 @@ def cmd_index() -> None:
                 print(f"  ...{ingested} files in {time.time() - started:.0f}s", flush=True)
     con.commit()
     total_rows = con.execute("SELECT count(*) FROM messages").fetchone()[0]
+    failed_note = f", {failed} read-failed (will retry)" if failed else ""
     print(
-        f"indexed {ingested} new/changed files ({skipped} unchanged), "
+        f"indexed {ingested} new/changed files ({skipped} unchanged{failed_note}), "
         f"{total_rows} message rows, {time.time() - started:.0f}s, "
         f"db={db_path().stat().st_size / 1e6:.0f}MB"
     )

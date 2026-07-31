@@ -157,6 +157,25 @@ class SearchTestCase(unittest.TestCase):
         sources = search.resolve_sources()
         self.assertEqual(list(sources), ["live"])
 
+    def test_truncated_gz_skipped_and_retried_next_run(self):
+        bad = self.archive / "laptop/claude/projects/-Users-x-old/cccc3333.jsonl.gz"
+        with gzip.open(bad, "wt") as fh:
+            fh.write(transcript_line("user", "unreachable ocelot content") + "\n")
+        raw = bad.read_bytes()
+        bad.write_bytes(raw[: len(raw) - 8])  # strip gzip trailer -> EOFError
+        err = io.StringIO()
+        with mock.patch("sys.stderr", err):
+            summary = self.index()
+        self.assertIn("read-failed (will retry)", summary)
+        self.assertIn("cccc3333", err.getvalue())
+        # healthy files still indexed; broken one absent and not marked done
+        self.assertIn("flamingo", self.query("flamingo"))
+        self.assertIn("no matches", self.query("ocelot"))
+        bad.write_bytes(raw)  # repair -> next run picks it up
+        with mock.patch("sys.stderr", io.StringIO()):
+            self.assertIn("indexed 1 new/changed files", self.index())
+        self.assertIn("ocelot", self.query("ocelot"))
+
     def test_malformed_lines_are_skipped_not_fatal(self):
         with open(self.live_session, "a") as fh:
             fh.write("not json at all\n{\"half\": \n")
