@@ -3,6 +3,19 @@
 Durable rulings on contested choices. Check here before re-litigating; a
 standing ruling short-circuits the debate unless its reopen condition fired.
 
+## 2026-07-30 — rtk removed everywhere; output-filter tools face an evidence bar
+
+**Decision:** rtk (token-filtering CLI proxy) deleted from the Bash hook,
+CLAUDE.md/AGENTS.md files, Codex configs, and brew. Its claimed 92% token
+savings were 94% phantom once measured against the real counterfactual
+(Claude Code's 30k-char Bash truncation); the real ~1–2% came with a daily
+bypass tax, lossy reads, and config curation. Full autopsy and the audit
+method for any successor: `docs/rtk-tombstone.md`.
+
+**Reopen if:** a measured (truncation-capped, not self-reported) command class
+dominates context bloat AND the candidate filter fails loudly instead of
+returning stubs.
+
 ## 2026-07-30 — Evidence-bar review: the pipeline stops reviewing its own reviews
 
 **Decision:** `/resolve-issue`'s review loop was rebuilt around an evidence
