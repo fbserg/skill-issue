@@ -57,8 +57,8 @@ Claude skills remain available for Claude Code. Codex uses the separate
 
 | Skill | Description |
 |---|---|
-| [`authenticity-check`](skills/shared/authenticity-check/SKILL.md) | Score human authenticity and flag AI-sounding spans without rewriting. |
-| [`humanizer`](skills/shared/humanizer/SKILL.md) | De-slop AI prose: remove generative tells while preserving meaning. |
+| [`authenticity-check`](skills/shared/authenticity-check/SKILL.md) | Score human authenticity and flag AI-sounding spans. Not installed by default. |
+| [`humanizer`](skills/shared/humanizer/SKILL.md) | De-slop AI prose. Not installed by default. |
 | [`zero`](skills/shared/zero/SKILL.md) | Destructive repo reset: checkpoint, merge all branches/worktrees into main, push. Read before use. |
 
 ## Routing an issue

@@ -39,9 +39,9 @@ CLAUDE_SKILLS = (
 )
 
 # Shared skill sources. All install into Claude; zero also installs into Codex.
+# authenticity-check and humanizer were uninstalled 2026-07-30 (0-1 invocations
+# across the transcript corpus); their sources remain in skills/shared/.
 SHARED_SKILLS = (
-    "authenticity-check",
-    "humanizer",
     "zero",
 )
 

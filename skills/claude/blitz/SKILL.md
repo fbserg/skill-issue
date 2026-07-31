@@ -1,42 +1,41 @@
 ---
 name: blitz
-description: Lightweight executor for multiple issues or lanes — fast, parallel, adversarial — without the full /issue → /resolve-issue pipeline (no tiered phases, no typed handoffs). Use when the user invokes /blitz or says to run a batch fast and adversarial. Not a planner (that's /epic-plan) and not a pipeline; just the execution posture.
+description: Lightweight executor for multiple ad-hoc lanes — fast, parallel, adversarial — without the /issue → /resolve-issue pipeline. Use when the user invokes /blitz or wants an unfiled batch run fast. Not a planner (that's /epic-plan).
 ---
 
-Boundary: filed issues wanting tiered review → `/issue` batch. Exactly one task, plan-first with approval → `/ww`. Ad-hoc, unfiled, fast → here.
+Boundary: filed issues wanting tiered review → `/issue` batch. Ad-hoc, unfiled,
+fast → here.
 
 You're the orchestrator; you don't implement. Posture:
 
-- **Fan out now.** Independent lanes run in parallel worktrees (`claude --worktree` / `isolation: 'worktree'`), one lane per disjoint file set; serialize only genuine overlap. Don't do sequentially what has no dependency.
-- **Cluster before you cut cards.** Disjoint file lists are not disjoint scope: linked items
-  (parent/follow-up, "after #N", same surface) go in one lane or sequential waves — never
-  side by side. File-scope checks and rebase gates can't catch semantic duplication
-  (measured: #690/#749 raced to two overlapping merged PRs); only clustering can.
-- **Lane cards, not broadcasts.** Each lane is dispatched with a scoped brief — its file scope, its acceptance gate, only the rulings that bind it — never the full root prompt re-sent verbatim. A naive re-broadcast has been measured at ~15x context inflation per fan-out; write the card instead.
-  Check BOTH CLAUDE.md and AGENTS.md for binding rulings — AGENTS.md-only rulings exist
-  and the session auto-loads only CLAUDE.md.
-- **Micro-work gets no lane.** A ≤~50-line fix with green targeted checks commits straight to
-  the integration branch (where the repo permits) — no issue, no PR, no worktree. Batch several
-  into one commit train. Lanes and PRs are for work that needs review or outlives one sitting.
-  (Measured: 55% of one repo's issues closed within 2h of filing — tracker as commit log.)
-- **Spine files are single-writer.** Before carding, check churn (`git log --name-only`): the
-  repo's most-touched wiring/shared files go to at most ONE lane per wave. "Disjoint file
-  lists" that all import the same spine are not disjoint. (Measured: 98/100 sampled PRs
-  overlapped a <24h-prior PR's files; a 17-PR lockstep chain on one file pair.)
-- **Adversarial review before believing anything.** Distinct lenses, role-locked to refute; verify claims against the repo, not rhetoric. Applies to plans, diffs, and your own conclusions.
-- **Findings return batched, never as issue confetti.** A review lane reports one batched
-  finding list; at most one follow-up issue per surface. Never one issue per finding/assertion
-  (measured: 42 follow-up issues filed in one day from a single UI wave).
-- **3+ background lanes → arm the watchdog.** Full contract (cadence, pulse
-  seeding, namespacing, kill-before-restart remediation): `docs/lane-watchdog.md`
-  — this skill doesn't restate it. Lanes die silently; fast without it is fast
-  into a ditch.
-- **Fast through gates.** No re-confirming between phases; push each lane to done (commit, PR, human merges). Stop only for real scope changes or destruction.
-
-## Keep fast lanes fast
-
-- A lane's first action, before any edit: record the baseline test count and restate its file scope from the card; confirm that scope doesn't overlap any sibling lane's card. Skipped, this is how four lanes collide and only find out at triage.
-- Define a gate ladder per lane: targeted checks → one batched preflight → one expensive full gate. Never use the full gate to discover one failure at a time.
-- Never run the same expensive gate more than twice without a new diagnosis or changed hypothesis. After the second failure, inspect orchestration/test topology and report the blocker.
-- Pulse cadence and stale-intervention threshold follow the shared contract in `docs/lane-watchdog.md` (pulse at every phase transition and at least every 5 minutes; a lane stale past 20 minutes gets checked, killed-before-restarted if wedged, or logged false-positive if merely slow). Repeated waits with no new pulse line are not progress.
-- Before opening any PR: test-count delta complies with the repo's stated posture (fire in velocity mode: existing suites neither grow nor shrink), and the branch rebases clean against current main and against every sibling lane already pushed. Fix or abandon a PR that fails this before it opens — a final triage lane rejecting finished PRs is a process failure, not a safety net.
+- **Fan out now.** Independent lanes in parallel worktrees, one lane per
+  disjoint file set; serialize only genuine overlap.
+- **Cluster before you cut cards.** Linked items (parent/follow-up, "after
+  #N", same surface) go in one lane or sequential waves — file-scope checks
+  can't catch semantic duplication (measured: #690/#749 raced to two
+  overlapping merged PRs).
+- **Spine files are single-writer.** Check churn (`git log --name-only`)
+  first: the repo's most-touched shared files go to at most ONE lane per wave
+  (measured: 98/100 sampled PRs overlapped a <24h-prior PR's files).
+- **Lane cards, not broadcasts.** Each lane gets a scoped brief — file scope,
+  acceptance gate, only the rulings that bind it (check CLAUDE.md AND
+  AGENTS.md — AGENTS.md-only rulings exist) — never the full root prompt
+  re-sent (measured: ~15x context inflation). A lane's first action: restate
+  its scope and confirm no overlap with sibling cards.
+- **Micro-work gets no lane.** A ≤~50-line fix with green targeted checks
+  commits straight to the integration branch where the repo permits; batch
+  several into one commit train.
+- **Adversarial review before believing anything.** Distinct lenses,
+  role-locked to refute, verified against the repo — applies to plans, diffs,
+  and your own conclusions.
+- **Findings return batched, never as issue confetti.** One batched finding
+  list per review lane; at most one follow-up issue per surface (measured: 42
+  follow-up issues filed in one day from a single wave).
+- **3+ background lanes → arm the watchdog** per `docs/lane-watchdog.md` —
+  lanes die silently; this skill doesn't restate the contract.
+- **Fast through gates.** No re-confirming between phases; push each lane to
+  done (commit, PR, human merges). Per-lane gate ladder: targeted checks →
+  one batched preflight → one expensive full gate — a gate failing twice
+  without a new diagnosis is a blocker report, not a third run. Before any PR
+  opens: the branch rebases clean against main and every sibling already
+  pushed. Stop only for real scope changes or destruction.

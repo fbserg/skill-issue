@@ -42,9 +42,9 @@ Claude only — do not duplicate them under `skills/claude/`.
 
 ```bash
 mkdir -p ~/.claude/skills
-ln -sfn "$PWD/skills/shared/authenticity-check"  ~/.claude/skills/authenticity-check
-ln -sfn "$PWD/skills/shared/humanizer"           ~/.claude/skills/humanizer
 ln -sfn "$PWD/skills/shared/zero"                ~/.claude/skills/zero
+# authenticity-check and humanizer stay uninstalled (0-1 measured invocations);
+# their sources remain under skills/shared/ — re-add a symlink to reinstate.
 ```
 
 ### Codex
@@ -81,7 +81,6 @@ ln -sfn "$PWD/agents/worker.md"      ~/.claude/agents/worker.md
 ```bash
 # Skill and agent files are accessible and point at this checkout
 ls ~/.claude/skills/epic-plan/SKILL.md
-ls ~/.claude/skills/humanizer/SKILL.md
 ls ~/.codex/skills/issue/SKILL.md
 ls ~/.claude/agents/worker.md
 python3 scripts/check-install.py
@@ -115,8 +114,7 @@ rm ~/.claude/skills/issue ~/.claude/skills/resolve-issue
 rm ~/.claude/skills/simplify-sweep
 
 # Remove shared skill symlinks (installed for Claude)
-rm ~/.claude/skills/authenticity-check
-rm ~/.claude/skills/humanizer ~/.claude/skills/zero
+rm ~/.claude/skills/zero
 
 # Remove Codex skill symlinks
 rm ~/.codex/skills/adversarial-review ~/.codex/skills/blitz ~/.codex/skills/epic-plan

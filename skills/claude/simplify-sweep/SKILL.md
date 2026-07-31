@@ -5,41 +5,27 @@ description: "Batch-clean a range of pushed commits: headless Sonnet /simplify p
 
 # simplify-sweep — periodic cleanup over pushed commits
 
-Runs Claude Code's built-in `/simplify` over a commit range using cheap headless
-Sonnet sessions, one per area batch. The expensive main session only orchestrates:
-pick the range, batch, launch, review the resulting edits, commit.
+Runs `/simplify` over a commit range via cheap headless Sonnet sessions, one
+per area batch; the main session only orchestrates. `$ARGUMENTS` (optional): a
+ref range, base ref, or area paths — else sweep everything since the last
+commit matching `git log -i --grep='^tidy\|^sweep' -1` (the `sweep(<area>):`
+tag from step 3 is the only state store). Report commits/files/churn before
+launching.
 
-`$ARGUMENTS` (optional): a ref range (`abc123..HEAD`), a base ref, or area paths.
-If absent, sweep everything since the last sweep commit.
+## 1. Batch
 
-## 1. Pick the range
+Balance batches by churn size (`git diff --shortstat` per dir), file sets
+disjoint, each batch's diff reviewable in one sitting. Skip generated files
+entirely (repo's Do-Not-Edit table).
 
-- If `$ARGUMENTS` gives a range/ref, use it.
-- Else base = last commit matching `git log -i --grep='^tidy\|^sweep' -1` (the
-  `sweep(<area>):` tag from step 4 is the state store — no other bookkeeping).
-- Sanity-check with `git diff --stat <base>..HEAD` and report commits/files/churn
-  to the user before launching.
+## 2. Launch headless /simplify per batch
 
-## 2. Batch
-
-- Small ranges: one batch. Larger: **balance batches by churn size, not by area**
-  (per-directory `git diff --shortstat`), keeping each batch's file set disjoint
-  and each batch small enough that its diff is comfortably reviewable in one
-  sitting — split further if a batch's review drags.
-- Skip generated files entirely (repo's Do-Not-Edit table); they get regenerated,
-  never hand-cleaned.
-
-## 3. Launch headless /simplify per batch
-
-Parallel is the default for multi-batch sweeps: one detached worktree per batch
+Parallel default: one detached worktree per batch
 (`git worktree add ~/projects/<repo>-worktrees/sweep-<name> HEAD --detach`),
-launch each run with `run_in_background`, then per finished batch export
-`git -C <worktree> diff > patch`, apply to the main checkout, review, test,
-commit, and finally `git worktree remove` them. Batches are disjoint, so patches
-never conflict. Sequential in the main checkout is the fallback for 1–2 batches.
-**3+ background batches → arm the watchdog** per the shared contract in
-`docs/lane-watchdog.md` (pulse files + one Monitor, kill-before-restart) —
-detached lanes die silently.
+`run_in_background`; per finished batch export the worktree diff as a patch,
+apply to the main checkout, review, test, commit, remove the worktree.
+Sequential in the main checkout is fine for 1–2 batches. **3+ background
+batches → watchdog per `docs/lane-watchdog.md`.**
 
 ```bash
 claude -p --model sonnet --permission-mode acceptEdits \
@@ -51,25 +37,16 @@ Do NOT change public behavior, serialized output, generated files, CLI/user-visi
 text, or test intent. When unsure, leave it alone."
 ```
 
-Rules:
-- **Sonnet floor — never Haiku.** Haiku punts on large diffs ("verify X" instead of
-  doing the work).
-- **Never two headless runs editing one checkout.** Parallel only with one worktree
-  per run.
-- The run leaves uncommitted edits in the working tree — that's the handoff.
+**Sonnet floor — never Haiku** (punts on large diffs). **Never two headless
+runs editing one checkout.** The run leaves uncommitted edits — that's the
+handoff.
 
-## 4. Review and commit (main session)
+## 3. Review and commit (main session)
 
-Per batch, before the next launch:
-- Read the working-tree diff. Revert over-reaches: behavior changes, dict-key
-  removals, getattr→direct rewrites, anything touching serialized output or tests'
-  intent. Past sweeps show Sonnet over-reaches ~2–3 times per batch — expect it.
-  This review gate is the skill's entire safety story; never skip it.
-- Run the target repo's fast test loop (e.g. `just test`, if the repo has a
-  `just` recipe) plus any focused tests for touched areas.
-- Commit the batch: subject `sweep(<area>): <summary>`, via the repo's own
-  commit recipe if it has one. Tests must pass before commit. The tag doubles
-  as the next sweep's range marker.
-
-Finish with a one-line tally per batch (files touched, reverted over-reaches,
-commit hash) and the overall range covered.
+Per batch: read the diff and revert over-reaches — behavior changes, dict-key
+removals, anything touching serialized output or test intent (expect ~2–3 per
+batch; this gate is the skill's entire safety story, never skip it). Run the
+repo's fast test loop; tests pass before commit. Subject `sweep(<area>):
+<summary>` — the tag doubles as the next sweep's range marker. Finish with a
+one-line tally per batch (files, reverted over-reaches, hash) and the range
+covered.
