@@ -1,0 +1,26 @@
+[
+    {
+        "model": "claude-sonnet-5",
+        "effective_from": null,
+        "effective_until": "2026-08-31T23:59:59Z",
+        "rates": {
+            "in": 2.00,
+            "out": 10.00,
+            "cache_5m": 2.50,
+            "cache_1h": 4.00,
+            "cache_read": 0.20
+        }
+    },
+    {
+        "model": "claude-sonnet-5",
+        "effective_from": "2026-09-01T00:00:00Z",
+        "effective_until": null,
+        "rates": {
+            "in": 3.00,
+            "out": 15.00,
+            "cache_5m": 3.75,
+            "cache_1h": 6.00,
+            "cache_read": 0.30
+        }
+    }
+]

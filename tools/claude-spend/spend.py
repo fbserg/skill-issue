@@ -11,7 +11,14 @@ Correctness notes:
 - Deduplicates usage by message.id (not record UUID) — one API response can
   appear across multiple JSONL records (one per content block).
 - Accounts for cache_creation (5m and 1h tiers) vs cache_read tiers.
-- Flags long-context (>200k total tokens) with 2x surcharge on non-cache-read.
+- Prices via pricing_generated.py: dated override -> exact model ID ->
+  family fallback. Above-200k tier rates apply only where the registry
+  carries them for that model (no blanket long-context multiplier);
+  long-context sessions (>200k total tokens) are still flagged in output.
+  Family-fallback and unpriced (unknown-family) messages are counted and
+  surfaced, never silently costed $0.
+- Output is labeled "API-equivalent cost": on Max-plan subscriptions this
+  is a proxy for usage-cap consumption, not a real dollar charge.
 - Identifies skill invocations via the Skill tool_use blocks.
 
 Usage:
@@ -35,50 +42,21 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator
 
+from pricing_generated import PRICING_BY_FAMILY, PRICING_BY_MODEL, PRICING_DATED
 
 # ---------------------------------------------------------------------------
-# Pricing table (USD per million tokens, June 2026)
-# IMPORTANT: Verify against https://www.anthropic.com/api before relying on
-# these numbers for billing decisions. Marked for easy editing.
+# Pricing lookup (USD per million tokens)
+#
+# Rates come from pricing_generated.py (regenerate via generate_pricing.py
+# from litellm_snapshot.json + pricing_overrides.json — see
+# tools/claude-spend/README or the module docstrings). Lookup order:
+# dated override (pricing_overrides.json regimes, keyed by message
+# timestamp) -> exact model-ID match -> family fallback. Family fallback
+# and unpriced (unknown-family) messages are counted and surfaced in
+# summary output rather than silently costing $0.
 # ---------------------------------------------------------------------------
-PRICING: dict[str, dict[str, float]] = {
-    # claude-fable-5 / claude-mythos-5
-    "fable": {
-        "in": 10.00,
-        "out": 50.00,
-        "cache_5m": 12.50,
-        "cache_1h": 20.00,
-        "cache_read": 1.00,
-    },
-    # Opus 4.5 and later ($5/$25). NOTE: Opus 4.1 and earlier were $15/$75;
-    # transcripts from before Nov 2025 will undercount at these rates.
-    "opus": {
-        "in": 5.00,  # input tokens
-        "out": 25.00,  # output tokens
-        "cache_5m": 6.25,  # cache-creation (5-minute ephemeral)
-        "cache_1h": 10.00,  # cache-creation (1-hour ephemeral)  -- 2x input
-        "cache_read": 0.50,  # cache-read
-    },
-    # claude-sonnet-4, claude-sonnet-3-7, claude-sonnet-3-5
-    "sonnet": {
-        "in": 3.00,
-        "out": 15.00,
-        "cache_5m": 3.75,
-        "cache_1h": 6.00,
-        "cache_read": 0.30,
-    },
-    # claude-haiku-3-5, older haiku
-    "haiku": {
-        "in": 1.00,
-        "out": 5.00,
-        "cache_5m": 1.25,
-        "cache_1h": 2.00,
-        "cache_read": 0.10,
-    },
-}
 
-LONG_CTX_THRESHOLD = 200_000  # tokens; surcharge triggers above this
-LONG_CTX_MULTIPLIER = 2.0
+LONG_CTX_THRESHOLD = 200_000  # tokens; above-200k tier rates apply if the model has them
 
 
 def model_family(model: str) -> str | None:
@@ -96,12 +74,54 @@ def model_family(model: str) -> str | None:
     return None
 
 
-def compute_cost(model: str, usage: dict) -> float:
-    """Compute USD cost for one deduplicated assistant message."""
+def parse_ts(ts: str | None) -> datetime | None:
+    if not ts:
+        return None
+    try:
+        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def resolve_rates(model: str, ts: str | None) -> tuple[dict[str, float] | None, str]:
+    """Return (rates, source). source is one of 'dated', 'exact', 'family', 'unpriced'."""
+    if not model:
+        return None, "unpriced"
+
+    dt = parse_ts(ts)
+    for override in PRICING_DATED:
+        if override["model"] != model:
+            continue
+        start = parse_ts(override["effective_from"])
+        end = parse_ts(override["effective_until"])
+        if dt is None:
+            continue
+        if start and dt < start:
+            continue
+        if end and dt > end:
+            continue
+        return override["rates"], "dated"
+
+    if model in PRICING_BY_MODEL:
+        return PRICING_BY_MODEL[model], "exact"
+
     fam = model_family(model)
-    if fam is None:
-        return 0.0
-    p = PRICING[fam]
+    if fam and fam in PRICING_BY_FAMILY:
+        return PRICING_BY_FAMILY[fam], "family"
+
+    return None, "unpriced"
+
+
+def compute_cost(model: str, usage: dict, ts: str | None = None) -> tuple[float, str]:
+    """Compute USD cost for one deduplicated assistant message.
+
+    Returns (cost, source) where source is 'dated', 'exact', 'family', or
+    'unpriced' — callers use source to count fallback/unpriced messages
+    instead of letting them silently cost $0.
+    """
+    rates, source = resolve_rates(model, ts)
+    if rates is None:
+        return 0.0, source
 
     inp = usage.get("input_tokens", 0) or 0
     out = usage.get("output_tokens", 0) or 0
@@ -116,19 +136,26 @@ def compute_cost(model: str, usage: dict) -> float:
         # No breakdown — assume all 5m (conservative; real cost may differ).
         cc_5m = cc
 
-    # Long-context surcharge applies to non-cache-read tokens.
+    # Above-200k tier rates apply only where the resolved entry carries
+    # them (Claude 4.6+, Fable, Sonnet 5: standard pricing at any length —
+    # no blanket surcharge).
     total_ctx = inp + cr + cc
-    mult = LONG_CTX_MULTIPLIER if total_ctx > LONG_CTX_THRESHOLD else 1.0
+    tiered = total_ctx > LONG_CTX_THRESHOLD and "in_200k" in rates
+
+    def rate(field: str) -> float:
+        if tiered:
+            return rates.get(f"{field}_200k", rates[field])
+        return rates[field]
 
     cost = (
-        inp * p["in"] * mult
-        + out * p["out"] * mult
-        + cc_5m * p["cache_5m"] * mult
-        + cc_1h * p["cache_1h"] * mult
-        + cr * p["cache_read"]  # cache_read not surcharged
+        inp * rate("in")
+        + out * rate("out")
+        + cc_5m * rate("cache_5m")
+        + cc_1h * rate("cache_1h")
+        + cr * rate("cache_read")
     ) / 1_000_000
 
-    return cost
+    return cost, source
 
 
 def cache_hit_pct(usage: dict) -> float | None:
@@ -207,6 +234,11 @@ class SessionStats:
         # skill invocations: list of {skill, tool_use_id, line}
         self.skills: list[dict] = []
 
+        # pricing-source counts, keyed by the raw model string seen in the
+        # transcript — never silently $0 (see resolve_rates)
+        self.fallback_by_model: dict[str, int] = defaultdict(int)
+        self.unpriced_by_model: dict[str, int] = defaultdict(int)
+
         # cache stats for smell detection
         self.cache_writes: list[int] = []  # cc per turn
         self.cache_reads: list[int] = []  # cr per turn
@@ -276,7 +308,12 @@ class SessionStats:
                     pass
 
             fam = model_family(model)
-            if fam is None:
+
+            cost, source = compute_cost(model, usage, ts)
+            if source == "family":
+                self.fallback_by_model[model] += 1
+            elif source == "unpriced":
+                self.unpriced_by_model[model] += 1
                 continue
 
             inp_tok = usage.get("input_tokens", 0) or 0
@@ -288,9 +325,8 @@ class SessionStats:
             if total_ctx > LONG_CTX_THRESHOLD:
                 self.long_ctx_turns += 1
 
-            c = compute_cost(model, usage)
-            self.cost_by_family[fam] += c
-            self.total_cost += c
+            self.cost_by_family[fam] += cost
+            self.total_cost += cost
 
             tf = self.tokens_by_family[fam]
             tf["in"] += inp_tok
@@ -343,8 +379,8 @@ def scan_sessions(
     for path in files:
         stat = SessionStats(path)
         stat.process(cutoff=cutoff)
-        # Only include if there's cost data in the window
-        if stat.total_cost == 0.0 and not stat.skills:
+        # Only include if there's cost data (or something worth reporting) in the window
+        if stat.total_cost == 0.0 and not stat.skills and not stat.fallback_by_model and not stat.unpriced_by_model:
             continue
         if skill_filter and not any((s.get("skill") or "").lower() == skill_filter.lower() for s in stat.skills):
             continue
@@ -394,11 +430,12 @@ def fmt_tokens(n: int) -> str:
 def print_session_table(sessions: list[SessionStats], top: int = 20) -> None:
     shown = sessions[:top]
     print(
-        f"\n{'Rank':<5} {'Cost':>9} {'Opus':>9} {'Sonnet':>9} {'Haiku':>9} "
+        f"\n{'Rank':<5} {'Cost':>9} {'Fable':>9} {'Opus':>9} {'Sonnet':>9} {'Haiku':>9} "
         f"{'LongCtx':>8} {'HitPct':>7} {'Skills':<30} {'SessionFile'}"
     )
-    print("-" * 120)
+    print("-" * 130)
     for i, s in enumerate(shown, 1):
+        fable = s.cost_by_family.get("fable", 0)
         opus = s.cost_by_family.get("opus", 0)
         sonnet = s.cost_by_family.get("sonnet", 0)
         haiku = s.cost_by_family.get("haiku", 0)
@@ -408,7 +445,7 @@ def print_session_table(sessions: list[SessionStats], top: int = 20) -> None:
         hit_str = f"{hit:.0f}%" if hit is not None else "n/a"
         fname = s.path.name[:40]
         print(
-            f"{i:<5} {fmt_usd(s.total_cost):>9} {fmt_usd(opus):>9} "
+            f"{i:<5} {fmt_usd(s.total_cost):>9} {fmt_usd(fable):>9} {fmt_usd(opus):>9} "
             f"{fmt_usd(sonnet):>9} {fmt_usd(haiku):>9} "
             f"{s.long_ctx_turns:>8} {hit_str:>7} {skills:<30} {fname}{smell}"
         )
@@ -424,21 +461,39 @@ def print_skill_table(skill_data: dict[str, dict]) -> None:
 def print_summary(sessions: list[SessionStats], days: int) -> None:
     total = sum(s.total_cost for s in sessions)
     by_fam: dict[str, float] = defaultdict(float)
+    fallback_by_model: dict[str, int] = defaultdict(int)
+    unpriced_by_model: dict[str, int] = defaultdict(int)
     for s in sessions:
         for fam, cost in s.cost_by_family.items():
             by_fam[fam] += cost
+        for model, n in s.fallback_by_model.items():
+            fallback_by_model[model] += n
+        for model, n in s.unpriced_by_model.items():
+            unpriced_by_model[model] += n
 
     smells = [s for s in sessions if s.has_cache_invalidation_smell()]
     long_ctx = [s for s in sessions if s.long_ctx_turns > 0]
 
     print(f"\n=== Claude Spend — Last {days} Days ===")
     print(f"Sessions with activity:  {len(sessions)}")
-    print(f"Total estimated cost:    {fmt_usd(total)}")
+    print(f"Total API-equivalent cost: {fmt_usd(total)}")
+    print(f"  Fable:                 {fmt_usd(by_fam.get('fable', 0))}")
     print(f"  Opus:                  {fmt_usd(by_fam.get('opus', 0))}")
     print(f"  Sonnet:                {fmt_usd(by_fam.get('sonnet', 0))}")
     print(f"  Haiku:                 {fmt_usd(by_fam.get('haiku', 0))}")
     print(f"Sessions with long-ctx:  {len(long_ctx)}")
     print(f"Cache-invalidation smells: {len(smells)}")
+
+    if fallback_by_model:
+        total_fallback = sum(fallback_by_model.values())
+        print(f"Priced via family fallback (no exact/dated model match): {total_fallback} message(s)")
+        for model, n in sorted(fallback_by_model.items(), key=lambda kv: -kv[1]):
+            print(f"  {model}: {n}")
+    if unpriced_by_model:
+        total_unpriced = sum(unpriced_by_model.values())
+        print(f"UNPRICED (unknown model family, cost NOT counted above): {total_unpriced} message(s)")
+        for model, n in sorted(unpriced_by_model.items(), key=lambda kv: -kv[1]):
+            print(f"  {model}: {n}")
 
 
 # ---------------------------------------------------------------------------
@@ -489,6 +544,8 @@ def main() -> int:
                     "long_ctx_turns": s.long_ctx_turns,
                     "cache_hit_pct": s.cache_hit_pct_overall(),
                     "cache_invalidation_smell": s.has_cache_invalidation_smell(),
+                    "fallback_by_model": dict(s.fallback_by_model),
+                    "unpriced_by_model": dict(s.unpriced_by_model),
                     "skills": s.skills,
                 }
             )
