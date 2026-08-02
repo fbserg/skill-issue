@@ -10,20 +10,39 @@ Run with: python3 -m pytest tests/test_claude_spend_pricing.py -v
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CLAUDE_SPEND_DIR = REPO_ROOT / "tools" / "claude-spend"
 
+
+def _load_module(name: str, path: Path) -> ModuleType:
+    """Load a module by file path — tools/claude-spend isn't an importable
+    package (hyphen in the dir name), and loading by path (rather than a
+    static `import <name>` statement) keeps pyright from flagging an
+    unresolvable import."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+# spend.py does `from pricing_generated import ...`, which only resolves if
+# tools/claude-spend is on sys.path (true when spend.py runs as __main__;
+# not true when loaded by path here) — add it explicitly.
 sys.path.insert(0, str(CLAUDE_SPEND_DIR))
 
-import generate_pricing  # noqa: E402
-import spend  # noqa: E402
+generate_pricing = _load_module("generate_pricing", CLAUDE_SPEND_DIR / "generate_pricing.py")
+spend = _load_module("spend", CLAUDE_SPEND_DIR / "spend.py")
 
 
 # ---------------------------------------------------------------------------

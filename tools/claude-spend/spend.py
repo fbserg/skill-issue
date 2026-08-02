@@ -308,13 +308,13 @@ class SessionStats:
                     pass
 
             fam = model_family(model)
+            if fam is None:
+                self.unpriced_by_model[model] += 1
+                continue
 
             cost, source = compute_cost(model, usage, ts)
             if source == "family":
                 self.fallback_by_model[model] += 1
-            elif source == "unpriced":
-                self.unpriced_by_model[model] += 1
-                continue
 
             inp_tok = usage.get("input_tokens", 0) or 0
             out_tok = usage.get("output_tokens", 0) or 0
