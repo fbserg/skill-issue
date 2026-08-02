@@ -157,6 +157,7 @@ def _minimal_full_registry() -> dict:
             "input_cost_per_token": 1e-06,
             "output_cost_per_token": 5e-06,
         }
+    reg["_meta"] = {"vendored_at": "2026-08-02", "source": "test"}
     return reg
 
 
@@ -328,3 +329,35 @@ def test_session_stats_tracks_unpriced_messages_by_model_string(tmp_path: Path) 
     assert stats.unpriced_by_model == {"gpt-x": 1}
     assert stats.fallback_by_model == {"sonnet": 1}
     assert stats.total_cost > 0  # the "sonnet" alias message was priced via fallback
+
+
+def test_generator_hard_fails_without_vendored_at_stamp(tmp_path: Path) -> None:
+    registry = _minimal_full_registry()
+    del registry["_meta"]  # pre-stamp snapshots must be re-vendored, not guessed at
+    snapshot = tmp_path / "snapshot.json"
+    overrides = tmp_path / "overrides.json"
+    out = tmp_path / "pricing_generated.py"
+    _write_registry(snapshot, registry)
+    overrides.write_text("[]")
+
+    result = subprocess.run(
+        [sys.executable, str(CLAUDE_SPEND_DIR / "generate_pricing.py"), str(snapshot), str(overrides), str(out)],
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "vendored_at" in result.stderr
+    assert not out.exists()
+
+
+def test_snapshot_age_warning_fresh_and_stale() -> None:
+    from datetime import datetime, timedelta, timezone
+
+    vendored = datetime.strptime(spend.SNAPSHOT_VENDORED_AT, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    fresh = vendored + timedelta(days=spend.SNAPSHOT_STALE_AFTER_DAYS)
+    stale = vendored + timedelta(days=spend.SNAPSHOT_STALE_AFTER_DAYS + 30)
+
+    assert spend.snapshot_age_warning(today=fresh) is None
+    warning = spend.snapshot_age_warning(today=stale)
+    assert warning is not None
+    assert "vendor_pricing.py" in warning  # actionable: names the refresh command

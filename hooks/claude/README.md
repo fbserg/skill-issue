@@ -138,7 +138,7 @@ pure observer.
 
 ## quality/ — format-on-write + unresolved-failure gate
 
-Four-stage suite sharing `quality/claude_quality_lib.py`:
+Five-stage suite sharing `quality/claude_quality_lib.py`:
 
 - **`claude_quality_pre_tool.py`** (`PreToolUse`, matcher `Bash`) — records
   pre-command state so failures can be attributed correctly.
