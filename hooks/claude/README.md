@@ -5,46 +5,22 @@ copies run from a private config repo** (`~/.claude/hooks` is a symlink into
 it); this directory is synced here manually, so it can lag the live set.
 Treat it as reference/install material, not a live-editable source.
 
-Nine hooks, wired via `~/.claude/settings.json`. Paths below assume you drop
+Seven hooks, wired via `~/.claude/settings.json`. Paths below assume you drop
 these files under `~/.claude/hooks/` (adjust if you install elsewhere).
 
-## expensive_model_edit_guard.py
+## Removed: expensive_model_edit_guard.py + edit_guard_backstop.py (tombstone)
 
-Blocks an expensive model (Fable/Opus) from doing its own implementation
-work: warns once at 3 direct `Edit`/`Write`/`NotebookEdit` calls in a
-session, hard-denies at 8+. Sonnet/Haiku sessions and subagent (sidechain)
-calls pass through untouched. `.md`/`.txt`/config files and anything under
-`~/.claude/` are exempt. Override with `EDIT_GUARD_OFF=1` or by touching
-`/tmp/edit-guard-off-<session_id>`.
-
-```json
-"PreToolUse": [
-  {
-    "matcher": "Edit|Write|NotebookEdit",
-    "hooks": [
-      {"type": "command", "command": "/opt/homebrew/bin/python3 ~/.claude/hooks/expensive_model_edit_guard.py"}
-    ]
-  }
-]
-```
-
-## edit_guard_backstop.py
-
-Stop-event backstop for the guard above. If a session blew past the hard
-cap of direct edits with zero `PreToolUse:Edit/Write` hook executions
-recorded in the transcript, the primary guard silently failed to fire (e.g.
-a `bypassPermissions`-mode regression) — this hook detects that and blocks
-the stop so the break gets investigated instead of going unnoticed.
-
-```json
-"Stop": [
-  {
-    "hooks": [
-      {"type": "command", "command": "/opt/homebrew/bin/python3 ~/.claude/hooks/edit_guard_backstop.py"}
-    ]
-  }
-]
-```
+Deleted from the live hook set 2026-07-24 per the DECISIONS.md subtraction-pass
+ruling (`docs/DECISIONS.md`, "2026-07-24 — Subtraction pass"): across 14,509
+transcripts the guard fired 510 times without changing edit behavior — the
+warn tier allowed retry by design, the hard cap was lifted whenever it bound,
+and 94% of expensive-model edits happened regardless — so the prose rule it
+enforced ("expensive model never edits") was deleted along with it rather than
+re-asserted. Reopen condition (an unreviewed main-thread edit ships a defect a
+delegate would have caught) is recorded there, unmet as of this mirror sync.
+Migration: if you copied these two files under `~/.claude/hooks/` and wired
+them in `settings.json`, remove both files and their `PreToolUse`/`Stop`
+entries.
 
 ## effort_spawn_guard.py
 
