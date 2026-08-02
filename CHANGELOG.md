@@ -4,6 +4,15 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- claude-spend freshness tripwires: the vendored pricing snapshot is now
+  stamped with `_meta.vendored_at` (vendor_pricing.py), the generator requires
+  the stamp and freezes it into `pricing_generated.py`, and spend.py's summary
+  prints an actionable staleness warning past 120 days. Together with the
+  existing family-fallback report (new model IDs announce themselves) and
+  dated overrides (announced flips like Sonnet 5's Sep 1 encoded ahead of
+  time), pricing staleness is now self-announcing on every axis — no cron, no
+  runtime fetch. Also fixed hooks/claude/README.md's quality-suite stage count
+  (said four, lists five).
 - Mirror-sync fix (#28): `hooks/claude/expensive_model_edit_guard.py` and
   `hooks/claude/edit_guard_backstop.py` deleted from the published mirror —
   they were already dead in the live hook set per the 2026-07-24 DECISIONS.md

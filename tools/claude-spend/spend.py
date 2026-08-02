@@ -42,7 +42,34 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Iterator
 
-from pricing_generated import PRICING_BY_FAMILY, PRICING_BY_MODEL, PRICING_DATED
+from pricing_generated import (
+    PRICING_BY_FAMILY,
+    PRICING_BY_MODEL,
+    PRICING_DATED,
+    SNAPSHOT_VENDORED_AT,
+)
+
+SNAPSHOT_STALE_AFTER_DAYS = 120
+
+
+def snapshot_age_warning(today: datetime | None = None) -> str | None:
+    """One-line staleness warning when the vendored pricing snapshot is old.
+
+    New-model staleness self-announces via the family-fallback report; this
+    covers the other axis — same-ID price changes that only a re-vendor would
+    pick up.
+    """
+    now = today or datetime.now(timezone.utc)
+    vendored = datetime.strptime(SNAPSHOT_VENDORED_AT, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    age_days = (now - vendored).days
+    if age_days <= SNAPSHOT_STALE_AFTER_DAYS:
+        return None
+    return (
+        f"WARNING: pricing snapshot is {age_days} days old (vendored {SNAPSHOT_VENDORED_AT}) — "
+        "refresh: python3 tools/claude-spend/vendor_pricing.py && "
+        "python3 tools/claude-spend/generate_pricing.py tools/claude-spend/litellm_snapshot.json "
+        "tools/claude-spend/pricing_overrides.json tools/claude-spend/pricing_generated.py"
+    )
 
 # ---------------------------------------------------------------------------
 # Pricing lookup (USD per million tokens)
@@ -494,6 +521,10 @@ def print_summary(sessions: list[SessionStats], days: int) -> None:
         print(f"UNPRICED (unknown model family, cost NOT counted above): {total_unpriced} message(s)")
         for model, n in sorted(unpriced_by_model.items(), key=lambda kv: -kv[1]):
             print(f"  {model}: {n}")
+
+    stale = snapshot_age_warning()
+    if stale:
+        print(stale)
 
 
 # ---------------------------------------------------------------------------

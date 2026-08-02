@@ -10,6 +10,8 @@ to 2x input per Anthropic's documented rule):
 - claude-3-opus-20240229: cache_1h 6.0 -> 30.0 (registry value violated cache_1h>=cache_5m or +/-10% of 2x input=30.0)
 """
 
+SNAPSHOT_VENDORED_AT = "2026-08-02"
+
 PRICING_BY_MODEL = {
     "claude-3-7-sonnet-20250219": {
         "cache_1h": 6.0,

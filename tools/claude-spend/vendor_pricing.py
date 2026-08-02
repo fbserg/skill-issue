@@ -20,6 +20,7 @@ import argparse
 import json
 import sys
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 DEFAULT_SOURCE = (
@@ -66,9 +67,13 @@ def main() -> int:
     if not snapshot:
         sys.exit(f"no anthropic/claude entries found in {args.source} — refusing to write an empty snapshot")
 
+    snapshot["_meta"] = {
+        "vendored_at": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "source": args.source,
+    }
     out_path = Path(args.out)
     out_path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n")
-    print(f"wrote {len(snapshot)} anthropic claude entries from {args.source} to {out_path}")
+    print(f"wrote {len(snapshot) - 1} anthropic claude entries from {args.source} to {out_path}")
     return 0
 
 

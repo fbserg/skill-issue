@@ -1,4 +1,8 @@
 {
+  "_meta": {
+    "source": "litellm_snapshot.json",
+    "vendored_at": "2026-08-02"
+  },
   "claude-3-7-sonnet-20250219": {
     "cache_creation_input_token_cost": 3.75e-06,
     "cache_creation_input_token_cost_above_1hr": 6e-06,

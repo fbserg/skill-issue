@@ -117,6 +117,12 @@ def main() -> None:
     snapshot_path, overrides_path, dst = sys.argv[1], sys.argv[2], sys.argv[3]
 
     registry = json.loads(Path(snapshot_path).read_text())
+    vendored_at = (registry.get("_meta") or {}).get("vendored_at")
+    if not vendored_at:
+        sys.exit(
+            f"{snapshot_path} has no _meta.vendored_at stamp — re-vendor it with "
+            "vendor_pricing.py so snapshot age is trackable"
+        )
     table, corrections = extract(registry)
 
     missing_reps = [fam for fam, mid in FAMILY_REPRESENTATIVE.items() if mid not in table]
@@ -144,6 +150,7 @@ def main() -> None:
             for note in corrections:
                 fh.write(f"- {note}\n")
         fh.write('"""\n\n')
+        fh.write(f'SNAPSHOT_VENDORED_AT = "{vendored_at}"\n\n')
         fh.write("PRICING_BY_MODEL = ")
         fh.write(json.dumps(table, indent=4, sort_keys=True).replace("null", "None"))
         fh.write("\n\nPRICING_BY_FAMILY = ")
