@@ -12,9 +12,10 @@ these files under `~/.claude/hooks/` (adjust if you install elsewhere).
 
 Deleted from the live hook set 2026-07-24 per the DECISIONS.md subtraction-pass
 ruling (`docs/DECISIONS.md`, "2026-07-24 — Subtraction pass"): across 14,509
-transcripts the guard fired 510 times and was overridden every time — 94% of
-expensive-model edits happened anyway — so the prose rule it enforced
-("expensive model never edits") was deleted along with it rather than
+transcripts the guard fired 510 times without changing edit behavior — the
+warn tier allowed retry by design, the hard cap was lifted whenever it bound,
+and 94% of expensive-model edits happened regardless — so the prose rule it
+enforced ("expensive model never edits") was deleted along with it rather than
 re-asserted. Reopen condition (an unreviewed main-thread edit ships a defect a
 delegate would have caught) is recorded there, unmet as of this mirror sync.
 Migration: if you copied these two files under `~/.claude/hooks/` and wired
