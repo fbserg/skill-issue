@@ -119,18 +119,17 @@ See [INDEX.md](INDEX.md) for the full tools/scripts table.
 
 ## Hooks
 
-Nine Claude Code hooks — the live set the author actually runs — mirrored in
+Seven Claude Code hooks — the live set the author actually runs — mirrored in
 [`hooks/claude/`](hooks/claude/).
 
 | Hook | What it does |
 |---|---|
-| [`expensive_model_edit_guard.py`](hooks/claude/expensive_model_edit_guard.py) | Warn/block Fable/Opus from piling up direct code edits — keeps expensive models as orchestrators. |
-| [`edit_guard_backstop.py`](hooks/claude/edit_guard_backstop.py) | Stop-time backstop that catches the edit guard silently failing to fire. |
 | [`effort_spawn_guard.py`](hooks/claude/effort_spawn_guard.py) | Block `Agent`/`Workflow` spawns that would inherit the main thread's effort level instead of naming a custom agent type. |
 | [`guard-settings-json.sh`](hooks/claude/guard-settings-json.sh) | Block invalid fields (`mcpServers`, `disabledSkills`) from landing in `settings.json`; protect `~/.claude/CLAUDE.md` from edits. |
 | [`pretool-bash.sh`](hooks/claude/pretool-bash.sh) | Block destructive Bash commands, filter verbose test output, apply RTK's token-saving rewrite, gate `git push` on a clean build. |
 | [`notify-done.sh`](hooks/claude/notify-done.sh) | Ring the terminal bell when Claude's last message is actually a question. |
 | [`confetti-gate.sh`](hooks/claude/confetti-gate.sh) | Fire Raycast confetti after a successful deploy. macOS + Raycast only. |
+| [`stop-failure.sh`](hooks/claude/stop-failure.sh) | Log API-error turn ends (rate limit, overload, server error) to a JSONL watchdog trail and ring the bell. |
 | [`quality/`](hooks/claude/quality/) | Format-on-write + unresolved-failure Stop gate, four cooperating hooks sharing one state file. |
 
 See [`hooks/claude/README.md`](hooks/claude/README.md) for per-hook `settings.json` snippets and what was deliberately left out.

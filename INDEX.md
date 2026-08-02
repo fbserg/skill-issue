@@ -62,12 +62,9 @@ Published mirror of the live hook set; canonical copies run from a private confi
 
 | Name | Path | Event | TLDR |
 |---|---|---|---|
-| expensive_model_edit_guard | `hooks/claude/expensive_model_edit_guard.py` | PreToolUse | Warn at 3 / hard-block at 8 direct edits per session on Fable/Opus models. |
-| edit_guard_backstop | `hooks/claude/edit_guard_backstop.py` | Stop | Catches the edit guard silently failing to fire (e.g. bypassPermissions regression). |
 | effort_spawn_guard | `hooks/claude/effort_spawn_guard.py` | PreToolUse | Block `Agent`/`Workflow` spawns that omit a custom agent type / `agentType`. |
 | guard-settings-json | `hooks/claude/guard-settings-json.sh` | PreToolUse | Block invalid fields in settings.json; protect `~/.claude/CLAUDE.md`. |
 | pretool-bash | `hooks/claude/pretool-bash.sh` | PreToolUse | Block destructive Bash, filter verbose test output, RTK rewrite, pre-push build gate. |
-| sessionstart-context | `hooks/claude/sessionstart-context.sh` | SessionStart | Inject current branch + recent commits into every session automatically. |
 | notify-done | `hooks/claude/notify-done.sh` | Stop | Ring the terminal bell when Claude's last message is actually a question. |
 | confetti-gate | `hooks/claude/confetti-gate.sh` | Stop | Fire Raycast confetti after a successful deploy/push. macOS + Raycast only. |
 | stop-failure | `hooks/claude/stop-failure.sh` | StopFailure | Log API-error turn ends to a JSONL watchdog trail + terminal bell. |
