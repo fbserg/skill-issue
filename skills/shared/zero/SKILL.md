@@ -5,16 +5,13 @@ description: "Zero out a repo — destructive cleanup of pending work, PRs, loca
 
 # /zero skill
 
-Zero out the repo: commit pending changes on `main`, merge open PRs and delete
-their branches, merge every non-main worktree and every stray local or remote
-branch into `main`, drop worktrees, delete local and remote branches, push
-`main`, report open issues.
-
-Intentionally aggressive, only for the user's explicit "zero" point. The
-request itself authorizes the cleanup: run the read-only inventory, summarize,
-then continue without a second confirmation. **The cleanup must never discard
-work** — checkpoint dirty trees, merge every real unmerged patch, delete only
-what is merged or proven patch-equivalent to `main`.
+Zero out the repo — every branch, worktree, and PR merged into `main` or
+proven already there, then deleted; `main` pushed. Intentionally aggressive,
+only for the user's explicit "zero": the request itself authorizes the
+cleanup — run the read-only inventory, summarize, continue without a second
+confirmation. **The cleanup must never discard work** — checkpoint dirty
+trees, merge every real unmerged patch, delete only what is merged or proven
+patch-equivalent to `main`.
 
 ## Shared procedures
 
@@ -58,8 +55,8 @@ Deletion rules:
 - **Remote ref:** never delete it until all real work is merged, validated, and
   the updated default branch is successfully pushed. Re-run CLASSIFY against
   the pushed default branch, then use `git push <remote> --delete <branch>`.
-- Never delete a remote's default branch, its symbolic `HEAD`, or a branch
-  belonging to an open PR.
+- Never delete a default branch (local or remote, whatever its name), a
+  remote's symbolic `HEAD`, or a branch belonging to an open PR.
 
 ## Execution
 
@@ -91,7 +88,9 @@ Deletion rules:
    yet.
 7. **Push main** via the repo's documented push recipe (e.g. `just
    push-main`), else `git push origin main`. Skips elsewhere don't block the
-   push unless it would publish an incomplete merge.
+   push unless it would publish an incomplete merge. The only remote writes
+   this skill ever makes: `gh pr merge` effects, this push, and step 8's
+   proven-safe deletions — never a force push.
 8. **Delete remote branches:** fetch/prune, re-run the open-PR guard and
    CLASSIFY each recorded remote ref against the now-pushed default branch,
    then `git push <remote> --delete <branch>`. A failed delete is reported and
@@ -100,20 +99,3 @@ Deletion rules:
    worktrees dropped / local branches deleted / remote branches deleted / push
    status; every skip with its reason; conflicts resolved; unmerged branches
    only if blocked; open PRs and open issues (informational — never touched).
-
-## Guardrails
-
-- Never delete the default branch (`main`, `master`, or otherwise).
-- `git branch -D` only when CLASSIFY proves merged/empty (ahead=0, ancestor,
-  or clean `git cherry`).
-- Remote branch deletion requires CLASSIFY proof, a successful default-branch
-  push containing any merged work, and a repeated open-PR guard immediately
-  before deletion.
-- Open PR branches are touched only via `gh pr merge --delete-branch`; if that
-  fails, leave PR and branch alone.
-- Every dirty tree is CHECKPOINTed (inspected diff, real message) before any
-  merge.
-- Conflicts are resolved, validated, committed — ask only on product
-  decisions.
-- Remote pushes are limited to `gh pr merge` effects, the final default-branch
-  push, and deletion of non-default remote branches proven safe by CLASSIFY.

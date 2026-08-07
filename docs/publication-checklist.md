@@ -20,7 +20,7 @@ Before tagging and announcing a new release:
 - [ ] `sweep` frontmatter declares `code-simplifier` plugin dependency
 
 ## Functional
-- [ ] `/epic-plan "<topic>"` goes through all 7 stages and asks one question at a time
+- [ ] `/epic-plan "<topic>"` runs contract → research → decompose → review → materialize and asks contract questions one at a time
 - [ ] No skill references an unshipped sibling skill
 
 ## Repo
