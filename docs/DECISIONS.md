@@ -3,6 +3,30 @@
 Durable rulings on contested choices. Check here before re-litigating; a
 standing ruling short-circuits the debate unless its reopen condition fired.
 
+## 2026-08-07 — Hook audit: dead machinery deleted, project guards relocated
+
+**Decision:** the global hook set was audited against consumers, producers,
+and logs (etc repo commit e889127). Deleted: `epic-tally-subagent.sh` (fed
+`epic_costs.py`, which no longer exists on disk, for the epic-run pipeline
+retired 2026-06-20; last real write 21 May), `idle-stamp.sh` (both wirings —
+its idle-stamp files had zero consumers), pretool-bash's test-output
+filter (same class as rtk, killed under the 2026-07-30 output-filter
+ruling's own evidence bar: lossy `grep|head` stubs, silent, phantom savings
+vs the harness's 30k truncation), and the gstack carve-outs (CLI
+uninstalled, `~/.gstack` dormant since 29 May). Relocated: the heartwood VM
+guards (~90 lines, IP-scoped) out of the global Bash hook into
+`heartwood/.claude/hooks/vm-guard.sh` — project rules run in project scope,
+not on every Bash call machine-wide. Kept with evidence: `stop-failure.sh`
+(523 logged entries), the worktree-escape guard (blocked a real escape the
+day of the audit), confetti (producer alive in heartwood's ship-main),
+warp-status (Warp is the live terminal), the quality suite, and the fleet
+alarms.
+
+**Reopen when:** a deleted hook's failure mode recurs — e.g. token
+attribution is wanted again (build it against the current pipeline's
+branch naming, not `epic-*`), or a test-output class measurably dominates
+context after truncation AND a filter can fail loudly instead of stubbing.
+
 ## 2026-08-07 — Issue lane diet: solo default, pipeline behind --full, /issue batch deleted
 
 **Decision:** `/resolve-issue`'s default path is one worker end to end in a

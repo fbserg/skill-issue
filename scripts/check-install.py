@@ -49,7 +49,6 @@ SHARED_SKILLS = (
 AGENTS = (
     "bulk.md",
     "explore-mid.md",
-    "lane.md",
     "opus-worker.md",
     "worker.md",
 )

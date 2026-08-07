@@ -62,15 +62,19 @@ there (`mcpServers`, `disabledSkills`), pointing at where they actually go.
 
 ## pretool-bash.sh
 
-Consolidated `PreToolUse` hook for `Bash` commands, three checks in one
-pass so there's a single JSON output path: blocks catastrophic/destructive
-commands outright, filters verbose test output down to failures, and
-applies RTK's token-saving command rewrite. Also runs a pre-push gate
-(tsc/build/test) before `git push` — that phase is tuned to this author's
-JS/TS project conventions; adjust or strip it for other stacks. Skip the
-gate per-invocation with `SKIP_PREPUSH_GATE=1`. Project-specific command
-rewrites (e.g. per-project VM ssh routing) were stripped from this
-published mirror and live only in the private config repo.
+Consolidated `PreToolUse` hook for `Bash` commands: blocks
+catastrophic/destructive commands (plus a worktree-escape guard and a
+bare-`git stash` gate), and runs a pre-push gate (tsc/build/test) before
+`git push` — that phase is tuned to this author's JS/TS project
+conventions; adjust or strip it for other stacks. Skip the gate
+per-invocation with `SKIP_PREPUSH_GATE=1`.
+
+Two former phases were deleted in the 2026-08-07 hook audit: the RTK
+command rewrite and the test-output filter both fell to the 2026-07-30
+output-filter ruling (`docs/DECISIONS.md` — lossy silent stubs whose
+savings were phantom against the harness's own 30k truncation), and the
+project-specific VM guards moved to that project's own
+`.claude/settings.json` hooks where they belong.
 
 ```json
 "PreToolUse": [
@@ -208,14 +212,12 @@ Five-stage suite sharing `quality/claude_quality_lib.py`:
 
 Personal plumbing kept in the private config repo, excluded because it's
 either machine-specific or has no reuse value outside the author's setup:
-`caffeinate.sh` (Mac sleep prevention), `idle-stamp.sh` and `warp-status.sh`
-(Warp terminal integration), `epic-tally-subagent.sh` (attributes
-background-agent token spend to a private epic-cost-tracking file keyed to
-this author's directory layout). RTK's command rewriting runs inside
-`pretool-bash.sh` (Phase 3 shells out to `rtk rewrite`); the RTK CLI's own
-`rtk hook claude` does the same job, but wire exactly one of the two — the
-author ran both for a while and the duplicate rewrite pass corrupted
-compound-predicate `find` commands that Phase 3 deliberately passes through.
+`caffeinate.sh` (Mac sleep prevention), `warp-status.sh` (Warp terminal
+integration), `subagent-delivery-gate.sh` and `configchange-missing-hooks.sh`
+(fleet-health alarms). Deleted outright in the 2026-08-07 hook audit:
+`idle-stamp.sh` (wrote idle timestamps nothing consumed) and
+`epic-tally-subagent.sh` (fed a cost tracker for the epic-run pipeline
+retired 2026-06-20; its consumer script no longer existed).
 
 `anxiety-panel.py` (advisory Stop-hook review panel: untested edits,
 destructive commands, possible secrets, leftover debug noise, scope creep)

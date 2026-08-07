@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 INSTALL_SH = REPO_ROOT / "scripts" / "install.sh"
 CHECK_INSTALL_PY = REPO_ROOT / "scripts" / "check-install.py"
 
-AGENT_NAMES = ("bulk.md", "explore-mid.md", "lane.md", "opus-worker.md", "worker.md")
+AGENT_NAMES = ("bulk.md", "explore-mid.md", "opus-worker.md", "worker.md")
 SHARED_SKILL_NAMES = (
     "authenticity-check",
     "humanizer",
