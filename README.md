@@ -43,11 +43,11 @@ cd skill-issue
 | Skill | Description |
 |---|---|
 | [`adversary`](skills/claude/adversary/SKILL.md) | Cross-model red-team: sends a plan or diff to Codex (GPT) for an adversarial pass before committing. |
-| [`blitz`](skills/claude/blitz/SKILL.md) | Lightweight executor for ad-hoc lanes: parallel worktrees + adversarial review, no pipeline ceremony. The fast alternative to /issue batch. |
+| [`blitz`](skills/claude/blitz/SKILL.md) | Lightweight executor for ad-hoc lanes: parallel worktrees + adversarial review, no pipeline ceremony. Owns all batches, filed or not. |
 | [`deep-research`](skills/claude/deep-research/SKILL.md) | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
 | [`epic-plan`](skills/claude/epic-plan/SKILL.md) | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /issue → /resolve-issue; re-enters from GitHub state. |
-| [`issue`](skills/claude/issue/SKILL.md) | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by size. Never writes code, never merges. |
-| [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | Self-scaling pipeline for one issue: light path for a small single-area issue, full assess→plan→implement→test→review otherwise, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
+| [`issue`](skills/claude/issue/SKILL.md) | Thin front door: scope a rough idea or hand one issue to /resolve-issue; batches go to /blitz. Never writes code, never merges. |
+| [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | One worker resolves one issue end to end (test-first, gates verbatim, draft→ready PR); the phased multi-agent pipeline only on user-typed --full. Bounces a true epic to /epic-plan. Never merges. |
 | [`simplify-sweep`](skills/claude/simplify-sweep/SKILL.md) | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 
 Claude skills remain available for Claude Code. Codex uses the separate
@@ -65,10 +65,10 @@ Claude skills remain available for Claude Code. Codex uses the separate
 
 | You have | Use |
 |---|---|
-| An issue number | `/issue <N>` — hands it to `/resolve-issue`, which self-scales by size |
+| An issue number | `/issue <N>` — hands it to `/resolve-issue` (add `--full` for the heavy pipeline) |
 | A rough idea (no issue yet) | `/issue <free text>` — scopes it, files the issue, then dispatches |
-| Multiple issues | `/issue 42 43 44` — fans out ≤4 concurrent `/resolve-issue` lanes |
-| Ad-hoc lanes, nothing filed | `/blitz` — parallel worktrees, adversarial review, no pipeline |
+| Multiple issues | `/blitz 42 43 44` — parallel lanes, adversarial review |
+| Ad-hoc lanes, nothing filed | `/blitz` — parallel worktrees, no issue required |
 | A true epic (multi-session, multiple deliverables) | `/epic-plan <topic>` → `/issue <child-number>` |
 
 Claiming (assign yourself), plan-comment-before-branch, and PR-only delivery are built in — you never merge your own PR.

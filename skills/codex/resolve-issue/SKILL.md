@@ -53,7 +53,7 @@ Record acceptance criteria, impact set, shared-interface hits, base branch, and 
 
 1. Create branch `fix/issue-<N>-<short-slug>` in a worktree.
 
-<!-- gate:amendment-repoll carried from skills/claude/resolve-issue/SKILL.md -->
+<!-- gate:amendment-repoll carried from docs/resolve-issue-full-pipeline.md -->
 2. **Amendment re-poll, before any commit.** Diff issue-comment timestamps
    against the `PLAN_COMMENT` snapshot; a newer scope-relevant comment is
    folded in or explicitly declared out-of-scope with a reply — never silently
@@ -61,7 +61,7 @@ Record acceptance criteria, impact set, shared-interface hits, base branch, and 
 3. Push an initial commit and open a stub draft PR before substantive implementation so the lane remains visible throughout the write phase.
 4. Implement the change in the worktree.
 5. Hand the implementation to an independent test pass. Map tests to changed boundaries and acceptance criteria.
-<!-- gate:negative-control carried from skills/claude/resolve-issue/SKILL.md -->
+<!-- gate:negative-control carried from docs/resolve-issue-full-pipeline.md -->
 - **Negative control:** temporarily invert the core fix — at least one new test
   must fail (N≥1) — then restore and confirm green. A suite that survives
   reversal of its own fix asserts nothing; add a discriminating test before
@@ -79,7 +79,7 @@ Record acceptance criteria, impact set, shared-interface hits, base branch, and 
    - tests/checks run with pass/fail result
    - acceptance criteria status
    - deferred operator-only verification, if any
-<!-- gate:draft-state-gate carried from skills/claude/resolve-issue/SKILL.md -->
+<!-- gate:draft-state-gate carried from docs/resolve-issue-full-pipeline.md -->
 **Finalize gate: repo checks pass and each acceptance criterion has observed
 evidence in the PR body.** The state machine is GitHub draft vs ready, nothing
 else — a body phrase like "Not merging" is not a control mechanism and is

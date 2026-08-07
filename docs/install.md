@@ -63,7 +63,7 @@ ln -sfn "$PWD/skills/shared/zero"              ~/.codex/skills/zero
 
 ### Agents
 
-The five delegate agent definitions (see `docs/subagent-model-effort.md`) are
+The four delegate agent definitions (see `docs/subagent-model-effort.md`) are
 symlinked into `~/.claude/agents/` automatically by `scripts/install.sh`. To
 install by hand instead:
 
@@ -71,7 +71,6 @@ install by hand instead:
 mkdir -p ~/.claude/agents
 ln -sfn "$PWD/agents/bulk.md"        ~/.claude/agents/bulk.md
 ln -sfn "$PWD/agents/explore-mid.md" ~/.claude/agents/explore-mid.md
-ln -sfn "$PWD/agents/lane.md"        ~/.claude/agents/lane.md
 ln -sfn "$PWD/agents/opus-worker.md" ~/.claude/agents/opus-worker.md
 ln -sfn "$PWD/agents/worker.md"      ~/.claude/agents/worker.md
 ```
@@ -123,6 +122,5 @@ rm ~/.codex/skills/resolve-issue ~/.codex/skills/ww ~/.codex/skills/zero
 
 # Remove agent symlinks
 rm ~/.claude/agents/bulk.md ~/.claude/agents/explore-mid.md
-rm ~/.claude/agents/lane.md
 rm ~/.claude/agents/opus-worker.md ~/.claude/agents/worker.md
 ```

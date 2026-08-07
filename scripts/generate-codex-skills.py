@@ -236,7 +236,7 @@ GATES = [
     Gate(
         skill="resolve-issue",
         gate_id="draft-state-gate",
-        claude_path="skills/claude/resolve-issue/SKILL.md",
+        claude_path="docs/resolve-issue-full-pipeline.md",
         claude_anchor="**Finalize gate: repo checks pass",
         claude_end_anchor="\n\nPR body sections:",
         codex_path="skills/codex/resolve-issue/SKILL.md",
@@ -247,7 +247,7 @@ GATES = [
     Gate(
         skill="resolve-issue",
         gate_id="amendment-repoll",
-        claude_path="skills/claude/resolve-issue/SKILL.md",
+        claude_path="docs/resolve-issue-full-pipeline.md",
         claude_anchor="2. **Amendment re-poll, before any commit.**",
         claude_end_anchor="\n3. *Before any code*",
         codex_path="skills/codex/resolve-issue/SKILL.md",
@@ -259,7 +259,7 @@ GATES = [
     Gate(
         skill="resolve-issue",
         gate_id="negative-control",
-        claude_path="skills/claude/resolve-issue/SKILL.md",
+        claude_path="docs/resolve-issue-full-pipeline.md",
         claude_anchor="- **Negative control:**",
         claude_end_anchor="\n- Commit tests on the same branch",
         codex_path="skills/codex/resolve-issue/SKILL.md",
@@ -277,22 +277,6 @@ GATES = [
         renumber_after_heading="## Implement",
     ),
     Gate(
-        skill="issue",
-        gate_id="stop-label-check",
-        claude_path="skills/claude/issue/SKILL.md",
-        claude_anchor="**Before dispatching each new",
-        claude_end_anchor="Beyond the `gh` guard/list calls above",
-        codex_path="skills/codex/issue/SKILL.md",
-        codex_marker="stop-label-check",
-        codex_insert_after=(
-            "8. For a batch, dispatch independent `resolve-issue` workers concurrently, "
-            "cap concurrency at four, and await the wave before starting another. Each "
-            "worker owns its worktree and full issue lifecycle."
-        ),
-        codex_replace=None,
-        max_len=600,
-    ),
-    Gate(
         skill="epic-plan",
         gate_id="dont-invent-scope",
         claude_path="skills/claude/epic-plan/SKILL.md",
@@ -304,22 +288,6 @@ GATES = [
         codex_replace=None,
         bullet_prefix="- ",
         max_len=250,
-    ),
-    Gate(
-        skill="issue",
-        gate_id="pulse-watchdog",
-        claude_path="skills/claude/issue/SKILL.md",
-        claude_anchor="**Watchdog — arm it BEFORE dispatching wave 1",
-        claude_end_anchor="- **Idempotent.**",
-        codex_path="skills/codex/issue/SKILL.md",
-        codex_marker="pulse-watchdog",
-        codex_insert_after=(
-            "11. With three or more lanes, keep a visible ledger and actively monitor "
-            "lane status. Restart a dead lane through `resolve-issue --resume`; never "
-            "discard its worktree or GitHub state."
-        ),
-        codex_replace=None,
-        max_len=3500,
     ),
 ]
 

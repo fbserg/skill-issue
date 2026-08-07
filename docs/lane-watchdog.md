@@ -1,7 +1,7 @@
 # Lane watchdog — shared contract
 
 One contract for detecting and recovering a silently-wedged background lane.
-Referenced by `/issue` batches, `/blitz`, `/simplify-sweep` parallel batches
+Referenced by `/blitz` and `/simplify-sweep` parallel batches
 (all Agent-dispatched lanes), and `/codex-go` multi-task dispatch (bash-PID
 lanes, see the variant at the bottom). Edit this file when the contract
 changes — the callers point here instead of restating it, so it can't drift

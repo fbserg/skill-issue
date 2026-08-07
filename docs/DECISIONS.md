@@ -3,6 +3,36 @@
 Durable rulings on contested choices. Check here before re-litigating; a
 standing ruling short-circuits the debate unless its reopen condition fired.
 
+## 2026-08-07 — Issue lane diet: solo default, pipeline behind --full, /issue batch deleted
+
+**Decision:** `/resolve-issue`'s default path is one worker end to end in a
+worktree; self-sizing (solo/light/full) is gone. The phased multi-agent
+pipeline (role separation, model tiering, Codex builder lane, evidence-bar
+review) moved to `docs/resolve-issue-full-pipeline.md` and runs only on a
+user-typed `--full` — the skill never self-escalates, complexity is at most a
+suggestion in the report. Kept in the default path, each traced to a shipped
+failure: never-merge, worktree-or-abort, gates verbatim, negative control,
+amendment re-poll (#245), mergeable-before-ready (#254), untrusted issue
+text. `/issue` batch mode (lane fan-out + watchdog arming) deleted; batches
+route to `/blitz`, which keeps the watchdog contract. The `lane` agent type
+orphaned with it and was deleted. Codex mirrors untouched — per 2026-07-16
+they are a separate, human-chosen pipeline. Supersedes the batch component of
+the 2026-07-10 lineup and narrows 2026-07-30: the pipeline that ruling
+rebuilt is now opt-in, not default.
+
+**Rationale:** operator ruling on cost. Even a "light" issue spawned ~6
+fresh-context subagents plus the handoff protocol; the orchestration tax ran
+on every invocation regardless of size, and the sizing heuristic existed
+largely to route around the pipeline's own overhead — a structure justifying
+itself is the same anti-pattern the 07-30 cut removed one layer down.
+
+**Reopen when:** a solo-path PR ships a defect the pipeline's role
+separation or independent review would demonstrably have caught, twice on
+comparable diffs → re-add the specific missing phase as a conditional, never
+the whole default pipeline. For batch: a `/blitz` run over filed issues
+demonstrably needs the per-issue claim/resume guard `/issue` batch provided →
+restore batch mode and the `lane` agent from git history.
+
 ## 2026-07-30 — rtk removed everywhere; output-filter tools face an evidence bar
 
 **Decision:** rtk (token-filtering CLI proxy) deleted from the Bash hook,

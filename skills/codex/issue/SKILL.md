@@ -24,7 +24,7 @@ Use this as the thin entry point for GitHub issue work. It decides what the user
 7. For `last N`, `oldest N`, `mine`/`assigned`, or `label:X`, resolve the list with `gh issue list`; modifiers stack. Echo number, title, and count before dispatch.
 8. For a batch, dispatch independent `resolve-issue` workers concurrently, cap concurrency at four, and await the wave before starting another. Each worker owns its worktree and full issue lifecycle.
 
-<!-- gate:stop-label-check carried from skills/claude/issue/SKILL.md -->
+<!-- codex-owned gate: stop-label-check (claude /issue batch mode deleted 2026-08-07; see DECISIONS.md) -->
 **Before dispatching each new wave**, check the tracker/parent issue for a
   `stop` label (`gh issue view <N> --json labels`) — present → halt cleanly and
   report what's in flight. Phone-reachable kill switch: the label can be added
@@ -33,7 +33,7 @@ Use this as the thin entry point for GitHub issue work. It decides what the user
 10. Re-running is idempotent: ready PR means skip, draft PR or plan comment means resume, and neither means fresh. One blocked lane never sinks the others.
 11. With three or more lanes, keep a visible ledger and actively monitor lane status. Restart a dead lane through `resolve-issue --resume`; never discard its worktree or GitHub state.
 
-<!-- gate:pulse-watchdog carried from skills/claude/issue/SKILL.md -->
+<!-- codex-owned gate: pulse-watchdog (claude /issue batch mode deleted 2026-08-07; see DECISIONS.md) -->
 **Watchdog — arm it BEFORE dispatching wave 1; the batch is not launched
   until it's running.** Lanes die silently and awaiting the wave doesn't catch
   it (measured: a lane's inner job died and the lane sat idle 20+ min). The

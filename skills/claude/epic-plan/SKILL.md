@@ -25,7 +25,8 @@ place — a wrong decomposition costs an edit, not a restart.
   edit --body-file`). A human comment or `needs-revision` label → re-run the
   review against the live tracker + children, revise once, re-materialize
   idempotently — never restart or duplicate. Otherwise report status: shipped
-  children, runnable-now children, the next `/issue` wave. **Close-out:** when
+  children, runnable-now children, the next wave (`/blitz` for several,
+  `/issue` for one). **Close-out:** when
   the last child merges, verify the *composed* result against the contract's
   Done criteria (end-to-end, not per-child green), suggest `/simplify-sweep`
   over the epic's commit range, close the tracker with a one-comment summary.
@@ -170,18 +171,20 @@ one thing that still stops for input: an unresolved contract ambiguity (§1).
 
 ## 6. Handoff
 
-Report the exact run command with real child numbers, dependency-ordered by
-us — `/issue` does not order dependencies:
+Report the exact run commands with real child numbers, dependency-ordered by
+us — the executors do not order dependencies. One child → `/issue <N>`; a
+wave of independent children → `/blitz` with the issue numbers (`/issue`
+batch mode was deleted; DECISIONS.md 2026-08-07):
 
 ```
-/issue <n-independent-1> <n-independent-2>     # wave 1
+/blitz <n-independent-1> <n-independent-2>     # wave 1
 /issue <n-dependent>                           # after wave 1's PRs land
 ```
 
 Multi-repo: one wave block per repo, run from that repo. For risky epics
 (deletions, migrations, multi-file behavior changes) suggest an `/adversary`
-pass before execution. Then stop — `/issue` → `/resolve-issue` owns execution;
-a human merges each PR.
+pass before execution. Then stop — the executors own execution; a human
+merges each PR.
 
 ## Hard rules
 
