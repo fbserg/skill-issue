@@ -4,6 +4,16 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- Codex mirror joins the issue-lane diet (DECISIONS 2026-08-07): the long
+  pipeline now requires an explicit user-typed `--full` on BOTH trees.
+  `skills/codex/resolve-issue` defaults to one solo end-to-end pass in a
+  worktree; the tiered assess/plan/implement/independent-test/review structure
+  moved behind `--full` (kept inline — `docs/` doesn't install to `~/.codex`),
+  and the codex `issue` front door only passes `--full` through when typed.
+  Carried gates (amendment re-poll, negative control, draft-state finalize)
+  unchanged and still green under `generate-codex-skills.py --check`. Stale
+  INDEX.md rows still describing the pre-diet "self-scaling" claude
+  issue/resolve-issue reconciled at the same time.
 - New Claude skill `usage-review`: review a body of AI-assistant transcripts
   (own local Claude Code / Codex CLI sessions, or a shared exporter-markdown
   archive) into a red-teamed report. Ships the pipeline tools (quant, command

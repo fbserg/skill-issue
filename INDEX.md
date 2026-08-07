@@ -25,8 +25,8 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | blitz | `skills/claude/blitz/SKILL.md` | Lightweight executor for ad-hoc lanes: parallel worktrees + adversarial review, no pipeline ceremony. The fast alternative to /issue batch. |
 | deep-research | `skills/claude/deep-research/SKILL.md` | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
 | epic-plan | `skills/claude/epic-plan/SKILL.md` | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /issue → /resolve-issue; re-enters from GitHub state. |
-| issue | `skills/claude/issue/SKILL.md` | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by size. Never writes code, never merges. |
-| resolve-issue | `skills/claude/resolve-issue/SKILL.md` | Self-scaling pipeline for one issue: light path for a small single-area issue, full assess→plan→implement→test→review otherwise, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
+| issue | `skills/claude/issue/SKILL.md` | Thin front door: scope a rough idea or hand one issue to /resolve-issue (`--full` passed through only when the user typed it); batches route to /blitz. Never writes code, never merges. |
+| resolve-issue | `skills/claude/resolve-issue/SKILL.md` | One issue → review-ready PR: one worker solo in a worktree by default; the phased pipeline only behind user-typed `--full`. Bounces a true epic to /epic-plan. Never merges. |
 | simplify-sweep | `skills/claude/simplify-sweep/SKILL.md` | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 | usage-review | `skills/claude/usage-review/SKILL.md` | AI-usage review of local Claude/Codex transcripts or an exporter archive: quant → automation families → command scan → stratified sample → renders → lane fan-out → rubric grade → red team → report. Tools in `tools/`, workflows in `workflows/`, method in `METHODOLOGY.md`. |
 
@@ -39,9 +39,9 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | adversarial-review | `skills/codex/adversarial-review/SKILL.md` | Read-only adversarial review of a plan or diff before risky work lands. |
 | blitz | `skills/codex/blitz/SKILL.md` | Fast execution of ad-hoc lanes in parallel worktrees with adversarial review. |
 | epic-plan | `skills/codex/epic-plan/SKILL.md` | Scope broad work into tracker + child issues; materializes on GitHub immediately once reviewed — no approval gate. |
-| issue | `skills/codex/issue/SKILL.md` | Front door for GitHub issue work; scope ideas or route issue numbers to resolve-issue. |
+| issue | `skills/codex/issue/SKILL.md` | Front door for GitHub issue work; scope ideas or route issue numbers to resolve-issue (`--full` passed through only when the user typed it). |
 | refactor-dupes | `skills/codex/refactor-dupes/SKILL.md` | Detect duplicates, approve an architecture brief, refactor one cluster in a worktree PR. |
-| resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR in an isolated worktree; never merges. |
+| resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR, solo in an isolated worktree by default; tiered sub-agent pipeline only behind user-typed `--full`. Never merges. |
 | ww | `skills/codex/ww/SKILL.md` | Worktree workflow: branch, plan, implement, check, draft PR; main untouched. |
 | zero | `skills/shared/zero/SKILL.md` | Shared destructive cleanup with proof-before-delete classification. |
 

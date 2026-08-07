@@ -3,6 +3,25 @@
 Durable rulings on contested choices. Check here before re-litigating; a
 standing ruling short-circuits the debate unless its reopen condition fired.
 
+## 2026-08-07 — Codex mirror joins the issue-lane diet: solo default, pipeline behind explicit --full
+
+**Decision:** operator instruction — the long pipeline must not run unless
+explicitly requested, on both trees. `skills/codex/resolve-issue` now defaults
+to one solo end-to-end pass (no sub-agents); the tiered
+assess/plan/implement/independent-test/adversarial-review structure moved
+behind a user-typed `--full`, kept inline in the codex file since `docs/`
+doesn't install to `~/.codex`. The codex `issue` front door passes `--full`
+through only when the user typed it. All carried gates (amendment re-poll,
+negative control, draft-state finalize) are byte-identical and still verified
+by `generate-codex-skills.py --check`. Amends the same-day issue-lane-diet
+ruling's "Codex mirrors untouched" carve-out; the 2026-07-16 sanction of the
+codex front doors themselves stands — only their default depth changed.
+
+**Reopen when:** same bar as the issue-lane diet — a solo-path PR ships a
+defect the pipeline's role separation or independent review would demonstrably
+have caught, twice on comparable diffs → re-add the specific missing phase as
+a conditional, never the whole default pipeline.
+
 ## 2026-08-07 — Hook audit: dead machinery deleted, project guards relocated
 
 **Decision:** the global hook set was audited against consumers, producers,

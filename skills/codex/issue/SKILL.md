@@ -20,7 +20,7 @@ Use this as the thin entry point for GitHub issue work. It decides what the user
 3. If a ready PR already exists for the issue, report it and stop.
 4. If a draft PR or plan comment exists, route to `resolve-issue --resume <N>`.
 5. If no issue exists yet, ask only for missing acceptance criteria that materially affect scope. Then create one focused issue with `## Scope` and `## Acceptance criteria`.
-6. Route one concrete issue to `resolve-issue <N>`.
+6. Route one concrete issue to `resolve-issue <N>`. Pass `--full` through only when the user typed it — never add it yourself; `resolve-issue` defaults to its solo path.
 7. For `last N`, `oldest N`, `mine`/`assigned`, or `label:X`, resolve the list with `gh issue list`; modifiers stack. Echo number, title, and count before dispatch.
 8. For a batch, dispatch independent `resolve-issue` workers concurrently, cap concurrency at four, and await the wave before starting another. Each worker owns its worktree and full issue lifecycle.
 
