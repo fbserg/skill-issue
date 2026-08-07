@@ -56,19 +56,16 @@ Context stanza so executors never re-pay for the recon.
 
 ## Decompose into a child DAG
 
-- **Vertically by capability, never by layer**; child 1 is the walking
-  skeleton — the thinnest end-to-end path, later children thicken it.
+- **Vertically by capability, never by layer** — each child demoable end to
+  end.
 - **Disjoint file sets are a design goal** — overlap means re-cut the
   boundary first; `depends-on` only when the overlap is real. Overlapping
   siblings left unordered is a decomposition failure.
 - **Each Done criterion traces to exactly one child** — untraceable →
-  missing child; child proving nothing → invented scope. When torn, the child
-  that could invalidate the plan goes first. Genuine unknowns → time-boxed
-  spike children whose deliverable is a decision on the tracker, gating via
-  `depends-on`.
-- Each child: independently shippable in one `/resolve-issue` session; sized
-  by decision count, not just LOC (a child that itself needs decomposing is a
-  sibling epic); ~8 children max (completion velocity collapses above that).
+  missing child; child proving nothing → invented scope. Genuine unknowns →
+  time-boxed spike children gating via `depends-on`.
+- Each child: one `/resolve-issue` session; ~8 children max (completion
+  velocity collapses above that).
 
 ## Adversarial review (skip on trivial epics)
 
