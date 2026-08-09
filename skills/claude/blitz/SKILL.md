@@ -15,6 +15,11 @@ You're the orchestrator; you don't implement. Posture:
   #N", same surface) go in one lane or sequential waves — file-scope checks
   can't catch semantic duplication (measured: #690/#749 raced to two
   overlapping merged PRs).
+- **Dependent waves stack on an integration branch.** When wave N+1's code
+  builds on wave N's unmerged PRs, base the wave on `stack/<epic>-<wave>`
+  (children → wave branch → main, merged in order); land each wave before
+  opening the next — GitHub won't retarget PRs on an unmerged rewritten base
+  (measured: one epic stranded 19 open PRs on unmerged bases).
 - **Spine files are single-writer.** Check churn (`git log --name-only`)
   first: the repo's most-touched shared files go to at most ONE lane per wave
   (measured: 98/100 sampled PRs overlapped a <24h-prior PR's files).

@@ -151,6 +151,13 @@ wave of independent children → `/blitz` with the issue numbers:
 /issue <n-dependent>                           # after wave 1's PRs land
 ```
 
+Code-dependent waves that can't wait for merges: base the wave's branches on
+a `stack/<epic>-<wave>` integration branch (children → wave branch → main,
+merged in order) rather than stacking PRs on unmerged sibling branches, and
+land each wave before opening the next — GitHub does not retarget a PR whose
+unmerged base is rewritten, so every open PR above a revised base is a manual
+rebase (measured: one epic stranded 19 open PRs on unmerged bases).
+
 Multi-repo: one wave block per repo, run from that repo. Risky epics
 (deletions, migrations, multi-file behavior changes) → suggest an
 `/adversary` pass before execution. Then stop — executors own execution; a

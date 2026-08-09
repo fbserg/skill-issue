@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- Stacked-epic guidance in claude `epic-plan` (Handoff) and `blitz` (posture):
+  code-dependent waves base on a `stack/<epic>-<wave>` integration branch
+  merged in order, landing each wave before opening the next, instead of
+  stacking PRs on unmerged sibling branches — GitHub doesn't retarget PRs on
+  an unmerged rewritten base. Prompted by a real epic stranding 19 open PRs
+  on unmerged bases.
 - Codex mirror joins the issue-lane diet (DECISIONS 2026-08-07): the long
   pipeline now requires an explicit user-typed `--full` on BOTH trees.
   `skills/codex/resolve-issue` defaults to one solo end-to-end pass in a
