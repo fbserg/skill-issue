@@ -1293,5 +1293,84 @@ class TestIntegration(unittest.TestCase):
             self.assertEqual(proc.returncode, 0)
 
 
+class TestPruneSourceScreenshots(unittest.TestCase):
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
+        self.fake_home = self.tmp / "home"
+        self.archive = self.tmp / "archive"
+        self.fake_home.mkdir()
+        self.archive.mkdir()
+        self.projects = self.fake_home / ".claude" / "projects" / "proj1"
+        self.projects.mkdir(parents=True)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _env(self, machine_id="testmachine"):
+        return {
+            "HOME": str(self.fake_home),
+            "TRANSCRIPT_ARCHIVE_DIR": str(self.archive),
+            "TRANSCRIPT_ARCHIVE_MACHINE_ID": machine_id,
+        }
+
+    def _write_screenshot_session(self, name: str, age_days: float) -> tuple:
+        obj, data = claude_tool_screenshot_line()
+        path = self.projects / name
+        path.write_text(json.dumps(obj) + "\n")
+        mtime = datetime.now(timezone.utc).timestamp() - age_days * 86400
+        os.utime(path, (mtime, mtime))
+        return path, data, mtime
+
+    def test_old_archived_source_pruned_mtime_preserved_no_recopy(self):
+        src, data, mtime = self._write_screenshot_session("old.jsonl", age_days=40)
+
+        proc = run_backup(self._env(), args=["--compress", "--prune-source-screenshots-days", "30"])
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("PRUNE | older_than_days=30 pruned=1", proc.stdout)
+
+        text = src.read_text()
+        self.assertNotIn(data, text)
+        self.assertIn("__IMAGE_TOMBSTONE(", text)
+        json.loads(text)  # still valid JSONL
+        self.assertAlmostEqual(src.stat().st_mtime, mtime, delta=1)
+
+        # Archive kept the (also tombstoned) copy.
+        dest = self.archive / "testmachine" / "claude" / "projects" / "proj1" / "old.jsonl.gz"
+        self.assertTrue(dest.exists())
+
+        # Second run: preserved mtime keeps the skip quiet, nothing left to prune.
+        proc2 = run_backup(self._env(), args=["--compress", "--prune-source-screenshots-days", "30"])
+        self.assertEqual(proc2.returncode, 0)
+        self.assertIn("skipped=1", proc2.stdout.strip().splitlines()[-1])
+        self.assertIn("pruned=0", proc2.stdout)
+
+    def test_recent_source_left_untouched(self):
+        src, data, _ = self._write_screenshot_session("recent.jsonl", age_days=1)
+        proc = run_backup(self._env(), args=["--compress", "--prune-source-screenshots-days", "30"])
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("pruned=0", proc.stdout)
+        self.assertIn(data, src.read_text())
+
+    def test_unarchived_source_never_pruned(self):
+        src, data, _ = self._write_screenshot_session("orphan.jsonl", age_days=40)
+        machine_root = self.archive / "testmachine"  # empty: no archived copy exists
+        with mock.patch.dict(os.environ, {"HOME": str(self.fake_home)}):
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                backup.prune_source_screenshots(machine_root, 30, dry_run=False)
+        self.assertIn(data, src.read_text())
+        self.assertIn("skipped_unarchived=1", out.getvalue())
+
+    def test_dry_run_prunes_nothing(self):
+        src, data, _ = self._write_screenshot_session("old.jsonl", age_days=40)
+        run_backup(self._env(), args=["--compress"])  # archive it first
+        proc = run_backup(
+            self._env(), args=["--compress", "--dry-run", "--prune-source-screenshots-days", "30"]
+        )
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("[dry-run] PRUNE | older_than_days=30 pruned=1", proc.stdout)
+        self.assertIn(data, src.read_text())
+
+
 if __name__ == "__main__":
     unittest.main()

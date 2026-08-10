@@ -29,6 +29,7 @@
     <string>@@PYTHON@@</string>
     <string>@@BACKUP_PY@@</string>
     @@COMPRESS_ARG@@
+    @@PRUNE_ARGS@@
   </array>
 
   <key>EnvironmentVariables</key>

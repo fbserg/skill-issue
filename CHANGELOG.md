@@ -4,6 +4,14 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- transcript-archive: new `--prune-source-screenshots-days DAYS` (install.sh
+  `--prune-days`) applies the archive's image-tombstone policy to the source
+  transcripts themselves once a file is DAYS-idle and archived — reclaims the
+  screenshot-dominated bulk of `~/.claude/projects` with dialogue/tool text
+  intact, mtime preserved (no re-copy churn). The strip policy is now
+  idempotent (`is_tombstone` guard at all four claude-side sites — previously
+  a second pass would tombstone the tombstone and rewrite forever; caught by
+  the new prune regression tests, 88 total passing).
 - Stacked-epic guidance in claude `epic-plan` (Handoff) and `blitz` (posture):
   code-dependent waves base on a `stack/<epic>-<wave>` integration branch
   merged in order, landing each wave before opening the next, instead of

@@ -332,6 +332,15 @@ Flags:
   instead of refusing to run (see [Identity handshake](#identity-handshake)).
   Only use this after confirming it's a lost-local-state or rebuilt-archive
   situation, not an actual machine-id collision.
+- `--prune-source-screenshots-days DAYS` (install.sh: `--prune-days DAYS`) —
+  after archiving, apply the same image-tombstone policy to the SOURCE
+  transcripts themselves, for files idle more than DAYS days whose archived
+  copy exists. Reclaims the dominant share of `~/.claude/projects` disk
+  (agent screenshots, stored twice per capture) while leaving all dialogue
+  and tool text intact and the JSONL valid/resumable. Irreversible for the
+  pixels — the archive copy is tombstoned too, by design. The rewrite
+  preserves the source mtime, and the strip is idempotent, so subsequent
+  runs neither re-copy nor re-rewrite untouched files.
 
 The last line of output is always a SUMMARY line:
 

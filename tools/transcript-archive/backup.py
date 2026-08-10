@@ -218,6 +218,13 @@ def make_tombstone(b64_string: str, media_type: str) -> str:
     return f"__IMAGE_TOMBSTONE(media_type={media_type},bytes={approx_decoded_len},sha256={sha_hex12})__"
 
 
+def is_tombstone(s: str) -> bool:
+    """Strip must be idempotent: --prune-source-screenshots-days re-runs the
+    policy over already-stripped sources every night, and tombstoning a
+    tombstone would report the file as modified (and rewrite it) forever."""
+    return s.startswith("__IMAGE_TOMBSTONE(") and s.endswith(")__")
+
+
 def _looks_like_image_media_type(s: str) -> bool:
     return s.lower().startswith("image/")
 
@@ -244,13 +251,18 @@ def walk_tool_use_result(node: object) -> bool:
             and isinstance(source, dict)
             and source.get("type") == "base64"
             and isinstance(source.get("data"), str)
+            and not is_tombstone(source["data"])
         ):
             media_type = source.get("media_type", "unknown")
             source["data"] = make_tombstone(source["data"], media_type)
             modified = True
 
         file_field = node.get("file")
-        if isinstance(file_field, dict) and isinstance(file_field.get("base64"), str):
+        if (
+            isinstance(file_field, dict)
+            and isinstance(file_field.get("base64"), str)
+            and not is_tombstone(file_field["base64"])
+        ):
             file_type = str(file_field.get("type", ""))
             if _looks_like_image_media_type(file_type) or ntype == "image":
                 file_field["base64"] = make_tombstone(file_field["base64"], file_type or "unknown")
@@ -291,6 +303,7 @@ def claude_strip_line(obj: object) -> bool:
                         isinstance(source, dict)
                         and source.get("type") == "base64"
                         and isinstance(source.get("data"), str)
+                        and not is_tombstone(source["data"])
                     ):
                         media_type = source.get("media_type", "unknown")
                         source["data"] = make_tombstone(source["data"], media_type)
@@ -310,7 +323,7 @@ def claude_strip_line(obj: object) -> bool:
                 is_agent_forwarded = obj.get("isMeta") is True and bool(obj.get("agentId"))
                 if is_human_paste:
                     pass  # human paste is sacred, always kept
-                elif is_agent_forwarded:
+                elif is_agent_forwarded and not is_tombstone(source["data"]):
                     media_type = source.get("media_type", "unknown")
                     source["data"] = make_tombstone(source["data"], media_type)
                     modified = True
@@ -1062,6 +1075,65 @@ def apply_result(result: str, src: Path, counts: dict, errors: list, dry_run: bo
 
 
 # ---------------------------------------------------------------------------
+# Source screenshot pruning (--prune-source-screenshots-days)
+# ---------------------------------------------------------------------------
+#
+# Applies the exact strip policy the archive already uses to the source
+# transcripts themselves, once a session has been idle long enough to be
+# considered closed. Two gates before any file is touched:
+#   1. idle: src mtime older than the cutoff -- never a live session file.
+#   2. archived: the file's destination copy (either format) exists, so the
+#      text content has an off-machine copy before pixels are dropped here.
+# The rewrite preserves the source mtime, so the next run's mtime-skip still
+# sees dest >= src and does not re-copy (the re-copy would be byte-identical
+# anyway: the strip is deterministic and the archive copy was stripped from
+# the same original).
+
+
+def prune_source_screenshots(machine_root: Path, older_than_days: int, dry_run: bool) -> None:
+    cutoff = datetime.now(timezone.utc).timestamp() - older_than_days * 86400
+    pruned = 0
+    reclaimed = 0
+    skipped_unarchived = 0
+    for spec in build_sources(machine_root):
+        strip_fn = STRIP_FNS.get(spec.kind)
+        if strip_fn is None or not spec.is_glob or not spec.src_root.exists():
+            continue
+        for src in iter_source_files(spec.src_root, spec.pattern):
+            try:
+                st = src.stat()
+            except OSError:
+                continue
+            if st.st_mtime >= cutoff:
+                continue
+            dest = spec.dest_root / src.relative_to(spec.src_root)
+            if not (dest.exists() or dest.with_name(dest.name + ".gz").exists()):
+                skipped_unarchived += 1
+                continue
+            try:
+                raw = src.read_bytes()
+            except OSError as e:
+                log(f"WARN prune: could not read {src}: {e}")
+                continue
+            processed = process_lines(raw, strip_fn)
+            if processed == raw:
+                continue
+            if not dry_run:
+                try:
+                    atomic_write_bytes(src, processed, mtime=st.st_mtime)
+                except OSError as e:
+                    log(f"WARN prune: could not rewrite {src}: {e}")
+                    continue
+            pruned += 1
+            reclaimed += len(raw) - len(processed)
+    prefix = "[dry-run] " if dry_run else ""
+    log(
+        f"{prefix}PRUNE | older_than_days={older_than_days} pruned={pruned} "
+        f"reclaimed={reclaimed / 1e6:.1f}MB skipped_unarchived={skipped_unarchived}"
+    )
+
+
+# ---------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------
 
@@ -1099,7 +1171,21 @@ def parse_args(argv=None) -> argparse.Namespace:
         "when you've confirmed it's a lost-local-state or rebuilt-archive situation, "
         "not an actual machine-id collision. See README.",
     )
-    return parser.parse_args(argv)
+    parser.add_argument(
+        "--prune-source-screenshots-days",
+        type=int,
+        metavar="DAYS",
+        default=None,
+        help="After archiving, apply the same image-tombstone policy to the SOURCE "
+        "transcripts themselves, for files idle more than DAYS days whose archived "
+        "copy exists. Irreversible for the pixels (the archive is tombstoned too); "
+        "dialogue and tool text are untouched, JSON stays valid, and the file's "
+        "mtime is preserved so the next run's mtime-skip stays quiet.",
+    )
+    args = parser.parse_args(argv)
+    if args.prune_source_screenshots_days is not None and args.prune_source_screenshots_days < 1:
+        parser.error("--prune-source-screenshots-days must be >= 1")
+    return args
 
 
 def main(argv=None) -> None:
@@ -1144,6 +1230,9 @@ def main(argv=None) -> None:
                 spec.src_root, spec.dest_root, spec.kind, args.force, args.dry_run, args.compress
             )
             apply_result(result, spec.src_root, counts, errors, args.dry_run)
+
+    if args.prune_source_screenshots_days is not None:
+        prune_source_screenshots(machine_root, args.prune_source_screenshots_days, args.dry_run)
 
     total = archive_file_count(machine_root)
     size_str = archive_size_str(machine_root)

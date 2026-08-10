@@ -16,7 +16,7 @@ DEFAULT_TIME="03:17"
 
 usage() {
   cat <<'EOF'
-Usage: install.sh <ARCHIVE_DIR> [--machine-id ID] [--time HH:MM] [--compress]
+Usage: install.sh <ARCHIVE_DIR> [--machine-id ID] [--time HH:MM] [--compress] [--prune-days N]
 
   ARCHIVE_DIR   Destination root for the transcript archive (required).
                 Point this at a folder inside a synced drive (Dropbox,
@@ -29,6 +29,12 @@ Usage: install.sh <ARCHIVE_DIR> [--machine-id ID] [--time HH:MM] [--compress]
   --compress    Gzip every archived file (adds --compress to the scheduled
                 command and to the immediate first dump). Re-run without
                 this flag to drop it from the schedule again.
+  --prune-days N
+                After each archive run, tombstone agent screenshots in the
+                SOURCE transcripts themselves once a file has been idle N
+                days and its archived copy exists (backup.py
+                --prune-source-screenshots-days N). Re-run without this
+                flag to drop it from the schedule again.
 
 Schedules a daily run (launchd on macOS, cron on Linux) and then runs the
 first dump immediately in the foreground. Re-run to change the destination,
@@ -87,11 +93,11 @@ default_machine_id() {
 # file at the $output path it is given.
 render_plist() {
   local template=$1 output=$2 python_bin=$3 backup_py=$4 archive_dir=$5
-  local machine_id=$6 hour=$7 minute=$8 log_out=$9 log_err=${10} compress=${11}
+  local machine_id=$6 hour=$7 minute=$8 log_out=$9 log_err=${10} compress=${11} prune_days=${12:-}
   RP_TEMPLATE="$template" RP_OUTPUT="$output" \
   RP_PYTHON="$python_bin" RP_BACKUP_PY="$backup_py" RP_ARCHIVE_DIR="$archive_dir" \
   RP_MACHINE_ID="$machine_id" RP_HOUR="$hour" RP_MINUTE="$minute" \
-  RP_LOG_OUT="$log_out" RP_LOG_ERR="$log_err" RP_COMPRESS="$compress" \
+  RP_LOG_OUT="$log_out" RP_LOG_ERR="$log_err" RP_COMPRESS="$compress" RP_PRUNE_DAYS="$prune_days" \
   "$python_bin" - <<'PYEOF'
 import os
 import re
@@ -112,6 +118,12 @@ TOKENS = {
     "@@LOG_OUT@@": os.environ["RP_LOG_OUT"],
     "@@LOG_ERR@@": os.environ["RP_LOG_ERR"],
     "@@COMPRESS_ARG@@": "<string>--compress</string>" if os.environ["RP_COMPRESS"] == "1" else "",
+    "@@PRUNE_ARGS@@": (
+        "<string>--prune-source-screenshots-days</string>\n    <string>%s</string>"
+        % os.environ["RP_PRUNE_DAYS"]
+        if os.environ["RP_PRUNE_DAYS"]
+        else ""
+    ),
 }
 
 
@@ -122,7 +134,7 @@ def xml_escape(s: str) -> str:
 # @@COMPRESS_ARG@@ is the one token whose value is itself a raw XML element
 # (or empty), not text content -- every other token's value gets XML-escaped
 # since it's substituted *inside* a <string>...</string>.
-RAW_TOKENS = {"@@COMPRESS_ARG@@"}
+RAW_TOKENS = {"@@COMPRESS_ARG@@", "@@PRUNE_ARGS@@"}
 
 
 def substitute(m: "re.Match") -> str:
@@ -176,7 +188,7 @@ PYEOF
 }
 
 install_macos() {
-  local archive_dir=$1 machine_id=$2 hour=$3 minute=$4 backup_py=$5 template=$6 compress=$7
+  local archive_dir=$1 machine_id=$2 hour=$3 minute=$4 backup_py=$5 template=$6 compress=$7 prune_days=${8:-}
   local python_bin label plist_dir plist_path log_dir log_out log_err compress_flag
 
   python_bin=$(command -v python3) || die "python3 not found on PATH"
@@ -193,7 +205,7 @@ install_macos() {
   mkdir -p "$log_dir"
 
   render_plist "$template" "$plist_path" "$python_bin" "$backup_py" \
-    "$archive_dir" "$machine_id" "$hour" "$minute" "$log_out" "$log_err" "$compress_flag"
+    "$archive_dir" "$machine_id" "$hour" "$minute" "$log_out" "$log_err" "$compress_flag" "$prune_days"
 
   # Unload any previous registration for this label, then (re)register.
   # bootout fails (harmlessly) if the job wasn't loaded yet.
@@ -205,7 +217,7 @@ install_macos() {
 }
 
 install_linux() {
-  local archive_dir=$1 machine_id=$2 hour=$3 minute=$4 backup_py=$5 compress=$6
+  local archive_dir=$1 machine_id=$2 hour=$3 minute=$4 backup_py=$5 compress=$6 prune_days=${7:-}
   local python_bin cron_out cron_line existing filtered new_crontab compress_suffix
 
   python_bin=$(command -v python3) || die "python3 not found on PATH"
@@ -213,6 +225,7 @@ install_linux() {
   cron_out="${archive_dir}/${machine_id}/cron.out"
   compress_suffix=""
   [[ "$compress" == "1" ]] && compress_suffix=" --compress"
+  [[ -n "$prune_days" ]] && compress_suffix+=" --prune-source-screenshots-days ${prune_days}"
 
   # shellcheck disable=SC2016
   # (values are interpolated deliberately below, not left literal)
@@ -229,7 +242,7 @@ install_linux() {
 }
 
 main() {
-  local archive_dir="" machine_id="" time_spec="$DEFAULT_TIME" compress=0
+  local archive_dir="" machine_id="" time_spec="$DEFAULT_TIME" compress=0 prune_days=""
 
   if [[ $# -eq 0 ]]; then
     usage >&2
@@ -255,6 +268,12 @@ main() {
       --compress)
         compress=1
         shift
+        ;;
+      --prune-days)
+        [[ $# -ge 2 ]] || die "--prune-days requires a value"
+        prune_days=$2
+        [[ "$prune_days" =~ ^[0-9]+$ ]] && ((prune_days >= 1)) || die "--prune-days must be an integer >= 1, got: $prune_days"
+        shift 2
         ;;
       --)
         shift
@@ -312,10 +331,10 @@ main() {
   case "$uname_s" in
     Darwin)
       [[ -f "$template" ]] || die "plist template not found at ${template}"
-      install_macos "$archive_dir" "$machine_id" "$hour" "$minute" "$backup_py" "$template" "$compress"
+      install_macos "$archive_dir" "$machine_id" "$hour" "$minute" "$backup_py" "$template" "$compress" "$prune_days"
       ;;
     Linux)
-      install_linux "$archive_dir" "$machine_id" "$hour" "$minute" "$backup_py" "$compress"
+      install_linux "$archive_dir" "$machine_id" "$hour" "$minute" "$backup_py" "$compress" "$prune_days"
       ;;
     *)
       die "unsupported OS: ${uname_s} (only macOS and Linux are supported)"
@@ -323,14 +342,12 @@ main() {
   esac
 
   echo "install.sh: running first dump now..." >&2
+  local extra_args=()
+  [[ "$compress" == "1" ]] && extra_args+=(--compress)
+  [[ -n "$prune_days" ]] && extra_args+=(--prune-source-screenshots-days "$prune_days")
   set +e
-  if [[ "$compress" == "1" ]]; then
-    env TRANSCRIPT_ARCHIVE_DIR="$archive_dir" TRANSCRIPT_ARCHIVE_MACHINE_ID="$machine_id" \
-      python3 "$backup_py" --compress
-  else
-    env TRANSCRIPT_ARCHIVE_DIR="$archive_dir" TRANSCRIPT_ARCHIVE_MACHINE_ID="$machine_id" \
-      python3 "$backup_py"
-  fi
+  env TRANSCRIPT_ARCHIVE_DIR="$archive_dir" TRANSCRIPT_ARCHIVE_MACHINE_ID="$machine_id" \
+    python3 "$backup_py" ${extra_args[@]+"${extra_args[@]}"}
   local rc=$?
   set -e
   exit "$rc"
