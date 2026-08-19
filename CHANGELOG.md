@@ -57,6 +57,8 @@ All notable changes to this project will be documented here.
   `agentType` (worker for search/fetch/verify, opus-worker only for
   scope/critic/reasoning/synthesize), so no model-routing fix was needed
   there.
+- Added `scripts/launch-guard.sh` to refuse live CLI-agent launches with the
+  same working-directory and normalized prompt-prefix hash.
 - claude-spend freshness tripwires: the vendored pricing snapshot is now
   stamped with `_meta.vendored_at` (vendor_pricing.py), the generator requires
   the stamp and freezes it into `pricing_generated.py`, and spend.py's summary
