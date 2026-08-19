@@ -132,27 +132,6 @@ done
 shopt -u nullglob
 
 entry_path="$state_dir/$key.json"
-if [[ -f "$entry_path" ]]; then
-  metadata="$(read_entry_metadata "$entry_path")"
-  read -r existing_pid existing_started <<<"$metadata"
-  age_seconds=$((now_epoch - existing_started))
-  if ((age_seconds < 0)); then
-    age_seconds=0
-  fi
-  age_minutes=$((age_seconds / 60))
-  window_seconds=$((window_min * 60))
-  if ((age_seconds <= window_seconds)) && kill -0 "$existing_pid" 2>/dev/null; then
-    if [[ "$force" == true ]]; then
-      printf 'launch-guard: warning: --force overriding a live launch (pid %s, started %s min ago) with the same prompt.\n' \
-        "$existing_pid" "$age_minutes" >&2
-    else
-      printf 'launch-guard: a live launch (pid %s, started %s min ago) in this cwd began with the same prompt. Refusing. Re-run with --force to launch anyway, or attach/inspect that run.\n' \
-        "$existing_pid" "$age_minutes" >&2
-      exit 3
-    fi
-  fi
-fi
-
 started_epoch="$(date +%s)"
 temporary_entry="$(mktemp "$state_dir/.${key}.XXXXXX")"
 if ! python3 -c 'import json, sys
@@ -168,6 +147,50 @@ print()' "$$" "$PWD" "$prompt_head" "$started_epoch" "$1" >"$temporary_entry"; t
   rm -f "$temporary_entry"
   exit 1
 fi
-mv -f "$temporary_entry" "$entry_path"
+
+# Claim the key atomically: ln(2) fails with EEXIST when another launch already
+# holds it, so two simultaneous launches cannot both pass a check-then-write
+# (review reproduced exactly that race with the earlier `[[ -f ]]` + `mv -f`).
+claim_entry() {
+  ln "$temporary_entry" "$entry_path" 2>/dev/null
+}
+
+refuse_or_force() {
+  local existing_pid="$1" age_minutes="$2"
+  if [[ "$force" == true ]]; then
+    printf 'launch-guard: warning: --force overriding a live launch (pid %s, started %s min ago) with the same prompt.\n' \
+      "$existing_pid" "$age_minutes" >&2
+    mv -f "$temporary_entry" "$entry_path"
+    return 0
+  fi
+  printf 'launch-guard: a live launch (pid %s, started %s min ago) in this cwd began with the same prompt. Refusing. Re-run with --force to launch anyway, or attach/inspect that run.\n' \
+    "$existing_pid" "$age_minutes" >&2
+  rm -f "$temporary_entry"
+  exit 3
+}
+
+if ! claim_entry; then
+  metadata="$(read_entry_metadata "$entry_path")"
+  read -r existing_pid existing_started <<<"$metadata"
+  age_seconds=$((now_epoch - existing_started))
+  if ((age_seconds < 0)); then
+    age_seconds=0
+  fi
+  age_minutes=$((age_seconds / 60))
+  window_seconds=$((window_min * 60))
+  if ((age_seconds <= window_seconds)) && kill -0 "$existing_pid" 2>/dev/null; then
+    refuse_or_force "$existing_pid" "$age_minutes"
+  else
+    # Stale (dead pid or outside the window): drop it and claim once more; if a
+    # rival claimed in between, that rival is the live launch — refuse.
+    rm -f "$entry_path"
+    if ! claim_entry; then
+      metadata="$(read_entry_metadata "$entry_path")"
+      read -r existing_pid existing_started <<<"$metadata"
+      refuse_or_force "$existing_pid" "$(( (now_epoch - existing_started) / 60 ))"
+    fi
+  fi
+fi
+rm -f "$temporary_entry"
 
 exec "$@"

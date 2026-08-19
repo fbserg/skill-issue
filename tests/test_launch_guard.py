@@ -228,3 +228,26 @@ def test_prompt_defaults_to_last_command_argument(tmp_path: Path) -> None:
     assert result.stdout == "prompt from argv"
     entry = json.loads(next(state_dir.glob("*.json")).read_text())
     assert entry["prompt_head"] == "prompt from argv"
+
+
+def test_simultaneous_duplicate_launches_admit_exactly_one(tmp_path: Path) -> None:
+    """Review reproduced two truly simultaneous launches both passing a check-then-write; the ln(2) claim admits one."""
+    state_dir = tmp_path / "state"
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    marker_dir = tmp_path / "ran"
+    marker_dir.mkdir()
+    processes = [
+        subprocess.Popen(
+            [str(LAUNCH_GUARD), "--prompt", "same prompt", "--", "sh", "-c", f"touch {marker_dir}/{index} && sleep 3"],
+            cwd=cwd,
+            env={**os.environ, "LAUNCH_GUARD_DIR": str(state_dir)},
+            capture_output=True,
+            text=True,
+        )
+        for index in range(8)
+    ]
+    exit_codes = [process.wait(timeout=15) for process in processes]
+    assert exit_codes.count(0) == 1, exit_codes
+    assert exit_codes.count(3) == 7, exit_codes
+    assert len(list(marker_dir.iterdir())) == 1

@@ -24,3 +24,6 @@ refused; otherwise `exec` makes the guarded command's exit status the result.
 The script records its own PID and then uses `exec`, so the real command keeps
 that PID and no wrapper remains. An exit trap therefore cannot clean state;
 each invocation prunes entries with a dead PID or an age greater than 24 hours.
+The key is claimed with `ln(2)` (atomic, fails on EEXIST), so two launches
+started in the same instant admit exactly one — a plain check-then-write let
+both through.
