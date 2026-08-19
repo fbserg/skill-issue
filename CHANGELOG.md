@@ -51,7 +51,7 @@ All notable changes to this project will be documented here.
   scope-only mode (`args: {question, mode: 'scope'}`) that returns a
   denominator + angle-boundary scope + one live sample row and stops before
   any fan-out — the caller shows it to the user and only re-invokes the full
-  run (`mode: 'full', confirmedScope}`) on an explicit yes, so a 6-hour
+  run (`{mode: 'full', confirmedScope}`) on an explicit yes, so a 6-hour
   research run never starts on an unconfirmed 0.1%-of-the-business scope
   again; audited all 7 `agent()` calls already carry an explicit
   `agentType` (worker for search/fetch/verify, opus-worker only for

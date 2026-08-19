@@ -533,7 +533,7 @@ const stats = {
   contested: contested.length,
   reasoned: reasoned.length,
   urlDupes, claimDupes, budgetDropped,
-  agentCalls: 1 + totalSearches + totalFetches + totalVerifies + criticRuns + subqs.length + (report ? 1 : 0),
+  agentCalls: (MODE === 'full' && argsObj.confirmedScope ? 0 : 1) + totalSearches + totalFetches + totalVerifies + criticRuns + subqs.length + (report ? 1 : 0),
 }
 
 if (!report) {
