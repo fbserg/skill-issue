@@ -33,6 +33,30 @@ All notable changes to this project will be documented here.
   deletes them, and is idempotent; a malformed lane file is a hard error
   naming the file, never a partial merge. `docs/decisions/README.md` is the
   stub that keeps the (usually empty) directory tracked in git.
+- `/blitz` and `deep-research` resilience hardening from the AI-usage
+  self-review (fbserg/etc#28, #31, #34, #35, #36): `docs/lane-watchdog.md`
+  gains a 1-lane mode (a single background lane still gets a seeded pulse
+  file plus a `run_in_background` until-loop instead of a standing Monitor)
+  and an orchestrator heartbeat (`$PULSE/orchestrator.pulse`, appended on
+  every turn while lanes are in flight), plus a teardown check that a batch
+  isn't done until every lane's pulse carries a `TERMINAL` line. `blitz`
+  (Claude) posture list gains: a worker/bulk-by-default model-routing
+  preamble (`opus-worker` only after a `worker` fails, or for a deliberate
+  judgment panel — a 152-agent Opus fan-out cost $5.1k where Sonnet scored
+  within a few points), a capability pre-check before fan-out, rate-limit
+  fallback (stop polling, checkpoint state, hand back to the human), a
+  wave-completion summary that names zero-output lanes, long-polls-only
+  guidance, and a first-action `ToolSearch` preload
+  (`Monitor,SendMessage,TaskStop`). `deep-research`'s `workflow.js` gains a
+  scope-only mode (`args: {question, mode: 'scope'}`) that returns a
+  denominator + angle-boundary scope + one live sample row and stops before
+  any fan-out — the caller shows it to the user and only re-invokes the full
+  run (`mode: 'full', confirmedScope}`) on an explicit yes, so a 6-hour
+  research run never starts on an unconfirmed 0.1%-of-the-business scope
+  again; audited all 7 `agent()` calls already carry an explicit
+  `agentType` (worker for search/fetch/verify, opus-worker only for
+  scope/critic/reasoning/synthesize), so no model-routing fix was needed
+  there.
 - claude-spend freshness tripwires: the vendored pricing snapshot is now
   stamped with `_meta.vendored_at` (vendor_pricing.py), the generator requires
   the stamp and freezes it into `pricing_generated.py`, and spend.py's summary

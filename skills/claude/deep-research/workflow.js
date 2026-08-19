@@ -47,10 +47,11 @@ const TIER_GUIDE =
 
 // ─── Schemas ───
 const SCOPE_SCHEMA = {
-  type: 'object', required: ['question', 'summary', 'complexity', 'needsEvidenceTiering', 'angles', 'reasoningSubquestions'],
+  type: 'object', required: ['question', 'summary', 'denominator', 'complexity', 'needsEvidenceTiering', 'angles', 'reasoningSubquestions'],
   properties: {
     question:   { type: 'string' },
     summary:    { type: 'string' },
+    denominator: { type: 'string' },
     complexity: { enum: ['simple', 'moderate', 'complex'] },
     needsEvidenceTiering: { type: 'boolean' },
     reasoningSubquestions: { type: 'array', maxItems: 3, items: { type: 'string' } },
@@ -152,30 +153,50 @@ const REPORT_SCHEMA = {
 }
 
 // ─── Phase 0: Scope/Plan (Opus) ───
-const QUESTION = (typeof args === 'string' && args.trim()) || ''
+// args: a plain question string (legacy — full run, scope re-derived each time), or
+//   { question: string, mode?: 'scope' | 'full' (default 'full'), confirmedScope?: object }.
+// mode:'scope' returns the denominator, the angle plan (boundaries = what's in/out of
+// scope), and one live sample row, then stops — no fan-out. The caller shows this to the
+// user and, only on an explicit yes, re-invokes with mode:'full' and confirmedScope set to
+// the returned scope object, so the confirmed plan is reused instead of re-derived (and
+// possibly drifting from what the user actually approved).
+const argsObj = (args && typeof args === 'object') ? args : { question: args }
+const QUESTION = (typeof argsObj.question === 'string' && argsObj.question.trim()) || ''
+const MODE = argsObj.mode === 'scope' ? 'scope' : 'full'
 if (!QUESTION) {
-  return { error: "No research question provided. Pass it as args: Workflow({scriptPath: '...', args: '<question>'})" }
+  return { error: "No research question provided. Pass it as args: Workflow({scriptPath: '...', args: '<question>'}) or {question, mode, confirmedScope}" }
 }
 
 phase('Scope')
-const scope = await agent(
-  '## Research Planner\n\n' +
-  'Decompose this research question into a sized plan of complementary search angles.\n\n' +
-  '## Question\n' + QUESTION + '\n\n' +
-  '## 1. Judge complexity\n' +
-  '- simple: single factual question in a settled domain → 2-3 angles\n' +
-  '- moderate: multi-faceted, or some real controversy → 3-5 angles\n' +
-  '- complex: contested empirical domain, multiple mechanisms/subpopulations, high stakes of being wrong → 5-8 angles\n\n' +
-  '## 2. Pick angles from the lens catalog\n' + LENS_CATALOG + '\n\n' +
-  'HARD RULE: at least one angle MUST use lens `contrarian-disconfirmation` — actively hunt the case AGAINST the consensus answer (null results, failed replications, debunkings, failure conditions). Non-negotiable, even for simple questions.\n\n' +
-  'Each angle needs a `boundary`: one or two sentences stating what it covers AND what it explicitly EXCLUDES, so no two angles overlap. Each `query` must be a concrete, high-signal web search string.\n\n' +
-  '## 3. Evidence machinery\n' +
-  '- needsEvidenceTiering: true for empirical/health/causal/scientific topics where evidence strength matters; false for pure preference, how-to, or product-comparison questions.\n' +
-  '- reasoningSubquestions: 0-3 counterintuitive sub-questions worth reasoning through from first principles once evidence is collected (e.g. "if the mechanism is X, why do trials in population Y show nothing?"). Empty for simple topics.\n\n' +
-  'Return the question (verbatim or lightly normalized), a 1-2 sentence decomposition strategy, complexity, the angles, and the evidence-machinery fields.\n\nStructured output only.',
-  { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, model: 'opus', effort: 'high', agentType: 'opus-worker' }
-)
-if (!scope) return { error: 'Scope agent returned no result.' }
+let scope
+if (MODE === 'full' && argsObj.confirmedScope) {
+  scope = argsObj.confirmedScope
+  log('Using confirmedScope from prior scope-only pass — Scope agent skipped')
+} else {
+  scope = await agent(
+    '## Research Planner\n\n' +
+    'Decompose this research question into a sized plan of complementary search angles.\n\n' +
+    '## Question\n' + QUESTION + '\n\n' +
+    '## 1. State the denominator\n' +
+    'What population, dataset, or scope is this question ACTUALLY measuring against? If it targets a narrow ' +
+    'slice (one product line, one region, one subpopulation, one metric), say so and give its rough size or ' +
+    'significance relative to the obvious wider context — flag plainly if that scope looks too narrow for what ' +
+    'the asker likely wants. 1-2 sentences, in `denominator`.\n\n' +
+    '## 2. Judge complexity\n' +
+    '- simple: single factual question in a settled domain → 2-3 angles\n' +
+    '- moderate: multi-faceted, or some real controversy → 3-5 angles\n' +
+    '- complex: contested empirical domain, multiple mechanisms/subpopulations, high stakes of being wrong → 5-8 angles\n\n' +
+    '## 3. Pick angles from the lens catalog\n' + LENS_CATALOG + '\n\n' +
+    'HARD RULE: at least one angle MUST use lens `contrarian-disconfirmation` — actively hunt the case AGAINST the consensus answer (null results, failed replications, debunkings, failure conditions). Non-negotiable, even for simple questions.\n\n' +
+    'Each angle needs a `boundary`: one or two sentences stating what it covers AND what it explicitly EXCLUDES, so no two angles overlap. Each `query` must be a concrete, high-signal web search string.\n\n' +
+    '## 4. Evidence machinery\n' +
+    '- needsEvidenceTiering: true for empirical/health/causal/scientific topics where evidence strength matters; false for pure preference, how-to, or product-comparison questions.\n' +
+    '- reasoningSubquestions: 0-3 counterintuitive sub-questions worth reasoning through from first principles once evidence is collected (e.g. "if the mechanism is X, why do trials in population Y show nothing?"). Empty for simple topics.\n\n' +
+    'Return the question (verbatim or lightly normalized), the denominator, a 1-2 sentence decomposition strategy, complexity, the angles, and the evidence-machinery fields.\n\nStructured output only.',
+    { label: 'scope', phase: 'Scope', schema: SCOPE_SCHEMA, model: 'opus', effort: 'high', agentType: 'opus-worker' }
+  )
+  if (!scope) return { error: 'Scope agent returned no result.' }
+}
 
 const sizing = SIZING[scope.complexity] || SIZING.moderate
 log('Q: ' + QUESTION.slice(0, 80) + (QUESTION.length > 80 ? '…' : ''))
@@ -265,6 +286,40 @@ const claimLineLite = c =>
 
 const claimLineFull = c =>
   claimLineLite(c) + '\n    src: ' + c.sourceUrl + ' (' + c.sourceQuality + ') — "' + (c.quote || '').slice(0, 200) + '"'
+
+// ─── Scope-only checkpoint: denominator + scope + one sample row, then stop ───
+if (MODE === 'scope') {
+  const sampleAngle = angles[0]
+  phase('Search')
+  const sampleSearch = await agent(SEARCH_PROMPT(sampleAngle), {
+    label: 'scope-sample:search', phase: 'Search', schema: SEARCH_SCHEMA, model: 'sonnet', effort: 'medium', agentType: 'worker',
+  })
+  const topResult = sampleSearch && sampleSearch.results[0]
+  let sampleRow = null
+  if (topResult) {
+    phase('Fetch')
+    const sampleFetch = await agent(FETCH_PROMPT(topResult, sampleAngle.label), {
+      label: 'scope-sample:fetch', phase: 'Fetch', schema: EXTRACT_SCHEMA, model: 'sonnet', effort: 'medium', agentType: 'worker',
+    })
+    sampleRow = {
+      angle: sampleAngle.label, url: topResult.url, title: topResult.title,
+      sourceQuality: sampleFetch ? sampleFetch.sourceQuality : 'unreliable',
+      claim: (sampleFetch && sampleFetch.claims[0] && sampleFetch.claims[0].claim) || '(no claim extracted)',
+    }
+  }
+  return {
+    mode: 'scope',
+    question: QUESTION,
+    complexity: scope.complexity,
+    denominator: scope.denominator,
+    angles: angles.map(a => ({ label: a.label, lens: a.lens, boundary: a.boundary, query: a.query })),
+    sampleRow,
+    confirmedScope: scope,
+    note: 'Scope-only preview — no full research run happened. Show denominator/angles/sampleRow to the user; ' +
+      'on an explicit yes, re-invoke with args = { question, mode: "full", confirmedScope } using the ' +
+      'confirmedScope object above, so the confirmed plan is reused rather than re-derived.',
+  }
+}
 
 // ─── Bounded saturation loop: Search → Fetch → Verify → Critic ───
 let round = 0
