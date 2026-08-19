@@ -242,8 +242,8 @@ def test_simultaneous_duplicate_launches_admit_exactly_one(tmp_path: Path) -> No
             [str(LAUNCH_GUARD), "--prompt", "same prompt", "--", "sh", "-c", f"touch {marker_dir}/{index} && sleep 3"],
             cwd=cwd,
             env={**os.environ, "LAUNCH_GUARD_DIR": str(state_dir)},
-            capture_output=True,
-            text=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         )
         for index in range(8)
     ]
