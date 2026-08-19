@@ -40,7 +40,7 @@ def main():
     ap.add_argument('--days', type=int, default=31)
     ap.add_argument('--work', default=None, help='work dir (default ~/.local/share/usage-review/<date>); must not be inside a git repo')
     ap.add_argument('--user', default=None, help='label for grade rows (default: login name)')
-    ap.add_argument('--grade', action='store_true', help='also run the rubric grader (sends clipped renders to `claude -p`)')
+    ap.add_argument('--grade', action='store_true', help='also sample, render and grade a rubric set (sends clipped renders to `claude -p`); without it no grade sample is made')
     ap.add_argument('--model', default='sonnet')
     ap.add_argument('--jobs', type=int, default=5)
     ap.add_argument('--context', default=None, help='grader context paragraph file (who, projects, conventions)')
@@ -60,10 +60,11 @@ def main():
     run('quant.py', '--days', a.days, '--out', work)
     run('cmd_scan.py', work)
     run('summarize.py', work)
-    run('sample.py', work, '--per-lane', a.per_lane, '--grade-n', a.grade_n)
+    run('sample.py', work, '--per-lane', a.per_lane, '--grade-n', a.grade_n if a.grade else 0)
     render_args = ['--sessions', os.path.join(work, 'sessions.jsonl'), '--select', os.path.join(work, 'select.json'),
-                   '--outdir', os.path.join(work, 'md'), '--budget', a.budget,
-                   '--grade-jsonl', os.path.join(work, 'grade_in.jsonl'), '--grade-tags', 'grade']
+                   '--outdir', os.path.join(work, 'md'), '--budget', a.budget]
+    if a.grade:
+        render_args += ['--grade-jsonl', os.path.join(work, 'grade_in.jsonl'), '--grade-tags', 'grade']
     if a.user:
         render_args += ['--user', a.user]
     run('render.py', *render_args)
@@ -83,7 +84,7 @@ def main():
     print(f"""
 work dir: {work}   (.gitignore=* written; not inside a git repo)
 files: sessions.jsonl quant_summary.txt automation.txt families.json select.json lanes.json md/<tag>/*.md
-       risky_cmds.jsonl cmd_stats.json risky_digest.md grade_in.jsonl{' graded.jsonl digest.md' if a.grade else ''}
+       risky_cmds.jsonl cmd_stats.json risky_digest.md window.json{' grade_in.jsonl graded.jsonl digest.md' if a.grade else '   (no grade sample; re-run with --grade to add one)'}
 secret scan: {len(high)} HIGH findings in rendered/derived files{' — see below; renders quote transcripts verbatim, redact before anything is shared' if high else ''}
 {chr(10).join(high[:20])}
 next (from Claude Code, see SKILL.md):

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Quant pass over local Claude Code + Codex transcripts (read-only on ~/.claude and ~/.codex).
-Usage: quant.py --days 31 --out ./work   (writes work/sessions.jsonl, one row per transcript file)
+Usage: quant.py --days 31 --out ./work   (writes work/sessions.jsonl, one row per transcript file, and work/window.json)
+Window semantics: a session is kept if its last activity is within the last N days, and then counted whole — a
+session that started before the cut contributes all its tokens. summarize.py reports how many did.
 Row fields: source, path, nested, project (short display name), project_dir (raw), session_id, first_ts/last_ts, models, tok{model:[in,cache_w,cache_r,out]},
 user_turns, assistant_turns, tools, first_prompt (first 300 chars), interrupts, api_errors, cost_new, cost_full,
 new_tokens, cache_read, out_tokens, originator/reasoning_effort (codex)."""
@@ -200,6 +202,9 @@ def main():
         out.write(json.dumps(r) + '\n')
         if i % 500 == 0: print(i, round(time.time() - t0), 's', file=sys.stderr)
     out.close()
+    json.dump(dict(days=_args.days, cut_iso=CUT_ISO, run_at=dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%M:%S'),
+                   note='files with mtime >= cut are parsed; a session is kept if its last activity is >= cut, and then counted WHOLE, so sessions that started before the cut contribute their full tokens/cost'),
+              open(os.path.join(OUT, 'window.json'), 'w'), indent=1)
     print('done', round(time.time() - t0), 's', file=sys.stderr)
 
 if __name__ == '__main__':

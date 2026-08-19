@@ -38,7 +38,7 @@ Each step writes files into one work dir. Nothing writes back into the corpus. I
 
 ### 2.1 Inventory and quant (`tools/quant.py`)
 
-`python3 tools/quant.py --days 31 --out ./work` walks `~/.claude/projects` (top-level and nested) and `~/.codex/sessions`, and writes `work/sessions.jsonl`, one row per file: source, nested flag, project, session id, first/last timestamp, tokens per model (input, cache-write, cache-read, output), user/assistant turns, tool counts, first prompt, interrupts, API errors, list-price cost two ways (`cost_new` = input+cache-write+output; `cost_full` adds cache reads).
+`python3 tools/quant.py --days 31 --out ./work` walks `~/.claude/projects` (top-level and nested) and `~/.codex/sessions`, and writes `work/sessions.jsonl`, one row per file (plus `window.json`). Window semantics: a session is kept if its last activity falls inside the window and is then counted whole, so a long session that started before the cut brings its full cost in; `quant_summary.txt` states how many did — quote the actual span, not the requested days. Row fields: source, nested flag, project, session id, first/last timestamp, tokens per model (input, cache-write, cache-read, output), user/assistant turns, tool counts, first prompt, interrupts, API errors, list-price cost two ways (`cost_new` = input+cache-write+output; `cost_full` adds cache reads).
 
 For exporter markdown use `tools/extract_exporter_md.py <root>` (sessions with text) plus the sidecar CSVs for tokens.
 
@@ -89,7 +89,7 @@ Lane set that covers a corpus:
 - **Sharing and duplication** (orgs): which tools/skills exist, who owns them, what got re-derived by several people.
 - **Pipeline health** (orgs): exporter bugs, staleness, forks, format drift; git history of the archive.
 
-Lane prompt rules that mattered: "read EVERY file fully"; "every claim cites file + short verbatim quote or the `→ used tool` line"; "facts only if you saw them"; "do not read outside the lane dir except the context files"; "write to `<workdir>/lanes/<lane>.md` only"; "never copy a credential into the report — write `[credential present, redacted]`". Give the lane its numbers (month totals, family counts) so it can put a sample in proportion; `sample.py` bakes them into each lane brief.
+Lane prompt rules that mattered: "read EVERY file fully"; "every claim cites file + short verbatim quote or the `→ used tool` line"; "facts only if you saw them"; "do not read outside the lane dir except the context files and any sibling dir the brief names (e.g. `lane-orchestration-sub`)"; "write to `<workdir>/lanes/<lane>.md` only"; "never copy a credential into the report — write `[credential present, redacted]`". Give the lane its numbers (month totals, family counts) so it can put a sample in proportion; `sample.py` bakes them into each lane brief.
 
 ### 2.7 Rubric grade (`tools/grade.py`)
 

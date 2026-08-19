@@ -24,8 +24,9 @@ run). This file is the operating procedure.
    ("one solo developer running several products, heavy sub-agent orchestration"; "a 12-person
    agency team, mostly Claude Code"). This is the only place a name enters the pipeline; a
    handle or "the user" is fine.
-4. **Audience**: self-coaching, a manager, the whole team. Names + dollars + tiers is
-   management-only; coaching for individuals travels as a separate sheet without tiers or costs.
+4. **Audience**: self (no restrictions — it is their own data), a manager, the whole team.
+   Names + dollars + tiers is management-only; coaching for individuals travels as a separate
+   sheet without tiers or costs.
 5. **Grade?** The rubric grader costs ~$0.16/session on Sonnet at list price and sends clipped
    renders to `claude -p`; default yes for ≥40 human sessions.
 
@@ -38,11 +39,13 @@ SKILL=<this skill's directory>            # resolve from the installed usage-rev
 python3 $SKILL/tools/pipeline.py --days <N> [--grade --context <work>/context.txt] [--user <label>]
 ```
 
-`pipeline.py` = quant → cmd_scan → summarize → select → render → risky_digest → [grade → digest]
+`pipeline.py` = quant → cmd_scan → summarize → sample → render → risky_digest → [grade → digest]
 → secret_scan, into `~/.local/share/usage-review/<date>/` (override with `--work`; it refuses any
 path inside a git work tree and writes a `.gitignore` of `*`). It prints the work dir, the file
 list, secret-scan HIGH count, and the exact `Workflow` args for the next step. `context.txt` for
 the grader is one paragraph: who, projects, transcript conventions — write it from step 3.
+Window semantics: sessions active in the last N days are counted whole, so a long session that
+started earlier brings its full cost; `quant_summary.txt` says how many did — quote the actual span.
 
 Then, in this session:
 
@@ -51,12 +54,11 @@ Workflow({ scriptPath: "$SKILL/workflows/lanes.js",
            args: { base: "<work dir>", who: "<step 3>", tz: "<date +%z>", lanes: <parse <work dir>/lanes.json> } })
 ```
 
-One `worker` per lane (project lanes + verification, prompting, waste, orchestration, codex,
-automation). Each writes `<work>/lanes/<lane>.md` and returns JSON; save the return value as
-`<work>/lanes_result.json`.
+One `worker` per lane; each writes `<work>/lanes/<lane>.md` and returns JSON. Save the return
+value as `<work>/lanes_result.json`.
 
 **Draft** the report yourself from `quant_summary.txt`, `automation.txt`, `risky_digest.md`,
-`digest.md` and the lane JSON — recompute any number you quote from `sessions.jsonl` rather than
+`digest.md` (if graded) and the lane JSON — recompute any number you quote from `sessions.jsonl` rather than
 copying a lane's figure. Structure: short version (7 bullets) · numbers at a glance · method and
 caveats · where the money goes · what works · what does not · waste itemised · risk and incidents
 (what happened / root gap / file cite) · rubric grades · per-project or per-person table (what
