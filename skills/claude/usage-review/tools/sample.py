@@ -24,10 +24,12 @@ def thirds(rows, n):
     k = max(1, n // 3)
     med = mid[len(mid) // 2 - k // 2: len(mid) // 2 - k // 2 + k] if len(mid) > k else mid
     picked, seen = [], set()
-    for r in by_cost[:k] + med + by_time[:n - 2 * k]:
+    for r in by_cost[:k] + med + by_time[:n - 2 * k] + by_time:  # trailing by_time backfills overlap between the three probes
+        if len(picked) >= n:
+            break
         if r['path'] not in seen:
             seen.add(r['path']); picked.append(r)
-    return picked[:n]
+    return picked
 
 
 def main():
@@ -81,14 +83,16 @@ def main():
         add(r, 'lane-waste')
     for r in [r for r in top if r['user_turns'] == 0][:2]:
         add(r, 'lane-waste', 12000)
-    lanes.append({'key': 'lane-waste', 'dir': 'lane-waste', 'extra': f"Theme lane: WASTE AND FAILURE MODES. Files: the {a.per_lane} most expensive human sessions (top one {money(top_cost[0]['cost_full']) if top_cost else '$0'}), the sessions with most API errors, two 0-user-turn sessions. "
+    if seen_tags['lane-waste']:
+        lanes.append({'key': 'lane-waste', 'dir': 'lane-waste', 'extra': f"Theme lane: WASTE AND FAILURE MODES. Files: the {a.per_lane} most expensive human sessions (top one {money(top_cost[0]['cost_full']) if top_cost else '$0'}), the sessions with most API errors, two 0-user-turn sessions. "
                   f"Human sessions in window: {len(human):,}, cost_full {money(sum(r['cost_full'] for r in human))}. Determine what each expensive session bought and where the cost came from (never-restarted context, retries, loops, over-parallelism); estimate what share is real waste; give the 5 highest-value fixes."})
 
     for r in top_cost[:a.per_lane // 2]:
         add(r, 'lane-verification')
     for r in sorted(human, key=lambda r: -sum(n for t, n in (r.get('tools') or {}).items() if t in ('Bash', 'exec_command', 'shell', 'local_shell_call')))[:a.per_lane // 2]:
         add(r, 'lane-verification')
-    lanes.append({'key': 'lane-verification', 'dir': 'lane-verification', 'extra': "Theme lane: VERIFICATION AND RISK. Besides your directory, read <base>/risky_digest.md fully: a regex scan of every shell command in the window, grouped by pattern; MOST hits are noise (greps for the words, patch bodies, docs). Separate real destructive / production-touching / credential-exposing actions from noise and list the real ones with evidence. In the sampled sessions, are 'done'/'verified' claims backed by observed tests, exit codes, browser/DB/API checks? Count sessions that accept an unverified claim."})
+    if seen_tags['lane-verification']:
+        lanes.append({'key': 'lane-verification', 'dir': 'lane-verification', 'extra': "Theme lane: VERIFICATION AND RISK. Besides your directory, read <base>/risky_digest.md fully: a regex scan of every shell command in the window, grouped by pattern; MOST hits are noise (greps for the words, patch bodies, docs). Separate real destructive / production-touching / credential-exposing actions from noise and list the real ones with evidence. In the sampled sessions, are 'done'/'verified' claims backed by observed tests, exit codes, browser/DB/API checks? Count sessions that accept an unverified claim."})
 
     short_long = [r for r in human if r['short_openers'] and r['assistant_turns'] >= 8]
     for r in sorted(short_long, key=lambda r: -r['assistant_turns'])[:a.per_lane // 2]:
@@ -97,7 +101,8 @@ def main():
         add(r, 'lane-prompting')
     for r in sorted(human, key=lambda r: -r['interrupts'])[:a.per_lane // 2]:
         add(r, 'lane-prompting')
-    lanes.append({'key': 'lane-prompting', 'dir': 'lane-prompting', 'extra': f"Theme lane: PROMPTING, FRONT-LOADING AND STEERING. Files: sessions opened with <60-char prompts that ran 8+ turns ({len(short_long):,} exist), the longest openers, the most-interrupted sessions (window totals: {sum(r['interrupts'] for r in human):,} interrupts, {sum(r['plan_mode'] for r in human):,} plan-mode mentions, {sum(r['effort_words'] for r in human):,} typed effort words). "
+    if seen_tags['lane-prompting']:
+        lanes.append({'key': 'lane-prompting', 'dir': 'lane-prompting', 'extra': f"Theme lane: PROMPTING, FRONT-LOADING AND STEERING. Files: sessions opened with <60-char prompts that ran 8+ turns ({len(short_long):,} exist), the longest openers, the most-interrupted sessions (window totals: {sum(r['interrupts'] for r in human):,} interrupts, {sum(r['plan_mode'] for r in human):,} plan-mode mentions, {sum(r['effort_words'] for r in human):,} typed effort words). "
                   "Assess what arrives late that belonged in turn 1, how corrections are phrased, whether interrupts are productive, whether the assistant asks the right questions, and what an opening template for this person/team should contain."})
 
     parents = sorted(human, key=lambda r: -((r.get('tools') or {}).get('Agent', 0) + (r.get('tools') or {}).get('Workflow', 0) + (r.get('tools') or {}).get('spawn_agent', 0)))

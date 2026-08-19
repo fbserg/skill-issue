@@ -44,12 +44,17 @@ def is_real_user_text(t):
     return True
 
 def project_name(cwd, fallback):
-    """Short display name: basename of cwd; a worktree checkout (<name>-worktrees/<x>) maps to <name>."""
+    """Short display name for a checkout: basename of cwd, except worktree layouts map back to the main project:
+    <root>/.claude/worktrees/<x>[/..] -> root ; <root>/.git/worktrees/<x> -> root ; <name>-worktrees/<x>[/..] -> name."""
     if not cwd:
         return fallback
-    parent, base = os.path.split(cwd.rstrip('/'))
-    pb = os.path.basename(parent)
-    return pb[:-len('-worktrees')] if pb.endswith('-worktrees') else base
+    parts = cwd.rstrip('/').split('/')
+    for i in range(len(parts) - 1):
+        if parts[i] in ('.claude', '.git') and parts[i + 1] == 'worktrees' and i >= 1:
+            return parts[i - 1]
+        if parts[i].endswith('-worktrees') and len(parts[i]) > len('-worktrees'):
+            return parts[i][:-len('-worktrees')]
+    return parts[-1]
 
 def parse_claude(path, nested=False):
     project_dir = path.split('/.claude/projects/')[1].split('/')[0] if '/.claude/projects/' in path else os.path.basename(os.path.dirname(path))

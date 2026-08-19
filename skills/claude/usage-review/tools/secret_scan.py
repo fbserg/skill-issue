@@ -22,7 +22,9 @@ HIGH = {
     'jwt': re.compile(r'\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'),
     'url_with_password': re.compile(r'\b[a-z][a-z0-9+.-]*://[^/\s:@]+:[^/\s@]{4,}@[^\s/]+'),
     'bearer_token': re.compile(r'\b[Bb]earer\s+[A-Za-z0-9._~+/-]{20,}=*'),
-    'password_assignment': re.compile(r'(?i)\b(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret)\b\s*[=:]\s*["\']?[^\s"\',;]{8,}'),
+    # `_` counts as a separator so DB_PASSWORD= / AWS_SECRET_ACCESS_KEY= / X_API_KEY= match; bare `pwd` excluded (shell builtin)
+    'password_assignment': re.compile(r'(?i)(?:^|[^A-Za-z0-9])(?:password|passwd|secret(?:[_-]?access)?[_-]?key|secret|api[_-]?key|access[_-]?token|auth[_-]?token|oauth[_-]?token|client[_-]?secret|private[_-]?key)\s*[=:]\s*["\']?[^\s"\',;]{8,}'),
+    'curl_basic_auth': re.compile(r'(?:^|\s)(?:-u|--user)\s+["\']?[^\s:"\']{2,}:[^\s"\']{4,}'),
 }
 LOW = {
     'email_address': re.compile(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b'),
@@ -46,7 +48,16 @@ def scan_file(path, findings):
         for name, rx in HIGH.items():
             for m in rx.finditer(line):
                 val = m.group(0)
-                tail = val.split('=', 1)[-1].split(':', 1)[-1].strip(' "\'') if name == 'password_assignment' else (val.split(None, 1)[1] if name == 'bearer_token' else val)
+                if name == 'password_assignment':
+                    tail = re.split(r'[=:]', val, 1)[-1].strip(' "\'')
+                elif name == 'bearer_token':
+                    tail = val.split(None, 1)[1]
+                elif name == 'curl_basic_auth':
+                    tail = val.split(':', 1)[-1]
+                else:
+                    tail = val
+                if tail.startswith('/'):
+                    continue  # a path, not a credential (e.g. orig_pwd=/some/dir)
                 if FALSE_POSITIVE_VALUES.match(tail):
                     continue
                 findings.append(('HIGH', name, path, ln, mask(val)))
