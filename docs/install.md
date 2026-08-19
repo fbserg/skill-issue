@@ -33,6 +33,7 @@ ln -sfn "$PWD/skills/claude/epic-plan"       ~/.claude/skills/epic-plan
 ln -sfn "$PWD/skills/claude/issue"           ~/.claude/skills/issue
 ln -sfn "$PWD/skills/claude/resolve-issue"   ~/.claude/skills/resolve-issue
 ln -sfn "$PWD/skills/claude/simplify-sweep"  ~/.claude/skills/simplify-sweep
+ln -sfn "$PWD/skills/claude/usage-review"    ~/.claude/skills/usage-review
 ```
 
 ### Shared (Claude)
@@ -94,7 +95,7 @@ the runtime picked up the symlinked files.
 ## Codex exclusions
 
 The Codex install intentionally does not include `deep-research`,
-`authenticity-check`, `humanizer`, or the old Claude `simplify-sweep`
+`authenticity-check`, `humanizer`, `usage-review`, or the old Claude `simplify-sweep`
 workflow.
 
 ## Deprecated components
@@ -110,7 +111,7 @@ and the old Codex skills are deprecated and archived under `deprecated/`. See
 rm ~/.claude/skills/adversary ~/.claude/skills/blitz
 rm ~/.claude/skills/deep-research ~/.claude/skills/epic-plan
 rm ~/.claude/skills/issue ~/.claude/skills/resolve-issue
-rm ~/.claude/skills/simplify-sweep
+rm ~/.claude/skills/simplify-sweep ~/.claude/skills/usage-review
 
 # Remove shared skill symlinks (installed for Claude)
 rm ~/.claude/skills/zero

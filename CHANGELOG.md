@@ -4,6 +4,15 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- New Claude skill `usage-review`: review a body of AI-assistant transcripts
+  (own local Claude Code / Codex CLI sessions, or a shared exporter-markdown
+  archive) into a red-teamed report. Ships the pipeline tools (quant, command
+  scan, summarize, stratified sample, render, risky digest, rubric grader,
+  digest, secret scan) plus parametrized lane and red-team Workflow scripts and
+  the calibrated methodology. Privacy contract enforced in `pipeline.py`: corpus
+  read-only, work dir refused inside any git repository (work tree, bare or .git dir), `.gitignore *` written,
+  secret scan before sharing; the only egress is what the grader/lanes send to
+  the user's own model provider.
 - claude-spend freshness tripwires: the vendored pricing snapshot is now
   stamped with `_meta.vendored_at` (vendor_pricing.py), the generator requires
   the stamp and freezes it into `pricing_generated.py`, and spend.py's summary

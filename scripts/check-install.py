@@ -36,6 +36,7 @@ CLAUDE_SKILLS = (
     "issue",
     "resolve-issue",
     "simplify-sweep",
+    "usage-review",
 )
 
 # Shared skill sources. All install into Claude; zero also installs into Codex.
