@@ -41,7 +41,7 @@ python3 $SKILL/tools/pipeline.py --days <N> [--grade --context <work>/context.tx
 
 `pipeline.py` = quant → cmd_scan → summarize → sample → render → risky_digest → [grade → digest]
 → secret_scan, into `~/.local/share/usage-review/<date>/` (override with `--work`; it refuses any
-path inside a git work tree and writes a `.gitignore` of `*`). It prints the work dir, the file
+path inside a git repository — work tree, bare repo or `.git` dir — and writes a `.gitignore` of `*`). It prints the work dir, the file
 list, secret-scan HIGH count, and the exact `Workflow` args for the next step. `context.txt` for
 the grader is one paragraph: who, projects, transcript conventions — write it from step 3.
 Window semantics: sessions active in the last N days are counted whole, so a long session that

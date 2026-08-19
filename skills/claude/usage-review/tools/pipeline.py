@@ -10,7 +10,7 @@ Steps (each tool can also be run alone; see METHODOLOGY.md §2):
 
 Privacy contract, enforced here:
   * reads ~/.claude/projects and ~/.codex/sessions read-only; writes only into --work
-  * --work defaults to ~/.local/share/usage-review/<UTC date>/ and MUST NOT be inside a git work tree
+  * --work defaults to ~/.local/share/usage-review/<UTC date>/ and MUST NOT be inside a git repository (work tree, bare repo or .git dir)
     (a report names projects, dollars and whatever people pasted; a stray `git add .` would publish it).
     The work dir gets a `.gitignore` containing `*` regardless.
   * nothing leaves the machine except, with --grade, clipped transcript renders sent to `claude -p`
@@ -27,12 +27,23 @@ def run(tool, *args):
     subprocess.run(cmd, check=True)
 
 
-def inside_git_worktree(path):
+def inside_git_repo(path):
+    """True if the (possibly not yet existing) path is inside a git work tree, a bare repository, or a .git dir."""
     probe = path
     while not os.path.isdir(probe):
         probe = os.path.dirname(probe)
-    r = subprocess.run(['git', '-C', probe, 'rev-parse', '--is-inside-work-tree'], capture_output=True, text=True)
-    return r.returncode == 0 and r.stdout.strip() == 'true'
+    for flag in ('--is-inside-work-tree', '--is-inside-git-dir', '--is-bare-repository'):
+        r = subprocess.run(['git', '-C', probe, 'rev-parse', flag], capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip() == 'true':
+            return True
+    d = probe
+    while True:  # belt and braces: any ancestor that is itself a git dir (bare layout: HEAD + objects + refs)
+        if os.path.exists(os.path.join(d, '.git')) or all(os.path.exists(os.path.join(d, x)) for x in ('HEAD', 'objects', 'refs')):
+            return True
+        parent = os.path.dirname(d)
+        if parent == d:
+            return False
+        d = parent
 
 
 def main():
@@ -49,9 +60,9 @@ def main():
     ap.add_argument('--grade-n', type=int, default=50)
     a = ap.parse_args()
 
-    work = os.path.abspath(a.work or os.path.expanduser(f"~/.local/share/usage-review/{dt.datetime.now(dt.timezone.utc):%Y-%m-%d}"))
-    if inside_git_worktree(work):
-        sys.exit(f"refusing: work dir {work} is inside a git work tree. Reports name projects, dollars and pasted secrets; "
+    work = os.path.realpath(a.work or os.path.expanduser(f"~/.local/share/usage-review/{dt.datetime.now(dt.timezone.utc):%Y-%m-%d}"))
+    if inside_git_repo(work):
+        sys.exit(f"refusing: work dir {work} is inside a git repository (work tree, bare repo or .git dir). Reports name projects, dollars and pasted secrets; "
                  "pick a --work outside any repo (default: ~/.local/share/usage-review/<date>).")
     os.makedirs(work, exist_ok=True)
     with open(os.path.join(work, '.gitignore'), 'w') as f:

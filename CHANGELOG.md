@@ -10,7 +10,7 @@ All notable changes to this project will be documented here.
   scan, summarize, stratified sample, render, risky digest, rubric grader,
   digest, secret scan) plus parametrized lane and red-team Workflow scripts and
   the calibrated methodology. Privacy contract enforced in `pipeline.py`: corpus
-  read-only, work dir refused inside any git work tree, `.gitignore *` written,
+  read-only, work dir refused inside any git repository (work tree, bare or .git dir), `.gitignore *` written,
   secret scan before sharing; the only egress is what the grader/lanes send to
   the user's own model provider.
 - claude-spend freshness tripwires: the vendored pricing snapshot is now
