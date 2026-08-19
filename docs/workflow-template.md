@@ -28,9 +28,11 @@ fix, not just the rule.
 3. **Rate-limit fallback, not a retry loop.** `agent()` returns `null` for a
    dead or skipped agent (rate limits included) — after a session-limit hit,
    one transcript repeated the same error 4 times and produced nothing.
-   Count consecutive nulls; N in a row stops launching more and returns
-   `{status:'rate_limited', inflight:[...], done:[...]}` so the caller can
-   persist in-flight state and hand back to a human. Never retry blind.
+   Count consecutive nulls; N in a row stops the NEXT wave from launching and
+   returns `{status:'rate_limited', inflight:[...], done:[...]}` so the caller
+   can persist in-flight state and hand back to a human. Never retry blind.
+   A launched `parallel()` cannot be cancelled, so fan out in waves — one
+   giant `parallel()` spends everything before the streak is ever seen.
 4. **Name zero-output lanes in the wave summary.** A 17-lane harvest had one
    silently empty lane, found only by parsing raw output JSON afterward.
    After each wave, `log()` `wave N: k ok, m empty (ids), z null (ids)`.
@@ -100,28 +102,36 @@ const ITEM_SCHEMA = { type: 'object', required: ['findings'], properties: {
 }}
 const isEmpty = r => Array.isArray(r.findings) && r.findings.length === 0 && !r.notes
 
-const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }] // replace with real lane inputs
-const done = []
+const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }] // replace with real lane inputs
+const WAVE_SIZE = 2 // lanes per wave; a null streak stops BEFORE the next wave launches
+const done = [], pending = items.map(i => i.id)
 
 phase('Wave')
-const results = await parallel(items.map(item => () =>
-  run('Do the lane task for ' + item.id + '.\n\nStructured output only.',
-    { label: 'lane:' + item.id, phase: 'Wave', schema: ITEM_SCHEMA }
-  ).then(r => ({ item, r, keepGoing: noteResult(r) }))
-))
-
-// Contract #4: name every zero-output lane, don't just count it.
-const ok = [], empty = [], nulls = []
-for (const { item, r, keepGoing } of results) {
-  if (r === null) nulls.push(item.id)
-  else if (isEmpty(r)) empty.push(item.id)
-  else { ok.push(item.id); done.push({ id: item.id, ...r }) }
+for (let wave = 0; wave * WAVE_SIZE < items.length; wave++) {
+  const slice = items.slice(wave * WAVE_SIZE, (wave + 1) * WAVE_SIZE)
+  const results = await parallel(slice.map(item => () =>
+    run('Do the lane task for ' + item.id + '.\n\nStructured output only.',
+      { label: 'lane:' + item.id, phase: 'Wave', schema: ITEM_SCHEMA }
+    ).then(r => ({ item, r }))
+  ))
+  // Contract #4: name every zero-output lane, don't just count it.
+  const ok = [], empty = [], nulls = []
+  let keepGoing = true
+  for (const { item, r } of results) {
+    keepGoing = noteResult(r) && keepGoing
+    pending.splice(pending.indexOf(item.id), 1)
+    if (r === null) nulls.push(item.id)
+    else if (isEmpty(r)) empty.push(item.id)
+    else { ok.push(item.id); done.push({ id: item.id, ...r }) }
+  }
+  log('wave ' + (wave + 1) + ': ' + ok.length + ' ok, ' + empty.length + ' empty (' + empty.join(',') + '), ' + nulls.length + ' null (' + nulls.join(',') + ')')
+  // Contract #3 lives HERE, between waves: parallel() cannot be cancelled once
+  // launched, so a null streak can only stop the NEXT wave from spending.
   if (!keepGoing) {
-    log('wave 1: stopping — ' + NULL_STOP_THRESHOLD + ' consecutive nulls (possible rate limit)')
-    return { status: 'rate_limited', inflight: items.map(i => i.id).filter(id => !done.some(d => d.id === id)), done }
+    log('stopping after wave ' + (wave + 1) + ' — ' + NULL_STOP_THRESHOLD + ' consecutive nulls (possible rate limit); ' + pending.length + ' lanes never launched')
+    return { status: 'rate_limited', inflight: pending, done }
   }
 }
-log('wave 1: ' + ok.length + ' ok, ' + empty.length + ' empty (' + empty.join(',') + '), ' + nulls.length + ' null (' + nulls.join(',') + ')')
 
 return { status: 'ok', done }
 ```
