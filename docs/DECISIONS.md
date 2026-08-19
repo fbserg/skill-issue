@@ -3,6 +3,28 @@
 Durable rulings on contested choices. Check here before re-litigating; a
 standing ruling short-circuits the debate unless its reopen condition fired.
 
+## 2026-08-19 — usage-review skill kept: A/B beat no-skill 3/3 on a blind panel
+
+**Decision:** `skills/claude/usage-review` stays installed as the way to review
+AI-usage transcripts. Evidence: same task, same 3-day corpus, same model tier
+(Sonnet `worker`, no Workflow tool in either arm, same $10 model-call
+allowance) — one agent with the skill, one without. Three blind Sonnet judges
+scored against a truth file (skill pipeline, independently recounted to ~2%):
+skill 5.0/5.0/5.0/5.0/5.0/4.3 vs no-skill 2.0/2.0/3.0/2.7/3.7/4.0 on
+accuracy / groundedness / coverage / risk / actionability / honesty; 3/3
+preferred the skill at 0.92–0.93. The decisive, non-circular evidence: all
+five spot-checked skill citations held in raw transcripts, while the no-skill
+report conflated two sessions in its flagship finding and asserted "no
+credential leaks in 72h" with a live OAuth token in an in-window transcript
+that the skill run found, cited and redacted. Cost: agent time equal (~$4.4,
+~14 min); the skill spent +$6.17 on the rubric grader. The skill arm ran
+without lanes/red team (subagents lack Workflow), so this is a lower bound.
+n=1 per arm.
+
+**Reopen when:** a full-skill run (lanes + red team) produces a report whose
+red-team refutes more than half its claims, or a no-skill run beats it on the
+same blind panel — then cut the skill to whatever part carried the win.
+
 ## 2026-08-07 — Codex mirror joins the issue-lane diet: solo default, pipeline behind explicit --full
 
 **Decision:** operator instruction — the long pipeline must not run unless
