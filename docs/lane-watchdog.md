@@ -29,6 +29,26 @@ the old scheme, so the monitor can't see it: the highest-probability wedge
 closes that gap — the file exists, and its age starts climbing toward the
 stale threshold, the moment the lane is launched.
 
+## 1-lane mode
+
+The 3+ trigger below is for arming a persistent `Monitor`; a single background
+lane still gets a pulse file (seed it the same way) but not a standing
+monitor. Instead, dispatch it under a `run_in_background` until-loop that
+polls the pulse file and exits the moment a `TERMINAL` line appears or the
+stale threshold passes — report which. This closes the gap a fire lane hit
+in practice: it died between commit and land, its pulse went stale for 6h
+before a human asked "did we get stuck?", and the next session paid $849 to
+redo work that had already landed.
+
+## Orchestrator heartbeat
+
+Whatever is running the batch — Workflow, a `/blitz` main thread, a script —
+appends `$(date -u +%FT%TZ) alive <what it is waiting on>` to
+`$PULSE/orchestrator.pulse` on every turn it takes while lanes are in flight
+(a Monitor event, a lane report, a poll tick). A later session or a human
+reads this file's last line plus mtime instead of asking whether anyone is
+still watching.
+
 ## Namespace per batch
 
 ```
@@ -75,6 +95,9 @@ and reports on lanes it has no authority over.
 
 `TaskStop` the monitor itself once every lane in the batch is terminal
 (landed or held) — a batch is not done while its own watchdog is still armed.
+The batch itself is not done until every lane's pulse file carries a
+`TERMINAL` line — a lane with no `TERMINAL` line is a died lane; report it as
+such, don't infer completion from silence.
 
 ## `/codex-go` variant
 
