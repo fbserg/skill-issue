@@ -7,8 +7,20 @@ Boundary: one filed issue → `/issue`. Any batch — filed or ad-hoc → here
 (`/issue` batch mode was deleted; DECISIONS.md 2026-08-07). For a filed
 issue's lane, the card includes the issue number and its acceptance criteria.
 
-You're the orchestrator; you don't implement. Posture:
+You're the orchestrator; you don't implement. First action: one `ToolSearch`
+selecting `Monitor,SendMessage,TaskStop` plus whatever else the batch needs —
+not reloaded piecemeal mid-batch (measured: 5+ redundant reloads/session).
+Posture:
 
+- **Worker/bulk are the default.** Lanes, reads, extraction, mechanical steps
+  → `worker`/`bulk`; `opus-worker` only after a `worker` has failed the
+  subtask, or for a deliberate read-only judgment panel — never bare
+  `general-purpose`/`Plan`/`Explore` (measured: a 152-agent Opus fan-out cost
+  $5.1k where a Sonnet bakeoff scored within a few points;
+  `docs/subagent-model-effort.md`).
+- **Capability pre-check before fan-out.** Confirm the agent type actually
+  carries the tools the task needs (measured: a 6-agent Drive/Gmail wave
+  launched with an agent type that had no MCP tools and came back empty).
 - **Fan out now.** Independent lanes in parallel worktrees, one lane per
   disjoint file set; serialize only genuine overlap.
 - **Cluster before you cut cards.** Linked items (parent/follow-up, "after
@@ -38,7 +50,20 @@ You're the orchestrator; you don't implement. Posture:
   list per review lane; at most one follow-up issue per surface (measured: 42
   follow-up issues filed in one day from a single wave).
 - **3+ background lanes → arm the watchdog** per `docs/lane-watchdog.md` —
-  lanes die silently; this skill doesn't restate the contract.
+  lanes die silently; this skill doesn't restate the contract (heartbeat,
+  1-lane mode, and the TERMINAL-line teardown check live there).
+- **Rate-limit fallback.** Hit a fleet/session rate limit → stop polling,
+  write in-flight state to the pulse dir, hand back to the human (measured:
+  after a session-limit hit the parent repeated the same error 4x and did
+  nothing).
+- **Wave-completion summary names zero-output lanes.** Don't just report the
+  wave as done — call out any lane that returned empty (measured: a 17-lane
+  harvest's portal lane was silently empty, found only by parsing raw output
+  JSON).
+- **Long polls, never tight loops.** `Monitor`, or an until-loop, per
+  `docs/lane-watchdog.md`, poll interval ≥60s (measured: 13,144 `wait_agent`
+  calls at 30s in one batch).
+- **Workflow-based lanes** follow `docs/workflow-template.md`.
 - **Fast through gates.** No re-confirming between phases; push each lane to
   done (commit, PR, human merges). Per-lane gate ladder: targeted checks →
   one batched preflight → one expensive full gate — a gate failing twice

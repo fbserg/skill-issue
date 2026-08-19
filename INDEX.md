@@ -86,6 +86,7 @@ Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/
 | secrets | `tools/secrets/secrets` | Encrypt a repo's `.env` to every collaborator's GitHub SSH public key with `age` — no shared passwords, no out-of-band exchange. Full docs: `docs/env-sharing.md`. |
 | check-install | `scripts/check-install.py` | Verify local symlinks point at this repo's copies, not stale older versions. |
 | check-links | `scripts/check-links.py` | Doc-link drift guard: verify every relative markdown link in tracked .md files resolves on disk. |
+| merge-decisions | `scripts/merge-decisions.py` | Fold `docs/decisions/*.md` per-lane ruling files into `docs/DECISIONS.md` in deterministic (date desc, filename asc) order; deletes merged lane files; idempotent no-op when nothing is pending; hard-fails naming the file on a malformed lane entry. |
 | install | `scripts/install.sh` | Symlink all skills and delegate agents into the right runtime dirs. Idempotent. |
 
 ---
@@ -98,6 +99,8 @@ Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/
 | `docs/env-sharing.md` | Encrypt a repo's `.env` for all GitHub collaborators using age + their SSH public keys. |
 | `docs/publication-checklist.md` | Checklist for publishing new skills or hooks to this repo. |
 | `docs/subagent-model-effort.md` | How to pin model AND effort for subagents via named agent types — built-ins inherit session effort; `model:` alone is not enough. Ships with `agents/`. |
+| `docs/workflow-template.md` | Copy-paste `Workflow` script template: `agentType`-pinning helper, capability pre-check before fan-out, rate-limit fallback (consecutive-null stop, no retry loop), named zero-output wave summary, `schema` example. |
+| `docs/DECISIONS.md` | Durable rulings ledger. Lanes write `docs/decisions/<slug>.md` instead of editing it directly; `scripts/merge-decisions.py` folds them in at close-out. |
 | `docs/codex-subagent-model-routing.md` | Codex custom-agent model routing with live-catalog selection and rollout-based verification; records current cold-discovery failures instead of trusting self-reports. |
 | `docs/multi-claude-remote.md` | Run multiple Claude Code instances on one remote box (SSH + tmux), each on a different account, with a session picker — covers the macOS Keychain-per-config-dir trap, file-vs-Keychain creds, isolation, verification, and starter scripts. |
 | `docs/single-serving-site-host.md` | Host a pile of one-off static pages on one Cloudflare Worker + `public/` dir: push-to-deploy, custom domain, an authenticated POST endpoint for posting pages without a commit, and a code-listed index. Full wrangler.toml + Worker skeleton + deploy hook + post/delete CLIs. |
