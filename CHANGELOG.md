@@ -13,6 +13,26 @@ All notable changes to this project will be documented here.
   read-only, work dir refused inside any git repository (work tree, bare or .git dir), `.gitignore *` written,
   secret scan before sharing; the only egress is what the grader/lanes send to
   the user's own model provider.
+- Added `docs/workflow-template.md`, a copy-paste `Workflow` script template
+  encoding five measured fan-out failures as code, not just prose: an
+  `agentType`-pinning helper on every `agent()` call (bare calls inherit
+  session effort), a capability pre-check via `ToolSearch` before spending a
+  wave (a tool-less agent type came back silently empty), a consecutive-null
+  rate-limit stop that hands `{status:'rate_limited', inflight, done}` back
+  instead of retrying blind (one transcript repeated a rate-limit error 4x
+  and produced nothing), a per-wave `log()` summary naming every empty/null
+  lane by id (a 17-lane harvest's silently-empty lane was found only by
+  parsing raw output JSON), and a `schema`/`required` example. Linked from
+  `docs/subagent-model-effort.md` and indexed in `INDEX.md`.
+- DECISIONS.md protocol change: a lane with a ruling now writes
+  `docs/decisions/<lane-or-branch-slug>.md` instead of editing
+  `docs/DECISIONS.md` directly — three parallel epic40 lanes editing the
+  same append-only ledger produced three identical merge conflicts. New
+  `scripts/merge-decisions.py` folds pending lane files into the ledger at
+  close-out in deterministic order (newest date first, filename ascending),
+  deletes them, and is idempotent; a malformed lane file is a hard error
+  naming the file, never a partial merge. `docs/decisions/README.md` is the
+  stub that keeps the (usually empty) directory tracked in git.
 - claude-spend freshness tripwires: the vendored pricing snapshot is now
   stamped with `_meta.vendored_at` (vendor_pricing.py), the generator requires
   the stamp and freezes it into `pricing_generated.py`, and spend.py's summary
