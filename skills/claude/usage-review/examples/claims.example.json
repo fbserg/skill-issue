@@ -1,0 +1,15 @@
+[
+ {"cluster": "numbers", "hint": "recompute every figure from sessions.jsonl; check whether automation families or nested files were included",
+  "claims": [
+   "Window totals: 1,204 transcript files; 611 top-level sessions (402 Claude, 209 Codex); 593 sub-agent transcripts; ~310 M new tokens; $6.9k list-price shadow (cost_full), $2.8k on new tokens only.",
+   "Top 1% of top-level sessions = 38% of cost_full; biggest session $412 (project alpha, ~9 h, 1,180 assistant turns).",
+   "One automation family ('classify inbox item') accounts for 214 of the 611 top-level sessions and $31."]},
+ {"cluster": "incidents", "hint": "open the cited transcripts; separate what the human asked from what a sub-agent did; check timestamps",
+  "claims": [
+   "In session 3f9a2c1d (project beta) a `git push --force` to the shared integration branch was issued by a sub-agent without the parent verifying the diff; the parent reported 'pushed clean'.",
+   "Session 8b11e0aa (project alpha) accepted 'all 28 tests pass' from the assistant while the last visible test run showed 26 passed, 2 skipped."]},
+ {"cluster": "grades", "hint": "check graded.jsonl; a claim about a mean must match the recomputed mean over gradable rows",
+  "claims": [
+   "Across 47 gradable sessions verification averaged 2.9/4, the lowest dimension; goal clarity 3.4.",
+   "Nine sessions carry the flag unverified_claim_treated_as_done; seven of them are in project alpha."]}
+]

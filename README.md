@@ -49,6 +49,7 @@ cd skill-issue
 | [`issue`](skills/claude/issue/SKILL.md) | Thin front door: scope a rough idea or hand one issue to /resolve-issue; batches go to /blitz. Never writes code, never merges. |
 | [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | One worker resolves one issue end to end (test-first, gates verbatim, draft→ready PR); the phased multi-agent pipeline only on user-typed --full. Bounces a true epic to /epic-plan. Never merges. |
 | [`simplify-sweep`](skills/claude/simplify-sweep/SKILL.md) | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
+| [`usage-review`](skills/claude/usage-review/SKILL.md) | Review your own Claude Code / Codex transcripts (or a shared archive) into a red-teamed report: numbers, automation families, risk incidents, rubric grades, coaching, action plan. Local-only; work dir kept out of git; secret scan before sharing. |
 
 Claude skills remain available for Claude Code. Codex uses the separate
 `skills/codex/` tree so tool names and workflow assumptions stay runtime-native.

@@ -28,6 +28,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | issue | `skills/claude/issue/SKILL.md` | Thin front door: scope a rough idea, or hand one issue (or a batch, ≤4 concurrent) to /resolve-issue, which self-scales by size. Never writes code, never merges. |
 | resolve-issue | `skills/claude/resolve-issue/SKILL.md` | Self-scaling pipeline for one issue: light path for a small single-area issue, full assess→plan→implement→test→review otherwise, bounces a true epic to /epic-plan. The executor behind /issue. Never merges. |
 | simplify-sweep | `skills/claude/simplify-sweep/SKILL.md` | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
+| usage-review | `skills/claude/usage-review/SKILL.md` | AI-usage review of local Claude/Codex transcripts or an exporter archive: quant → automation families → command scan → stratified sample → renders → lane fan-out → rubric grade → red team → report. Tools in `tools/`, workflows in `workflows/`, method in `METHODOLOGY.md`. |
 
 ---
 
