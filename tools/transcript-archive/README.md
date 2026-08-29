@@ -158,6 +158,40 @@ history, and archiving them buys nothing but disk.
 
 Source directory structure is preserved under each destination.
 
+## Searching the archive (search.py)
+
+`search.py` makes the archive imminently queryable: it builds a local SQLite
+FTS5 index over every machine namespace in `TRANSCRIPT_ARCHIVE_DIR` plus the
+live `~/.claude/projects` tree, then answers ranked phrase queries with
+snippets in milliseconds — no more zgrep crawls over thousands of files.
+
+```bash
+python3 search.py index          # incremental: stat-skips unchanged files
+python3 search.py search '"deleted the wrong invoice"' --project ninja --since 2026-06-01
+python3 search.py search "payment.delete confirm" --role assistant --limit 10
+python3 search.py status         # index size + freshness
+```
+
+Notes:
+
+- The DB (default `~/.cache/transcript-search/transcripts.db`, override with
+  `TRANSCRIPT_SEARCH_DB`) is a **disposable cache** — never authoritative,
+  safe to delete, fully rebuilt by the next `index` run.
+- `index` re-reads only new/changed files, so scheduling it after the nightly
+  backup (or just running it before you search) keeps refreshes to seconds.
+  A cold full build over a multi-GB archive is a few minutes of CPU; if the
+  archive lives in a cloud-sync folder whose files are dehydrated, the first
+  build is bounded by the sync client's per-file hydration, not this script —
+  pre-hydrate with a parallel read
+  (`find <archive> -name '*.jsonl*' -print0 | xargs -0 -P 12 -n 40 cat > /dev/null`).
+- Every `tool_use` / `tool_result` block is its own row with its own role, so
+  `--role user` searches only what humans typed and `--role tool_use` finds
+  the exact command that ran.
+- Query syntax is FTS5 `MATCH`: bare words AND together, quotes make phrases,
+  `OR`/`NOT` work. Plain unicode61 tokenizer — compound identifiers split the
+  same way in queries and documents, so `ninja_cli.py` finds itself. For raw
+  substring/regex needs, fall back to `rg`/`zgrep` on the archive.
+
 ## Analyzing the archive
 
 This tool's stated purpose is keeping your prompt/transcript history around
