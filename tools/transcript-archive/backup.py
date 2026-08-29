@@ -571,8 +571,11 @@ def process_file(
     if len(str(active_dest)) >= LONG_PATH_WARN_CHARS:
         log(f"WARN long-path (may exceed sync-client limits): {active_dest}")
 
-    active_exists = active_dest.exists()
-    other_exists = other_dest.exists()
+    try:
+        active_exists = active_dest.exists()
+        other_exists = other_dest.exists()
+    except OSError as e:
+        return f"error:stat dest: {e}"
 
     if active_exists and other_exists:
         # Both formats present at once only happens when a prior run's

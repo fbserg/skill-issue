@@ -32,8 +32,14 @@ def _extract_js_block() -> str:
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
 def test_template_script_is_syntactically_valid_js() -> None:
     script = _extract_js_block()
+    # Workflow scripts are a hybrid DSL: `meta` is exported at module scope,
+    # while the harness evaluates the remaining script as an async function
+    # body so top-level `await` and `return` are valid. Mirror that transform
+    # before asking Node to check the generated JavaScript.
+    function_body = script.replace("export const meta =", "const meta =", 1)
+    wrapped_script = f"async function __workflow__() {{\n{function_body}\n}}\n"
     with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=True) as tmp:
-        tmp.write(script)
+        tmp.write(wrapped_script)
         tmp.flush()
         result = subprocess.run(
             ["node", "--check", tmp.name],
