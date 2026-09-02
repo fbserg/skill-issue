@@ -20,6 +20,17 @@ git and is never treated as a lane file. Re-running with nothing pending is
 a no-op (exit 0); a lane file that doesn't parse as dated entries is a hard
 error naming the file — never a partial or silently-skipped merge.
 
+## 2026-09-02 — Codex resolve-issue emits PatchCue worker protocol v1
+
+**Decision:** `skills/codex/resolve-issue` emits PatchCue worker protocol v1
+plan and outcome comments. It applies the CLASS skew rule, stops for missing
+rulings, permits an operator data fix without a deploy, re-polls comments
+before the gate and every push, and keeps PatchCue PRs as drafts. The binding
+contract is [fbserg/patchcue#10](https://github.com/fbserg/patchcue/issues/10).
+
+**Reopen when:** PatchCue changes its worker protocol marker version or the
+state driver requires fields that protocol v1 cannot express.
+
 ## 2026-08-19 — usage-review skill kept: A/B beat no-skill 3/3 on a blind panel
 
 **Decision:** `skills/claude/usage-review` stays installed as the way to review
