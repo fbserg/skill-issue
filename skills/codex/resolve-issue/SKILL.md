@@ -24,7 +24,8 @@ the completion report.
 ## Preflight
 
 1. Resolve repo and issue number.
-2. Read issue title/body/comments/labels/assignee.
+2. Read issue title/body/comments/labels/assignee. If the issue has the
+   `patchcue:running` label, record the run as PatchCue-invoked.
 3. Search existing PRs first, then plan and continuation comments. This order is the canonical concurrent-run guard.
 4. If a ready PR exists, report it and stop.
 5. If a draft PR or plan comment exists, resume from that state.
@@ -35,12 +36,59 @@ the completion report.
 
 1. Inspect the repo enough to identify the likely files, tests, and risks.
 2. If the issue is too broad for one PR, stop and route to `epic-plan`.
-3. If product intent is missing, ask the smallest blocking question.
-4. Map every acceptance criterion to a planned change. Post the plan comment before opening the branch; it is both the durable plan and the early concurrency marker. Include:
-   - intended behavior change
-   - likely touched areas
-   - acceptance criteria mapping
-   - planned checks
+3. Query the affected data dimension before choosing CLASS or INSTANCE. If a
+   narrow slice shows ≥90% one value, re-query the whole dimension. If ≥90% of
+   the whole dimension has that value, classify the issue as CLASS.
+4. Consult the repo's decision ledger before resolving product intent. Treat
+   any change to who sees what data, money, or roles as a QUESTION when the
+   repo's decision ledger contains no ruling.
+5. Map every acceptance criterion to a planned change. Post the plan comment
+   before opening the branch. It is both the durable plan and the early
+   concurrency marker. Use this exact protocol shape, with the real issue
+   number in both markers:
+
+   ```text
+   <!-- patchcue:plan v=1 issue=N -->
+   PROTOCOL: v1
+   CLASS_OR_INSTANCE: CLASS|INSTANCE — <evidence>
+   GATE: required|none
+   QUESTION: <text>
+   ACCEPTANCE:
+   <acceptance criteria mapped to planned changes and checks>
+   EVIDENCE:
+   <raw queries and outputs, files opened, and decision ledger path or "none found">
+   ```
+
+   Include zero or more `QUESTION:` lines. Set `GATE: required` for CLASS and
+   `GATE: none` for INSTANCE. Repos may widen the required trigger set through
+   configuration, but CLASS is the default trigger.
+6. If any QUESTION exists, post the plan and a question outcome, then stop
+   without opening a branch.
+7. Re-poll issue comments immediately before acting on the gate.
+8. If a scope-relevant comment comes from a login other than the worker or
+   controller, park the run as superseded or amend and repost the plan. Never
+   pass the gate against a stale plan.
+9. If `GATE: required`, stop after the plan without an outcome or branch.
+   Continue only when PatchCue resumes the run after a validated go decision.
+
+## Outcomes
+
+Post an outcome comment on the issue whenever the worker finishes. Its first
+two lines must use this shape:
+
+```text
+<!-- patchcue:outcome v=1 issue=N -->
+OUTCOME: pr|data-fix|question|superseded
+```
+
+- For `OUTCOME: pr`, add `PR: #<number>`.
+- Treat "operator data fix, no deploy" as a legal outcome. For
+  `OUTCOME: data-fix`, add `DATA_FIX_STATEMENT: <exact statement>` and
+  `ROLLBACK: <exact rollback plan>`, then stop without a branch, PR, or deploy.
+- For `OUTCOME: question`, preserve each blocking question in the plan comment.
+- For `OUTCOME: superseded`, close any PR owned by this run. Put the same
+  `<!-- patchcue:outcome v=1 issue=N -->` marker and `OUTCOME: superseded` in
+  the PR closing comment, then post the marked outcome comment on the issue.
 
 ## Implement
 
@@ -51,7 +99,9 @@ the completion report.
    against the `PLAN_COMMENT` snapshot; a newer scope-relevant comment is
    folded in or explicitly declared out-of-scope with a reply — never silently
    implemented against a stale snapshot (measured: issue #245).
-3. Push an initial commit and open a stub draft PR before substantive implementation so the lane remains visible throughout the write phase.
+3. Follow the before-push re-poll rule, then push an initial commit and open a
+   stub draft PR before substantive implementation so the lane remains visible
+   throughout the write phase.
 4. Write a failing test that reproduces the issue first, then implement the minimal fix in the worktree and get it green.
 5. Map tests to changed boundaries and acceptance criteria.
 <!-- gate:negative-control carried from docs/resolve-issue-full-pipeline.md -->
@@ -59,7 +109,11 @@ the completion report.
   must fail (N≥1) — then restore and confirm green. A suite that survives
   reversal of its own fix asserts nothing; add a discriminating test before
   proceeding.
-6. Commit and push.
+6. Commit locally. Re-poll issue comments immediately before every push.
+   If a scope-relevant comment comes from a login other than the worker or
+   controller, park the run as superseded or amend and repost the plan. Never
+   push against a stale plan.
+7. Push.
 
 A diff growing past roughly 800 changed lines is a re-scope signal, not a
 reason to review harder — stop and report: split the issue or route to
@@ -84,6 +138,10 @@ banned as one (measured: PR #254 merged 50 s after shipping one). If it isn't
 ready, don't call `gh pr ready`, full stop. Mark ready only after `gh pr view
 --json mergeable,mergeStateStatus` reports `MERGEABLE`/`CLEAN`; anything else →
 rebase and recheck, never ship a PR GitHub can't merge.
+
+If the run is PatchCue-invoked, leave its PR as a draft and never call
+`gh pr ready`. Post the marked `OUTCOME: pr` issue comment only after the
+draft PR and its checks satisfy the completion requirements.
 
 ## --full (explicit opt-in only)
 
