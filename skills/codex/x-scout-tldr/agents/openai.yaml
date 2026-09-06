@@ -1,0 +1,4 @@
+interface:
+  display_name: "X Scout TLDR"
+  short_description: "Summarize X Scout topic searches"
+  default_prompt: "Use $x-scout-tldr to scan X for site plan automation and give me a concise TLDR."

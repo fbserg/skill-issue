@@ -1,0 +1,32 @@
+[
+  {
+    "title": "Core drafting / site plans",
+    "signal": "Site plans, permit drawings, construction drawings, and architectural drafting with AI or CAD automation.",
+    "query": "(\"site plan\" OR \"permit drawing\" OR \"construction drawing\" OR \"architectural drafting\") (AI OR LLM OR automation OR CAD) -mechanical -Fusion -Onshape -SolidWorks -Blender -mesh -STL -render -renders -rendering -3d -midjourney -dalle -enscape -lumion -twinmotion -SEO -Webflow -\"single site plan\" -\"premium site plan\"",
+    "keepAny": ["site plan", "permit drawing", "construction drawing", "architectural drafting", "development parcel", "parking ratio", "blueprint"]
+  },
+  {
+    "title": "Landscape plans",
+    "signal": "Landscape architecture, planting plans, grading plans, and design automation.",
+    "query": "(\"landscape design\" OR \"landscape architecture\" OR \"planting plan\" OR \"grading plan\") (AI OR LLM OR automation OR CAD OR GIS OR mapping) -mechanical -Fusion -Onshape -SolidWorks -Blender -mesh -STL -render -renders -3d -visualization -photo",
+    "keepAny": ["landscape design", "landscape architecture", "planting plan", "grading plan", "site plan", "garden plan"]
+  },
+  {
+    "title": "Arboriculture / trees",
+    "signal": "Tree inventories, tree protection, preservation plans, and mapping workflows.",
+    "query": "(arborist OR arboriculture OR \"tree inventory\" OR \"tree protection\" OR \"tree protection plan\" OR \"tree preservation plan\") (AI OR LLM OR automation OR CAD OR GIS OR mapping) -mechanical -Fusion -Onshape -SolidWorks -Blender -mesh -STL -render -3d",
+    "keepAny": ["arborist", "arboriculture", "tree inventory", "tree protection", "tree protection plan", "tree preservation plan"]
+  },
+  {
+    "title": "Urban forestry / inventory",
+    "signal": "Urban forestry, street-tree inventory, canopy, climate-risk, and municipal mapping workflows.",
+    "query": "(\"urban forestry\" OR \"urban forest\" OR \"street tree\" OR \"tree canopy\" OR \"tree inventory data\") (AI OR automation OR GIS OR mapping OR \"remote sensing\" OR \"climate risk\" OR LiDAR) -mechanical -Fusion -Onshape -SolidWorks -Blender -mesh -STL -render -3d -\"AI art\" -prompt",
+    "keepAny": ["urban forestry", "urban forest", "street tree", "tree canopy", "tree inventory", "lidar", "municipal"]
+  },
+  {
+    "title": "High-signal needles",
+    "signal": "Small query for exact overlaps that are easy to miss.",
+    "query": "(\"tree inventory\" \"AI\") OR (\"site plan\" \"LLM\") OR (\"architectural drafting\" automation) OR (\"urban forest\" \"tree inventory data\") -mechanical -Fusion -Onshape -SolidWorks -Blender -mesh -STL -3d -SEO -Webflow -crypto",
+    "keepAny": ["tree inventory", "site plan", "architectural drafting", "urban forest", "permit drawing", "construction drawing"]
+  }
+]
