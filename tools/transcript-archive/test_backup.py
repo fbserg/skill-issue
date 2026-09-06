@@ -853,6 +853,39 @@ class TestIdentityHandshake(unittest.TestCase):
         self.assertEqual(cm.exception.code, 2)
         self.assertFalse(self._identity_path().exists())  # no writes
 
+    def test_unreadable_archive_identity_retries_then_passes(self):
+        # OneDrive dehydration: file exists, first reads raise EAGAIN, later reads succeed.
+        self._check()
+        real_read_text = Path.read_text
+        idf = self._identity_path()
+        failures = {"left": 2}
+
+        def flaky(self_path, *a, **kw):
+            if self_path == idf and failures["left"] > 0:
+                failures["left"] -= 1
+                raise OSError(11, "Resource deadlock avoided")
+            return real_read_text(self_path, *a, **kw)
+
+        with mock.patch.object(Path, "read_text", flaky), mock.patch.object(backup.time, "sleep") as slept:
+            self._check()  # must not raise
+        self.assertEqual(slept.call_count, 2)
+
+    def test_unreadable_archive_identity_exhausts_retries_exit_2(self):
+        self._check()
+        idf = self._identity_path()
+        real_read_text = Path.read_text
+
+        def always_fail(self_path, *a, **kw):
+            if self_path == idf:
+                raise OSError(11, "Resource deadlock avoided")
+            return real_read_text(self_path, *a, **kw)
+
+        with mock.patch.object(Path, "read_text", always_fail), mock.patch.object(backup.time, "sleep"):
+            with self.assertRaises(SystemExit) as cm:
+                self._check()
+        self.assertEqual(cm.exception.code, 2)
+        self.assertTrue(idf.exists())  # not deleted, not rewritten
+
     def test_archive_identity_without_local_nonce_exit_2(self):
         self._check()
         self._local_path().unlink()  # e.g. a colliding second machine, no local record
