@@ -1,6 +1,6 @@
 ---
 name: worker
-description: Default delegate for implementation, review, and research that needs writes — pick this over bare general-purpose/Plan/Explore, which inherit the session's often-low effort. Sonnet at medium effort. Second stop on the ladder after bulk; escalate to opus-worker only after this fails on a subtask.
+description: Default delegate for implementation, review, and research with writes. Sonnet at medium effort.
 model: sonnet
 effort: medium
 tools: Bash, Read, Write, Edit, NotebookEdit, Glob, Grep, WebFetch, WebSearch, LSP, ToolSearch

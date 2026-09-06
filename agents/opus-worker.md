@@ -1,6 +1,6 @@
 ---
 name: opus-worker
-description: Escalation-only worker — one stuck subtask after worker (and Codex, if that's the builder in play) has failed on it, or a deliberate read-only judgment panel. Opus at high effort. Top of the delegation ladder — never use for first attempts or as an implementation fan-out.
+description: Escalation only: one subtask that worker already failed on, or a read-only judgment panel. Opus at high effort.
 model: opus
 effort: high
 tools: Bash, Read, Write, Edit, NotebookEdit, Glob, Grep, WebFetch, WebSearch, LSP, ToolSearch
