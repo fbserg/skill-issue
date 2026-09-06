@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """PreToolUse guard on Agent/Workflow: every spawn must name a custom agent type
-so it carries an explicit effort level instead of inheriting the main thread's low.
+so its model/cost is chosen deliberately instead of silently defaulting to the
+same expensive model as the main thread.
 
 Blocks Agent calls using built-in types (general-purpose/claude/Plan) or omitting
 subagent_type, and Workflow scripts whose agent() calls never pass agentType.
 Built-in Explore stays allowed (cheap low-effort lookups are its point).
+
+Custom types to point spawners at: worker / opus-worker / explore-mid /
+browser-worker. When a denied spawn's prompt/description mentions browser
+work (browser/chrome/url/screenshot/click), the deny reason names
+browser-worker specifically — it's the only custom type with Chrome MCP tools.
 
 Disable anytime with CLAUDE_EFFORT_GUARD_OFF=1.
 """
@@ -14,7 +20,8 @@ import sys
 
 ALLOWED_BUILTINS = {"Explore", "claude-code-guide", "statusline-setup"}
 BLOCKED_BUILTINS = {"general-purpose", "claude", "Plan"}
-CUSTOM_TYPES = "worker / bulk / opus-worker / explore-mid"
+CUSTOM_TYPES = "worker / opus-worker / explore-mid / browser-worker"
+BROWSER_KEYWORDS = ("browser", "chrome", "url", "screenshot", "click")
 
 
 def deny(reason: str) -> None:
@@ -40,9 +47,17 @@ def main() -> None:
         subagent = tool_input.get("subagent_type", "")
         if subagent and subagent not in BLOCKED_BUILTINS:
             sys.exit(0)
+        prompt = f"{tool_input.get('prompt', '')} {tool_input.get('description', '')}".lower()
+        if any(keyword in prompt for keyword in BROWSER_KEYWORDS):
+            deny(
+                f"Effort guard: '{subagent or '(none)'}' inherits the main thread's low effort. "
+                "This looks like a browser task → use browser-worker "
+                "(it has the Chrome MCP tools; the other custom types don't). "
+                "Set CLAUDE_EFFORT_GUARD_OFF=1 to bypass."
+            )
         deny(
-            f"Effort guard: '{subagent or '(none)'}' inherits the main thread's low effort. "
-            f"Use a custom agent type instead: {CUSTOM_TYPES} "
+            f"Effort guard: '{subagent or '(none)'}' silently lands on the same expensive model "
+            f"as the main thread. Use a custom agent type instead: {CUSTOM_TYPES} "
             "(Explore is allowed for cheap lookups). Set CLAUDE_EFFORT_GUARD_OFF=1 to bypass."
         )
 

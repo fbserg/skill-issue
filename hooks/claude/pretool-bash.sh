@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
-# Consolidated PreToolUse hook for Bash commands: pre-push gate (JS/TS) +
-# catastrophic/destructive command blocks (exit 2 = block).
-# 2026-08-07 audit: heartwood VM guards moved to heartwood/.claude/hooks/
-# vm-guard.sh; test-output filter deleted per the 2026-07-30 rtk ruling
-# (lossy silent stubs); gstack carve-outs deleted (tool gone).
+# PreToolUse hook for Bash commands: catastrophic/destructive blocks (exit 2 = block).
+# 2026-09-06 subtraction: pre-push gate moved to each JS repo's .githooks/pre-push
+# (covers Codex too); hold-merge guard deleted (8 real blocks vs 44 blind refusals
+# in 90 days). 2026-08-07: heartwood VM guards moved to heartwood/.claude/hooks/.
 set -euo pipefail
 
 INPUT=$(cat)
@@ -14,80 +13,7 @@ if [[ -z "$COMMAND" ]]; then
 fi
 
 # ============================================================
-# PHASE 0: Pre-push gate (tsc + vite build + vitest)
-# ============================================================
-
-if { [[ -z "${SKIP_PREPUSH_GATE:-}" ]] && ! grep -q 'SKIP_PREPUSH_GATE=1' <<<"$COMMAND"; } \
-   && grep -Eq '(^|[;&|[:space:]])git[[:space:]]+push(\b|$)' <<<"$COMMAND" \
-   && ! grep -Eq 'git[[:space:]]+push[[:space:]]+(-h\b|--help\b|--dry-run\b)' <<<"$COMMAND"; then
-  _proj="${CLAUDE_PROJECT_DIR:-$PWD}"
-  _has_tsconfig() { [[ -f "$_proj/tsconfig.json" ]]; }
-  # Cache all dep names from package.json in one jq call (newline-separated)
-  if [[ -f "$_proj/package.json" ]]; then
-    _pkg_deps=$(jq -r '((.dependencies // {}) + (.devDependencies // {})) | keys[]' "$_proj/package.json" 2>/dev/null || true)
-  else
-    _pkg_deps=""
-  fi
-  _has_dep() { [[ -n "$_pkg_deps" ]] && printf '%s\n' "$_pkg_deps" | grep -qxF "$1"; }
-
-  # Fail fast if deps look required but node_modules is missing/broken —
-  # don't let tsc/vite/vitest spew hundreds of "module not found" errors.
-  _deps_broken=0
-  if [[ -n "$_pkg_deps" ]]; then
-    if [[ ! -d "$_proj/node_modules" ]] && (_has_dep typescript || _has_dep vite || _has_dep vitest); then
-      _deps_broken=1
-    elif [[ -d "$_proj/node_modules" ]] && _has_dep typescript && ! (cd "$_proj" && npx --no-install tsc --version) >/dev/null 2>&1; then
-      _deps_broken=1
-    fi
-  fi
-  if (( _deps_broken )); then
-    echo "BLOCKED: node_modules missing in $_proj — run npm install first (or SKIP_PREPUSH_GATE=1)." >&2
-    exit 2
-  fi
-
-  _run_step() {
-    local label="$1"; shift
-    echo ">>> pre-push gate: $label (30s timeout, SKIP_PREPUSH_GATE=1 to bypass)" >&2
-    local rc=0
-    local logf
-    logf=$(mktemp /tmp/prepush-gate-XXXXXX)
-    (cd "$_proj" && timeout 30 "$@") >"$logf" 2>&1 || rc=$?
-    if (( rc != 0 )); then
-      local total_lines
-      total_lines=$(wc -l <"$logf" | tr -d ' ')
-      local tail_lines=30
-      if (( total_lines > tail_lines )); then
-        echo "… $(( total_lines - tail_lines )) earlier lines suppressed, full log: $logf" >&2
-        tail -n "$tail_lines" "$logf" >&2
-      else
-        cat "$logf" >&2
-      fi
-      echo "" >&2
-      if (( rc == 124 )); then
-        echo "BLOCKED: '$label' timed out after 30s — fix or rerun with SKIP_PREPUSH_GATE=1." >&2
-      else
-        echo "BLOCKED: '$label' failed (exit $rc) — fix before pushing, or rerun with SKIP_PREPUSH_GATE=1." >&2
-      fi
-      exit 2
-    fi
-    rm -f "$logf"
-  }
-
-  _ran=0
-  if _has_tsconfig && _has_dep typescript && ! _has_dep astro; then
-    _run_step "tsc -b" npx --no-install tsc -b; _ran=1
-  fi
-  if _has_dep vite && ! _has_dep astro; then
-    _run_step "vite build" npx --no-install vite build; _ran=1
-  fi
-  if _has_dep vitest; then
-    _run_step "vitest run" npx --no-install vitest run; _ran=1
-  fi
-  (( _ran )) && echo "✓ pre-push gate passed" >&2
-fi
-
-# ============================================================
-# PHASE 1: Block catastrophic commands
+# PHASE 2: Block catastrophic commands
 # ============================================================
 
 # Worktree escape guard: a session isolated in .claude/worktrees/<name> must
@@ -141,21 +67,41 @@ if echo "$COMMAND" | grep -qE '(^|[;&|[:space:]])git[[:space:]]+stash\b' && ! ec
   fi
 fi
 
-# Projects dir is backed up — allow rm freely within it
-if echo "$COMMAND" | grep -qE '^rm\b' && echo "$COMMAND" | grep -qE '/Users/serg/projects/' && ! echo "$COMMAND" | grep -qE '/Users/serg/projects/\.\.' ; then
+# Projects dir is backed up — allow rm freely within it ($HOME-relative: /Users/serg on the Mac, /home/ubuntu on the VM)
+PROJECTS_DIR="$HOME/projects/"
+if echo "$COMMAND" | grep -qE '^rm\b' && echo "$COMMAND" | grep -qF "$PROJECTS_DIR" && ! echo "$COMMAND" | grep -qF "$PROJECTS_DIR.." ; then
   exit 0
 fi
 
 # shellcheck disable=SC2016  # literal $HOME etc. are intended in the regex
-BLOCKED_RE='rm -rf (/|~|\$HOME|/Users|/System|/Library|/Applications|\.\s*$|\*\s*$|\./\s*$)|git push (--force|-f).*(main|master)|git reset --hard|DROP (TABLE|DATABASE)|truncate table|chmod -R 777 /|mkfs\.|dd if=.* of=/dev/|> /dev/sda|launchctl unload.*com\.apple|networksetup.*-setdnsservers|defaults delete |pkill -9 -u|killall Finder && killall Dock'
+BLOCKED_RE='rm -rf (/|~|\$HOME|/Users|/System|/Library|/Applications|\.\s*$|\*\s*$|\./\s*$)|git push (--force|-f).*(main|master)|git reset --hard|DROP (TABLE|DATABASE)|truncate table|chmod -R 777 /|mkfs\.|dd if=.* of=/dev/|> /dev/sda|launchctl unload.*com\.apple|networksetup.*-setdnsservers|defaults delete |pkill -9 -u|killall Finder && killall Dock|tccutil reset|spctl --master-disable'
 
-if echo "$COMMAND" | grep -qiE "$BLOCKED_RE"; then
+# BLOCKED_RE's `/` alternative is a bare prefix (no anchor after it), so it
+# matches the first "/" of ANY absolute path right after `rm -rf ` — meaning
+# `rm -rf /tmp/x` trips it exactly like `rm -rf /` does. Measured 2026-08
+# (fbserg/etc#44): ~90% of a 25-command false-positive sample were safe
+# scratch-dir cleanups under /tmp, /private/tmp (its resolved form), or
+# /var/folders (macOS $TMPDIR) — including over ssh. Strip those path
+# occurrences to an opaque token before running BLOCKED_RE against them, so
+# the destructive check never sees a leading "/" for them; every other
+# absolute path (bare /, ~, $HOME, /Users, /System, /var/lib/foo, /etc/foo,
+# …) is untouched and still blocks. This is a check-time substitution only —
+# $COMMAND itself, and every other check below, still sees the real command.
+BLOCKED_CHECK_CMD=$(printf '%s' "$COMMAND" | sed -E 's#(/private/tmp/|/tmp/|/var/folders/)[^[:space:]"'"'"']*#TMPDIR_SAFE#g')
+
+if echo "$BLOCKED_CHECK_CMD" | grep -qiE "$BLOCKED_RE"; then
   echo "BLOCKED: Destructive command detected." >&2
   echo "If you really need this, ask the user to run it manually with ! prefix." >&2
   exit 2
 fi
 
-if echo "$COMMAND" | grep -qE '(^|\s)/etc/\S|.*/System/|/Library/Launch(Daemons|Agents)' && ! echo "$COMMAND" | grep -qE '(/Users/[^/]+/Library/|~/Library/)' && ! echo "$COMMAND" | grep -qE '^\s*(ssh|sshpass)\s'; then
+# The two blocks below protect a macOS workstation (its /etc, launchd plists, and the TCC
+# per-app popup storm). On a Linux VM (oracle-dev and friends) the session owns the box with
+# passwordless sudo and there is no TCC: system-path commands like `update-locale` or
+# `cat /etc/default/locale` are the job, not a hazard. Both blocks are Darwin-only.
+HOST_OS="$(uname -s 2>/dev/null || echo unknown)"
+
+if [[ "$HOST_OS" == Darwin ]] && echo "$COMMAND" | grep -qE '(^|\s)/etc/\S|.*/System/|/Library/Launch(Daemons|Agents)' && ! echo "$COMMAND" | grep -qE '(/Users/[^/]+/Library/|~/Library/)' && ! echo "$COMMAND" | grep -qE '^\s*(ssh|sshpass)\s'; then
   echo "BLOCKED: Command targets sensitive system path." >&2
   echo "If you really need this, ask the user to run it manually with ! prefix." >&2
   exit 2
@@ -165,5 +111,25 @@ fi
 if echo "$COMMAND" | grep -qE '(^|[;&|[:space:]])sleep[[:space:]]+[0-9]+([.][0-9]+)?[[:space:]]*&&'; then
   echo "BLOCKED: foreground \`sleep N && ...\` is blocked by the harness." >&2
   echo "Use run_in_background + Monitor, or schedule a wakeup instead." >&2
+  exit 2
+fi
+
+# Whole-disk / whole-home filesystem walks -> block (macOS TCC prompt storm).
+# A `find|bfs|fd` whose FIRST path argument is / or $HOME descends into every app's protected data
+# dir (~/Library/Application Support/<App>, Containers, Group Containers, …).
+# macOS asks once PER APP ("Ghostty would like to access data from other
+# apps"), so a single scan produces an endless popup queue and each Allow
+# grants only that one app. Scope the search, or prune ~/Library explicitly.
+WALK_TOOL_RE='(^|[;&|[:space:]])(sudo[[:space:]]+)?(find|bfs|fd)[[:space:]]'
+# shellcheck disable=SC2016  # literal $HOME in the regex, no expansion intended
+WALK_ROOT_RE='(^|[;&|[:space:]])(sudo[[:space:]]+)?(find|bfs|fd)[[:space:]]+(-[a-zA-Z]+[[:space:]]+)*(/|~|\$HOME|/Users/[A-Za-z0-9_.-]+)([[:space:]]|$)'
+if [[ "$HOST_OS" == Darwin ]] \
+   && echo "$COMMAND" | grep -qE "$WALK_TOOL_RE" \
+   && echo "$COMMAND" | grep -qE "$WALK_ROOT_RE" \
+   && ! echo "$COMMAND" | grep -qE 'Library.*(-prune|--exclude|-not|!)|(-prune|--exclude|-not|!).*Library'; then
+  echo "BLOCKED: whole-disk/whole-home filesystem walk. Scanning / or \$HOME enters every app's protected data directory and triggers a macOS TCC popup per app (\"… would like to access data from other apps\") — hundreds of them, one Allow each." >&2
+  echo "Scope it (~/projects, a specific repo), or prune the protected dirs, e.g.:" >&2
+  echo "  bfs ~ -name 'X*' -not -path '*/Library/*' -not -path '*/.Trash/*'" >&2
+  echo "  find /Users/serg/projects -type d -name X" >&2
   exit 2
 fi
