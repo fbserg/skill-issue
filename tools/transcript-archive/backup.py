@@ -41,6 +41,7 @@ import secrets
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -819,6 +820,42 @@ def read_json_file(path: Path) -> Optional[dict]:
         return None
 
 
+IDENTITY_READ_ATTEMPTS = 6
+IDENTITY_READ_BACKOFF_SECONDS = 5.0
+
+
+def read_archive_identity(path: Path) -> Optional[dict]:
+    """Read the archive-side identity file, retrying transient read failures.
+
+    Sync-client folders (OneDrive, iCloud) dehydrate small files to cloud-only
+    placeholders. The first read triggers hydration and can fail with EAGAIN /
+    "Resource deadlock avoided" for a few seconds. Treating that as "no identity
+    file" made the nightly run refuse for weeks. A missing file returns None
+    immediately; a present-but-unreadable file is retried, then refused loudly.
+    """
+    if not path.exists():
+        return None
+    last_error: Optional[OSError] = None
+    for attempt in range(IDENTITY_READ_ATTEMPTS):
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except OSError as e:
+            last_error = e
+            if attempt < IDENTITY_READ_ATTEMPTS - 1:
+                time.sleep(IDENTITY_READ_BACKOFF_SECONDS)
+        except ValueError:
+            return None
+    _refuse(
+        f"REFUSING TO RUN: archive identity file at {path} exists but could not be "
+        f"read after {IDENTITY_READ_ATTEMPTS} attempts ({last_error}).\n"
+        "Probable cause: the sync client (OneDrive/iCloud) has dehydrated the file "
+        "and hydration is stalling. Open the archive folder once so it hydrates, or "
+        "mark the archive folder 'Always keep on this device'.\n"
+        "Zero writes were made this run.\n"
+    )
+    return None  # unreachable; _refuse exits
+
+
 def _identity_timestamp() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -861,7 +898,7 @@ def check_machine_identity(
     """
     local_path = local_state_path(archive_dir)
     local_identity = read_json_file(local_path)
-    archive_identity = read_json_file(machine_root / IDENTITY_FILENAME)
+    archive_identity = read_archive_identity(machine_root / IDENTITY_FILENAME)
 
     local_nonce = local_identity.get("nonce") if local_identity else None
     archive_nonce = archive_identity.get("nonce") if archive_identity else None
