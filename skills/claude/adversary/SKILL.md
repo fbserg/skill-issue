@@ -17,6 +17,9 @@ migrations, and multi-file behavior changes.
   target selection — don't hand-roll this path.
 - **Anything else** (a plan file, a decomposition doc, `~/.claude/plans/*.md`)
   → the hand-rolled path below.
+- If the codex plugin isn't installed this session, the hand-rolled path
+  below handles diffs too — write `git diff` output to `$RUN/input.md`
+  instead of a plan file.
 
 ## Hand-rolled path (non-diff artifacts only)
 

@@ -102,9 +102,11 @@ check). Tracker — dup-check by title under `epic`:
 
 (Back-fill `## Children` with real numbers via `gh issue edit --body-file`.)
 
-Children — marker is the first body line; search
-`'"epic-plan:child slug=<slug> ord=<k>"'` under the `epic:<slug>` label,
-create only if absent:
+Children — marker is the first body line. List issues under the
+`epic:<slug>` label with `gh issue list --label 'epic:<slug>' --json
+number,body`, grep each body for the literal marker string, and create only
+on exact match failure (fuzzy `--search` produced a false-positive dup that
+silently skipped a child — #1651/#1650).
 
 ```
 <!-- epic-plan:child slug=<slug> ord=<k> -->

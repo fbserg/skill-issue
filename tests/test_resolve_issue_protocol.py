@@ -41,10 +41,7 @@ def test_resolve_issue_skill_contains_each_protocol_rule_sentence() -> None:
         "Continue only when PatchCue resumes the run after a validated go decision.",
         "Treat \"operator data fix, no deploy\" as a legal outcome.",
         "For `OUTCOME: data-fix`, add `DATA_FIX_STATEMENT: <exact statement>` and `ROLLBACK: <exact rollback plan>`, then stop without a branch, PR, or deploy.",
-        "Re-poll issue comments immediately before acting on the gate.",
-        "Re-poll issue comments immediately before every push.",
-        "Never pass the gate against a stale plan.",
-        "Never push against a stale plan.",
+        "Re-poll issue comments immediately before acting on the gate and before every push.",
         "If the run is PatchCue-invoked, leave its PR as a draft and never call `gh pr ready`.",
         "For `OUTCOME: superseded`, close any PR owned by this run.",
     )
@@ -53,8 +50,16 @@ def test_resolve_issue_skill_contains_each_protocol_rule_sentence() -> None:
     for sentence in required_rule_sentences:
         assert sentence in normalized_skill_text, f"resolve-issue is missing rule: {sentence}"
 
+    # The re-poll/park-or-amend rule is now stated once, under Hard Rules
+    # (Re-poll protocol), with each call site reduced to a one-line trigger.
     foreign_comment_rule = (
         "If a scope-relevant comment comes from a login other than the worker or "
-        "controller, park the run as superseded or amend and repost the plan."
+        "controller, park the run as superseded or amend and repost the plan"
     )
-    assert normalized_skill_text.count(foreign_comment_rule) == 2
+    assert normalized_skill_text.count(foreign_comment_rule) == 1
+
+    for trigger in (
+        "Apply the Re-poll protocol (Hard Rules) before acting on the gate.",
+        "Apply the Re-poll protocol (Hard Rules) before every push.",
+    ):
+        assert trigger in normalized_skill_text, f"resolve-issue is missing re-poll trigger: {trigger}"
