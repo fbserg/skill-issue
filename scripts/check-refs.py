@@ -64,7 +64,7 @@ BUILTIN_SLASH_COMMANDS = {"config", "simplify", "help", "clear"}
 # ~/.claude/commands/*.md files, not skill-issue skills) and so can't be
 # checked against a local SKILL.md. Documented here instead of silently
 # allowlisted so the exception is visible.
-EXTERNAL_COMMANDS = {"codex-go"}  # ~/.claude/commands/codex-go.md, unversioned
+EXTERNAL_COMMANDS = {"codex-go", "grill-me"}  # ~/.claude/commands/codex-go.md and the grill-me plugin skill, both unversioned here
 
 
 def scan_files() -> list[Path]:
