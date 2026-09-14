@@ -53,7 +53,7 @@ KNOWN_MODEL_IDS = {"sonnet", "opus", "haiku"}
 ALLOWED_SLASH_FALSE_POSITIVES = {
     # Regex catches these from prose ("the plan's /verify step",
     # "/tmp/epic-plan/<slug>/") even though they aren't invokable commands.
-    "verify", "slug",
+    "verify", "slug", "tmp",
 }
 
 # Claude Code ships these as built-in slash commands, not skills — no
