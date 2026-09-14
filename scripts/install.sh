@@ -56,8 +56,10 @@ echo ""
 
 echo "Shared Codex skills:"
 if ! is_external_dir "${HOME}/.codex/skills"; then
-  ln -sfn "${REPO_ROOT}/skills/shared/zero" "${HOME}/.codex/skills/zero"
-  echo "  ~/.codex/skills/zero -> ${REPO_ROOT}/skills/shared/zero"
+  for name in zero herdr-share; do
+    ln -sfn "${REPO_ROOT}/skills/shared/${name}" "${HOME}/.codex/skills/${name}"
+    echo "  ~/.codex/skills/${name} -> ${REPO_ROOT}/skills/shared/${name}"
+  done
 fi
 
 # ── Shared skills (dirs containing SKILL.md only — skip loose .md files) ─────
