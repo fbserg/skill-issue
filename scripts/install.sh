@@ -80,7 +80,7 @@ fi
 
 echo ""
 
-# ── Delegate agents (bulk/worker/opus-worker/explore-mid) ────────────────────
+# ── Delegate agents (worker/opus-worker/explore-mid) ────────────────────
 echo "Agents:"
 if is_external_dir "${HOME}/.claude/agents"; then
   echo "  ~/.claude/agents is a symlink (externally managed) — skipping."

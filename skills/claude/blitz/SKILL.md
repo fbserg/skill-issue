@@ -12,8 +12,8 @@ selecting `Monitor,SendMessage,TaskStop` plus whatever else the batch needs —
 not reloaded piecemeal mid-batch (measured: 5+ redundant reloads/session).
 Posture:
 
-- **Worker/bulk are the default.** Lanes, reads, extraction, mechanical steps
-  → `worker`/`bulk`; `opus-worker` only after a `worker` has failed the
+- **Worker is the default.** Lanes, reads, extraction, mechanical steps
+  → `worker`; `opus-worker` only after a `worker` has failed the
   subtask, or for a deliberate read-only judgment panel — never bare
   `general-purpose`/`Plan`/`Explore` (measured: a 152-agent Opus fan-out cost
   $5.1k where a Sonnet bakeoff scored within a few points;

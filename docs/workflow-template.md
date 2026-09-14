@@ -17,7 +17,7 @@ fix, not just the rule.
    the *session's* effort — several top-cost transcripts show a low-effort
    parent silently downgrading every spawn. Route every call through one
    local helper (`run`, below) instead of calling `agent()` directly. Pick
-   the agent type per `docs/subagent-model-effort.md`: `bulk` for mechanical
+   the agent type per `docs/subagent-model-effort.md`: `explore-mid` for read-only
    fan-out, `worker` as the default, `opus-worker` only for a single
    escalation or convergence step — never a blanket fan-out.
 2. **Capability pre-check before fan-out.** A 6-agent wave launched with an

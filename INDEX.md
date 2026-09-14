@@ -111,7 +111,6 @@ Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/
 
 | Name | Model / effort | TLDR |
 |---|---|---|
-| bulk | haiku / low | Mechanical fan-out: bulk reads, summaries, transforms. |
 | worker | sonnet / medium | Default delegate for implementation, review, research with writes. |
 | explore-mid | sonnet / medium | Read-only research fan-out when depth matters. |
 | opus-worker | opus / high | One Opus call only: escalate a single subtask Sonnet failed on, or run a single convergence step (synthesis, panel verdict). |

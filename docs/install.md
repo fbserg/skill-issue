@@ -70,7 +70,6 @@ install by hand instead:
 
 ```bash
 mkdir -p ~/.claude/agents
-ln -sfn "$PWD/agents/bulk.md"        ~/.claude/agents/bulk.md
 ln -sfn "$PWD/agents/explore-mid.md" ~/.claude/agents/explore-mid.md
 ln -sfn "$PWD/agents/opus-worker.md" ~/.claude/agents/opus-worker.md
 ln -sfn "$PWD/agents/worker.md"      ~/.claude/agents/worker.md
@@ -122,6 +121,6 @@ rm ~/.codex/skills/issue ~/.codex/skills/refactor-dupes
 rm ~/.codex/skills/resolve-issue ~/.codex/skills/ww ~/.codex/skills/zero
 
 # Remove agent symlinks
-rm ~/.claude/agents/bulk.md ~/.claude/agents/explore-mid.md
+rm ~/.claude/agents/explore-mid.md
 rm ~/.claude/agents/opus-worker.md ~/.claude/agents/worker.md
 ```

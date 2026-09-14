@@ -48,7 +48,6 @@ SHARED_SKILLS = (
 
 # Delegate agent definitions symlinked into ~/.claude/agents/.
 AGENTS = (
-    "bulk.md",
     "explore-mid.md",
     "opus-worker.md",
     "worker.md",

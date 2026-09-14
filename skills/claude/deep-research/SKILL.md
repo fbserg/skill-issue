@@ -15,7 +15,7 @@ selects it internally from the scope agent's complexity verdict; nothing here is
 so read `workflow.js` directly for the current mechanics rather than this file.
 
 Every `agent()` call inside `workflow.js` names an explicit `agentType`: `worker` for
-search/fetch/verify (judgment, not mechanical, so not `bulk`), `opus-worker` only for the
+search/fetch/verify, `opus-worker` only for the
 scope/critic/reasoning/synthesize judgment-and-synthesis stages — never a bare fan-out at Opus
 (`docs/subagent-model-effort.md`).
 
