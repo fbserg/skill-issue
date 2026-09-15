@@ -14,4 +14,4 @@ herdr-share status
 herdr-share stop
 ```
 
-Login is always `as` / `as`. Links expire after one hour. Source: `~/projects/etc/configs/herdr-share/herdr_share.py`.
+Login is always `as` / `as`. Links expire after three hours. Source: `~/projects/etc/configs/herdr-share/herdr_share.py`.

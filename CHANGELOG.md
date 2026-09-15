@@ -4,6 +4,12 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- `zero`: new PROTECTED(ref) procedure — built-in pointer names (`prod`,
+  `staging`, `release/*`, `deploy/*`, ...) plus per-repo `git config --add
+  zero.protect <glob>` are excluded from every write and printed in the
+  inventory; unrecognized ancestor refs without a work-branch prefix are
+  reported as pointer branches, not deleted.
+- `herdr-share`: link TTL is three hours (matches etc@550de00).
 - transcript-archive: new `--prune-source-screenshots-days DAYS` (install.sh
   `--prune-days`) applies the archive's image-tombstone policy to the source
   transcripts themselves once a file is DAYS-idle and archived — reclaims the

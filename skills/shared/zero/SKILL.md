@@ -24,6 +24,26 @@ restage, rerun once). A stale `.git/index.lock` may be removed only after `ps`
 proves no live Git process. A failed commit: report it, don't drop that
 worktree/branch, continue with the rest.
 
+### PROTECTED(ref) — pointer branches zero never owns
+
+A pointer branch marks a deployed or approved commit (`prod`, `staging`,
+`release/1.4`). It is an ancestor of `main` by design, so CLASSIFY would call
+it merged and delete it. Resolve the protected set once, in the inventory,
+and print it:
+
+- **Built-in names**, on every remote and locally: `prod`, `production`,
+  `staging`, `stable`, `release`, `release/*`, `deploy/*`.
+- **Per-repo additions:** `git config --get-all zero.protect` (one branch name
+  or glob per entry; set with `git config --add zero.protect <name>`).
+
+A protected ref is excluded from every write, like the default branch and the
+remote's symbolic `HEAD`: never checked out, merged from, deleted, or force
+pushed. A remote ref that is an ancestor of `main`, is not protected, and does
+not look like a work branch (no `lane/`, `feature/`, `fix/`, `codex/`, `dependabot/`
+or similar prefix, and no PR ever pointed at it) is reported as
+"pointer branch, left alone", not deleted — name a new pointer convention
+with `zero.protect` rather than widening the built-in list.
+
 ### CLASSIFY(ref) — merged / squash-trash / real work
 
 Never treat a local or remote branch as unmerged solely because it isn't an
@@ -56,7 +76,8 @@ Deletion rules:
   the updated default branch is successfully pushed. Re-run CLASSIFY against
   the pushed default branch, then use `git push <remote> --delete <branch>`.
 - Never delete a default branch (local or remote, whatever its name), a
-  remote's symbolic `HEAD`, or a branch belonging to an open PR.
+  remote's symbolic `HEAD`, a PROTECTED ref, or a branch belonging to an
+  open PR.
 
 ## Execution
 
@@ -68,7 +89,8 @@ Deletion rules:
    (`git symbolic-ref refs/remotes/origin/HEAD`), `git worktree list
    --porcelain`, local branches + tracking, every remote branch for every
    configured remote, `gh pr list`, `gh issue list`. Exclude each remote's
-   symbolic `HEAD` and default branch from cleanup. Read-only commands may run
+   symbolic `HEAD`, default branch, and every PROTECTED ref from cleanup;
+   print the resolved protected set in the inventory summary. Read-only commands may run
    in parallel; never run Git writers in parallel with any other Git command
    in the same repo. Report counts, continue.
 2. **Checkpoint main:** `git checkout $DEFAULT_BRANCH`, CHECKPOINT it.
@@ -82,7 +104,8 @@ Deletion rules:
    CLASSIFY.
 5. **Stray local branches:** same guard + CLASSIFY, one at a time.
 6. **Remote branches:** for every non-default remote ref not already deleted
-   by a successful PR merge, run the open-PR guard and CLASSIFY it. Merge every
+   by a successful PR merge, skip it if PROTECTED (report it), apply the
+   pointer-branch guard, then run the open-PR guard and CLASSIFY it. Merge every
    real patch into the local default branch and validate it. Record merged and
    squash-trash remote branches for deletion, but do not delete any remote ref
    yet.
@@ -97,5 +120,6 @@ Deletion rules:
    left alone; it never justifies a force push.
 9. **Report:** counts for PRs merged / checkpoints / branches merged /
    worktrees dropped / local branches deleted / remote branches deleted / push
-   status; every skip with its reason; conflicts resolved; unmerged branches
-   only if blocked; open PRs and open issues (informational — never touched).
+   status; every skip with its reason; the protected set and any pointer branches
+   left alone; conflicts resolved; unmerged branches only if blocked; open
+   PRs and open issues (informational — never touched).
