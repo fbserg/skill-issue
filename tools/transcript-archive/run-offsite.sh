@@ -13,12 +13,12 @@ fi
   exit 2
 }
 offsite_timeout=${OFFSITE_TIMEOUT:-100m}
-
-if [[ "${1:-}" != "--within-offsite-deadline" ]]; then
-  exec "$timeout_bin" --signal=TERM --kill-after=30s "$offsite_timeout" \
-    /bin/bash "$0" --within-offsite-deadline "$@"
+offsite_kill_after=${OFFSITE_KILL_AFTER:-30s}
+within_deadline=0
+if [[ "${1:-}" == "--within-offsite-deadline" ]]; then
+  within_deadline=1
+  shift
 fi
-shift
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 archive_dir=${TRANSCRIPT_ARCHIVE_DIR:?TRANSCRIPT_ARCHIVE_DIR is required}
@@ -28,42 +28,69 @@ python_bin=${PYTHON_BIN:-python3}
 rclone_bin=${RCLONE_BIN:-rclone}
 ps_bin=${PS_BIN:-ps}
 lock_dir="$archive_dir/.offsite-$machine_id.lock"
-remote_identity_tmp=""
 
 [[ "$machine_id" =~ ^[a-z0-9-]+$ ]] || {
   echo "run-offsite.sh: TRANSCRIPT_ARCHIVE_MACHINE_ID must match [a-z0-9-]+" >&2
   exit 2
 }
 
-mkdir -p "$archive_dir"
-if ! mkdir "$lock_dir" 2>/dev/null; then
+acquire_lock() {
+  local lock_pid lock_command
+  mkdir -p "$archive_dir"
+  if mkdir "$lock_dir" 2>/dev/null; then
+    printf '%s\n' "$$" > "$lock_dir/pid"
+    return
+  fi
+
   lock_pid=$(cat "$lock_dir/pid" 2>/dev/null || true)
   lock_command=""
   if [[ "$lock_pid" =~ ^[0-9]+$ ]] && kill -0 "$lock_pid" 2>/dev/null; then
     lock_command=$("$ps_bin" -p "$lock_pid" -o command= 2>/dev/null || true)
   fi
-  if [[ "$lock_command" == *"$script_dir/run-offsite.sh"* ]]; then
+  [[ "$lock_command" != *"$script_dir/run-offsite.sh"* ]] || {
     echo "run-offsite.sh: another off-site archive run holds $lock_dir (pid $lock_pid)" >&2
-    exit 75
-  fi
+    return 75
+  }
   rm -f "$lock_dir/pid"
   rmdir "$lock_dir" 2>/dev/null || {
     echo "run-offsite.sh: cannot safely reclaim stale lock $lock_dir" >&2
-    exit 75
+    return 75
   }
   mkdir "$lock_dir" 2>/dev/null || {
     echo "run-offsite.sh: another off-site archive run claimed $lock_dir" >&2
-    exit 75
+    return 75
   }
-fi
-printf '%s\n' "$$" > "$lock_dir/pid"
-cleanup() {
-  [[ -z "$remote_identity_tmp" ]] || rm -f "$remote_identity_tmp"
+  printf '%s\n' "$$" > "$lock_dir/pid"
+}
+
+cleanup_lock() {
   rm -f "$lock_dir/pid"
   rmdir "$lock_dir"
 }
-trap cleanup EXIT
-trap 'exit 124' HUP INT TERM
+
+if ((within_deadline == 0)); then
+  acquire_lock
+  trap cleanup_lock EXIT
+  set +e
+  "$timeout_bin" --signal=TERM --kill-after="$offsite_kill_after" "$offsite_timeout" \
+    /bin/bash "$0" --within-offsite-deadline "$@"
+  rc=$?
+  set -e
+  cleanup_lock
+  trap - EXIT
+  ((rc == 124 || rc == 137)) && exit 124
+  exit "$rc"
+fi
+
+# Keep the timeout's direct child alive through its TERM grace period. The
+# supervisor can then KILL the complete process group before the outer process
+# releases the shared lock, even if a descendant ignores TERM.
+trap '' TERM
+remote_identity_tmp=""
+cleanup_inner() {
+  [[ -z "$remote_identity_tmp" ]] || rm -f "$remote_identity_tmp"
+}
+trap cleanup_inner EXIT
 
 archive_args=()
 prune_args=()

@@ -27,6 +27,11 @@ if [[ "$1" == copyto ]]; then
   cp "$REMOTE_IDENTITY" "$3"
 fi
 if [[ "$1" == copy ]]; then
+  if [[ "${RCLONE_COPY_IGNORE_TERM:-0}" == 1 ]]; then
+    printf '%s\n' "$$" > "$RCLONE_CHILD_PID_FILE"
+    trap '' TERM
+    while :; do sleep 0.1; done
+  fi
   [[ "${RCLONE_COPY_SLEEP:-0}" == 0 ]] || sleep "$RCLONE_COPY_SLEEP"
   exit "${RCLONE_COPY_RC:-0}"
 fi
@@ -45,6 +50,7 @@ run_runner() {
   RCLONE_BIN="$tmp/bin/rclone" \
   PS_BIN="$tmp/bin/ps" \
   OFFSITE_TIMEOUT="${OFFSITE_TIMEOUT:-10s}" \
+  OFFSITE_KILL_AFTER="${OFFSITE_KILL_AFTER:-1s}" \
   REMOTE_IDENTITY="$tmp/remote-identity" \
   TRANSCRIPT_ARCHIVE_DIR="$tmp/archive" \
   TRANSCRIPT_ARCHIVE_MACHINE_ID=mac \
@@ -129,10 +135,19 @@ grep -q '^rclone <copy>' "$tmp/calls"
 
 : > "$tmp/calls"
 set +e
-OFFSITE_TIMEOUT=0.2s RCLONE_COPY_SLEEP=2 run_runner --compress
+RCLONE_CHILD_PID_FILE="$tmp/resistant-child.pid" \
+RCLONE_COPY_IGNORE_TERM=1 \
+OFFSITE_TIMEOUT=0.2s \
+OFFSITE_KILL_AFTER=0.2s \
+  run_runner --compress
 rc=$?
 set -e
 [[ "$rc" == 124 ]]
+child_pid=$(cat "$tmp/resistant-child.pid")
+if kill -0 "$child_pid" 2>/dev/null; then
+  kill -KILL "$child_pid" 2>/dev/null || true
+  exit 1
+fi
 [[ ! -e "$tmp/archive/.offsite-mac.lock" ]]
 
 echo "offsite runner tests: 25 passed"
