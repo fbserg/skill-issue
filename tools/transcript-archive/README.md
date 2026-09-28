@@ -655,4 +655,5 @@ identity from bulk transfer, and refuses a missing or mismatched remote identity
 The complete archive-and-copy transaction has a 100-minute process-group
 deadline by default (`OFFSITE_TIMEOUT` overrides it). A timeout exits 124,
 terminates the active copy, and releases the shared lock without reporting an
-off-site success.
+off-site success. External stop signals also terminate and reap the complete
+copy process group before the lock is released.

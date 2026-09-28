@@ -46,6 +46,7 @@ chmod +x "$tmp/bin/ps"
 
 run_runner() {
   CALLS="$tmp/calls" \
+  SUPERVISOR_PYTHON_BIN="$(command -v python3)" \
   PYTHON_BIN="$tmp/bin/python3" \
   RCLONE_BIN="$tmp/bin/rclone" \
   PS_BIN="$tmp/bin/ps" \
@@ -65,6 +66,11 @@ grep -Fq "<--exclude> </.transcript-archive-identity>" "$tmp/calls"
 if grep -Fq '<sync>' "$tmp/calls"; then
   exit 1
 fi
+
+: > "$tmp/calls"
+run_runner
+grep -Fq "python3 <$script_dir/backup.py>" "$tmp/calls"
+grep -q '^rclone <copy>' "$tmp/calls"
 
 : > "$tmp/calls"
 set +e
@@ -150,4 +156,43 @@ if kill -0 "$child_pid" 2>/dev/null; then
 fi
 [[ ! -e "$tmp/archive/.offsite-mac.lock" ]]
 
-echo "offsite runner tests: 25 passed"
+: > "$tmp/calls"
+: > "$tmp/resistant-child.pid"
+env \
+  CALLS="$tmp/calls" \
+  SUPERVISOR_PYTHON_BIN="$(command -v python3)" \
+  PYTHON_BIN="$tmp/bin/python3" \
+  RCLONE_BIN="$tmp/bin/rclone" \
+  PS_BIN="$tmp/bin/ps" \
+  REMOTE_IDENTITY="$tmp/remote-identity" \
+  RCLONE_CHILD_PID_FILE="$tmp/resistant-child.pid" \
+  RCLONE_COPY_IGNORE_TERM=1 \
+  OFFSITE_TIMEOUT=10s \
+  OFFSITE_KILL_AFTER=0.2s \
+  TRANSCRIPT_ARCHIVE_DIR="$tmp/archive" \
+  TRANSCRIPT_ARCHIVE_MACHINE_ID=mac \
+  TRANSCRIPT_ARCHIVE_REMOTE=remote:transcripts \
+  "$runner" --compress &
+outer_pid=$!
+for _ in {1..100}; do
+  [[ -s "$tmp/resistant-child.pid" ]] && break
+  sleep 0.02
+done
+[[ -s "$tmp/resistant-child.pid" ]]
+external_child_pid=$(cat "$tmp/resistant-child.pid")
+kill -TERM "$outer_pid"
+sleep 0.05
+[[ -e "$tmp/archive/.offsite-mac.lock" ]]
+kill -TERM "$outer_pid"
+set +e
+wait "$outer_pid"
+rc=$?
+set -e
+[[ "$rc" == 143 ]]
+if kill -0 "$external_child_pid" 2>/dev/null; then
+  kill -KILL "$external_child_pid" 2>/dev/null || true
+  exit 1
+fi
+[[ ! -e "$tmp/archive/.offsite-mac.lock" ]]
+
+echo "offsite runner tests: 29 passed"

@@ -4,14 +4,6 @@
 # stage must never delete older remote history.
 set -euo pipefail
 
-timeout_bin=${TIMEOUT_BIN:-}
-if [[ -z "$timeout_bin" ]]; then
-  timeout_bin=$(command -v timeout || command -v gtimeout || true)
-fi
-[[ -n "$timeout_bin" ]] || {
-  echo "run-offsite.sh: timeout/gtimeout is required" >&2
-  exit 2
-}
 offsite_timeout=${OFFSITE_TIMEOUT:-100m}
 offsite_kill_after=${OFFSITE_KILL_AFTER:-30s}
 within_deadline=0
@@ -25,6 +17,7 @@ archive_dir=${TRANSCRIPT_ARCHIVE_DIR:?TRANSCRIPT_ARCHIVE_DIR is required}
 machine_id=${TRANSCRIPT_ARCHIVE_MACHINE_ID:?TRANSCRIPT_ARCHIVE_MACHINE_ID is required}
 remote=${TRANSCRIPT_ARCHIVE_REMOTE:?TRANSCRIPT_ARCHIVE_REMOTE is required}
 python_bin=${PYTHON_BIN:-python3}
+supervisor_python_bin=${SUPERVISOR_PYTHON_BIN:-$python_bin}
 rclone_bin=${RCLONE_BIN:-rclone}
 ps_bin=${PS_BIN:-ps}
 lock_dir="$archive_dir/.offsite-$machine_id.lock"
@@ -71,21 +64,13 @@ cleanup_lock() {
 if ((within_deadline == 0)); then
   acquire_lock
   trap cleanup_lock EXIT
-  set +e
-  "$timeout_bin" --signal=TERM --kill-after="$offsite_kill_after" "$offsite_timeout" \
+  exec "$supervisor_python_bin" "$script_dir/run_with_deadline.py" \
+    --timeout "$offsite_timeout" \
+    --kill-after "$offsite_kill_after" \
+    --lock-dir "$lock_dir" \
     /bin/bash "$0" --within-offsite-deadline "$@"
-  rc=$?
-  set -e
-  cleanup_lock
-  trap - EXIT
-  ((rc == 124 || rc == 137)) && exit 124
-  exit "$rc"
 fi
 
-# Keep the timeout's direct child alive through its TERM grace period. The
-# supervisor can then KILL the complete process group before the outer process
-# releases the shared lock, even if a descendant ignores TERM.
-trap '' TERM
 remote_identity_tmp=""
 cleanup_inner() {
   [[ -z "$remote_identity_tmp" ]] || rm -f "$remote_identity_tmp"
@@ -137,10 +122,10 @@ copy_offsite() {
     --stats 5m
 }
 
-"$python_bin" "$script_dir/backup.py" "${archive_args[@]}"
+"$python_bin" "$script_dir/backup.py" ${archive_args[@]+"${archive_args[@]}"}
 copy_offsite
 
 if ((${#prune_args[@]})); then
-  "$python_bin" "$script_dir/backup.py" "${archive_args[@]}" --prune-only "${prune_args[@]}"
+  "$python_bin" "$script_dir/backup.py" ${archive_args[@]+"${archive_args[@]}"} --prune-only "${prune_args[@]}"
   copy_offsite
 fi
