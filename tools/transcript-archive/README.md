@@ -637,3 +637,15 @@ compacted session, and mangling them would silently break resumability.
 
 `~/.claude/tasks` is copied raw (no image walk) — task files aren't
 transcript JSONL and don't carry the same base64 image shapes.
+
+### Off-site copy without a sync-client mount
+
+If the cloud sync client can dehydrate or lock files, archive into a durable
+local directory and run `run-offsite.sh` from the scheduler. Set
+`TRANSCRIPT_ARCHIVE_REMOTE` to the shared rclone archive root. The runner first
+completes the local archive, then uses additive `rclone copy` for this machine's
+namespace. It never deletes remote files.
+
+Before the first staged run against an existing archive, copy that machine's
+`.transcript-archive-identity` file from the remote into the local stage and run
+`backup.py --adopt-archive` once. This preserves the established identity nonce.
