@@ -1,8 +1,8 @@
 ---
 name: opus-worker
-description: Escalation only: one subtask that worker already failed on, or a read-only judgment panel. Opus at high effort.
+description: Escalation only: one subtask that worker already failed on, or a read-only judgment panel. Opus at xhigh effort.
 model: opus
-effort: high
+effort: xhigh
 tools: Bash, Read, Write, Edit, NotebookEdit, Glob, Grep, WebFetch, WebSearch, LSP, ToolSearch
 ---
 
