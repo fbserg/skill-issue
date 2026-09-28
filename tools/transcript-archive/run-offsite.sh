@@ -4,6 +4,22 @@
 # stage must never delete older remote history.
 set -euo pipefail
 
+timeout_bin=${TIMEOUT_BIN:-}
+if [[ -z "$timeout_bin" ]]; then
+  timeout_bin=$(command -v timeout || command -v gtimeout || true)
+fi
+[[ -n "$timeout_bin" ]] || {
+  echo "run-offsite.sh: timeout/gtimeout is required" >&2
+  exit 2
+}
+offsite_timeout=${OFFSITE_TIMEOUT:-100m}
+
+if [[ "${1:-}" != "--within-offsite-deadline" ]]; then
+  exec "$timeout_bin" --signal=TERM --kill-after=30s "$offsite_timeout" \
+    /bin/bash "$0" --within-offsite-deadline "$@"
+fi
+shift
+
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 archive_dir=${TRANSCRIPT_ARCHIVE_DIR:?TRANSCRIPT_ARCHIVE_DIR is required}
 machine_id=${TRANSCRIPT_ARCHIVE_MACHINE_ID:?TRANSCRIPT_ARCHIVE_MACHINE_ID is required}
@@ -47,6 +63,7 @@ cleanup() {
   rmdir "$lock_dir"
 }
 trap cleanup EXIT
+trap 'exit 124' HUP INT TERM
 
 archive_args=()
 prune_args=()

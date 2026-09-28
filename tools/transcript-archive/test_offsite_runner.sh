@@ -27,6 +27,7 @@ if [[ "$1" == copyto ]]; then
   cp "$REMOTE_IDENTITY" "$3"
 fi
 if [[ "$1" == copy ]]; then
+  [[ "${RCLONE_COPY_SLEEP:-0}" == 0 ]] || sleep "$RCLONE_COPY_SLEEP"
   exit "${RCLONE_COPY_RC:-0}"
 fi
 exit "${RCLONE_RC:-0}"
@@ -43,6 +44,7 @@ run_runner() {
   PYTHON_BIN="$tmp/bin/python3" \
   RCLONE_BIN="$tmp/bin/rclone" \
   PS_BIN="$tmp/bin/ps" \
+  OFFSITE_TIMEOUT="${OFFSITE_TIMEOUT:-10s}" \
   REMOTE_IDENTITY="$tmp/remote-identity" \
   TRANSCRIPT_ARCHIVE_DIR="$tmp/archive" \
   TRANSCRIPT_ARCHIVE_MACHINE_ID=mac \
@@ -125,4 +127,12 @@ run_runner --compress
 grep -q '^rclone <copy>' "$tmp/calls"
 [[ ! -e "$tmp/archive/.offsite-mac.lock" ]]
 
-echo "offsite runner tests: 23 passed"
+: > "$tmp/calls"
+set +e
+OFFSITE_TIMEOUT=0.2s RCLONE_COPY_SLEEP=2 run_runner --compress
+rc=$?
+set -e
+[[ "$rc" == 124 ]]
+[[ ! -e "$tmp/archive/.offsite-mac.lock" ]]
+
+echo "offsite runner tests: 25 passed"

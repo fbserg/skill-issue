@@ -652,3 +652,7 @@ Before the first staged run against an existing archive, copy that machine's
 Seed the same identity file at the remote before the first off-site run. The
 runner compares local and remote identities before every copy, excludes the
 identity from bulk transfer, and refuses a missing or mismatched remote identity.
+The complete archive-and-copy transaction has a 100-minute process-group
+deadline by default (`OFFSITE_TIMEOUT` overrides it). A timeout exits 124,
+terminates the active copy, and releases the shared lock without reporting an
+off-site success.
