@@ -10,6 +10,7 @@ machine_id=${TRANSCRIPT_ARCHIVE_MACHINE_ID:?TRANSCRIPT_ARCHIVE_MACHINE_ID is req
 remote=${TRANSCRIPT_ARCHIVE_REMOTE:?TRANSCRIPT_ARCHIVE_REMOTE is required}
 python_bin=${PYTHON_BIN:-python3}
 rclone_bin=${RCLONE_BIN:-rclone}
+ps_bin=${PS_BIN:-ps}
 lock_dir="$archive_dir/.offsite-$machine_id.lock"
 remote_identity_tmp=""
 
@@ -20,11 +21,29 @@ remote_identity_tmp=""
 
 mkdir -p "$archive_dir"
 if ! mkdir "$lock_dir" 2>/dev/null; then
-  echo "run-offsite.sh: another off-site archive run holds $lock_dir" >&2
-  exit 75
+  lock_pid=$(cat "$lock_dir/pid" 2>/dev/null || true)
+  lock_command=""
+  if [[ "$lock_pid" =~ ^[0-9]+$ ]] && kill -0 "$lock_pid" 2>/dev/null; then
+    lock_command=$("$ps_bin" -p "$lock_pid" -o command= 2>/dev/null || true)
+  fi
+  if [[ "$lock_command" == *"$script_dir/run-offsite.sh"* ]]; then
+    echo "run-offsite.sh: another off-site archive run holds $lock_dir (pid $lock_pid)" >&2
+    exit 75
+  fi
+  rm -f "$lock_dir/pid"
+  rmdir "$lock_dir" 2>/dev/null || {
+    echo "run-offsite.sh: cannot safely reclaim stale lock $lock_dir" >&2
+    exit 75
+  }
+  mkdir "$lock_dir" 2>/dev/null || {
+    echo "run-offsite.sh: another off-site archive run claimed $lock_dir" >&2
+    exit 75
+  }
 fi
+printf '%s\n' "$$" > "$lock_dir/pid"
 cleanup() {
   [[ -z "$remote_identity_tmp" ]] || rm -f "$remote_identity_tmp"
+  rm -f "$lock_dir/pid"
   rmdir "$lock_dir"
 }
 trap cleanup EXIT

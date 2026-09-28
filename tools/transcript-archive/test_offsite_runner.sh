@@ -31,12 +31,18 @@ if [[ "$1" == copy ]]; then
 fi
 exit "${RCLONE_RC:-0}"
 EOF
+cat > "$tmp/bin/ps" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "${LOCK_OWNER_COMMAND:-}"
+EOF
 chmod +x "$tmp/bin/python3" "$tmp/bin/rclone"
+chmod +x "$tmp/bin/ps"
 
 run_runner() {
   CALLS="$tmp/calls" \
   PYTHON_BIN="$tmp/bin/python3" \
   RCLONE_BIN="$tmp/bin/rclone" \
+  PS_BIN="$tmp/bin/ps" \
   REMOTE_IDENTITY="$tmp/remote-identity" \
   TRANSCRIPT_ARCHIVE_DIR="$tmp/archive" \
   TRANSCRIPT_ARCHIVE_MACHINE_ID=mac \
@@ -101,13 +107,22 @@ fi
 
 cp "$tmp/archive/mac/.transcript-archive-identity" "$tmp/remote-identity"
 mkdir "$tmp/archive/.offsite-mac.lock"
+printf '%s\n' "$$" > "$tmp/archive/.offsite-mac.lock/pid"
 : > "$tmp/calls"
 set +e
-run_runner --compress
+LOCK_OWNER_COMMAND="$runner --compress" run_runner --compress
 rc=$?
 set -e
 [[ "$rc" == 75 ]]
 [[ ! -s "$tmp/calls" ]]
+rm "$tmp/archive/.offsite-mac.lock/pid"
 rmdir "$tmp/archive/.offsite-mac.lock"
 
-echo "offsite runner tests: 20 passed"
+mkdir "$tmp/archive/.offsite-mac.lock"
+printf '999999\n' > "$tmp/archive/.offsite-mac.lock/pid"
+: > "$tmp/calls"
+run_runner --compress
+grep -q '^rclone <copy>' "$tmp/calls"
+[[ ! -e "$tmp/archive/.offsite-mac.lock" ]]
+
+echo "offsite runner tests: 23 passed"
