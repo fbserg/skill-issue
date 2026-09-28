@@ -1222,9 +1222,18 @@ def parse_args(argv=None) -> argparse.Namespace:
         "dialogue and tool text are untouched, JSON stays valid, and the file's "
         "mtime is preserved so the next run's mtime-skip stays quiet.",
     )
+    parser.add_argument(
+        "--prune-only",
+        action="store_true",
+        help="Do not add or update archive files. Only apply the requested source "
+        "screenshot prune against copies that already exist in the archive. Requires "
+        "--prune-source-screenshots-days.",
+    )
     args = parser.parse_args(argv)
     if args.prune_source_screenshots_days is not None and args.prune_source_screenshots_days < 1:
         parser.error("--prune-source-screenshots-days must be >= 1")
+    if args.prune_only and args.prune_source_screenshots_days is None:
+        parser.error("--prune-only requires --prune-source-screenshots-days")
     return args
 
 
@@ -1247,9 +1256,9 @@ def main(argv=None) -> None:
 
     counts = {"added": 0, "updated": 0, "skipped": 0, "kept": 0, "error": 0}
     errors: list = []
-    sources_seen = 0
+    sources_seen = 1 if args.prune_only else 0
 
-    for spec in build_sources(machine_root):
+    for spec in [] if args.prune_only else build_sources(machine_root):
         if spec.is_glob:
             if not spec.src_root.exists():
                 log(f"WARN: source not found, skipping: {spec.src_root}")

@@ -1394,6 +1394,17 @@ class TestPruneSourceScreenshots(unittest.TestCase):
         self.assertIn(data, src.read_text())
         self.assertIn("skipped_unarchived=1", out.getvalue())
 
+    def test_prune_only_never_archives_a_new_source(self):
+        src, data, _ = self._write_screenshot_session("appeared-after-copy.jsonl", age_days=40)
+        proc = run_backup(
+            self._env(), args=["--compress", "--prune-only", "--prune-source-screenshots-days", "30"]
+        )
+        self.assertEqual(proc.returncode, 0)
+        self.assertIn("skipped_unarchived=1", proc.stdout)
+        self.assertIn(data, src.read_text())
+        dest = self.archive / "testmachine" / "claude" / "projects" / "proj1" / "appeared-after-copy.jsonl.gz"
+        self.assertFalse(dest.exists())
+
     def test_dry_run_prunes_nothing(self):
         src, data, _ = self._write_screenshot_session("old.jsonl", age_days=40)
         run_backup(self._env(), args=["--compress"])  # archive it first

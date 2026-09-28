@@ -649,3 +649,6 @@ namespace. It never deletes remote files.
 Before the first staged run against an existing archive, copy that machine's
 `.transcript-archive-identity` file from the remote into the local stage and run
 `backup.py --adopt-archive` once. This preserves the established identity nonce.
+Seed the same identity file at the remote before the first off-site run. The
+runner compares local and remote identities before every copy, excludes the
+identity from bulk transfer, and refuses a missing or mismatched remote identity.
