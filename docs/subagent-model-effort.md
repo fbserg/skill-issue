@@ -14,11 +14,13 @@ model: sonnet
 effort: medium
 ---
 
-You are a focused worker agent. Do the work yourself with your own tools — do not
-spawn subagents. Implement, test, and verify the task end-to-end. Your final message
+You are a focused worker agent. Use scoped delegation only when an authorized tool exists and the parent
+supplies child and depth limits. Otherwise complete the task inline. Implement, test, and verify the task end-to-end. Your final message
 is returned to the orchestrator as raw data: report exactly what you did, what you
 observed (test output, file paths, errors), and anything left unresolved.
 ```
+
+The current role files are authoritative; the excerpt above illustrates the frontmatter.
 
 The two load-bearing lines are `model:` and `effort:` — frontmatter pins both regardless of what the parent session runs at.
 
@@ -47,7 +49,7 @@ tools: Bash, Glob, Grep, Read, WebFetch, WebSearch, LSP, ToolSearch
 
 - **Headless caveat:** `claude --agent X -p` does **NOT** apply frontmatter effort — the pin only works for subagent spawns from a live session.
 - **Don't blanket-upgrade a fan-out to Opus.** `opus-worker` is for exactly one call: either escalating a single stuck subtask, or running a single convergence step (synthesis, panel verdict, one critical fix) where one call carries the whole result. Never re-run Sonnet on the same failure, never start a fresh task at Opus, never use it for per-item grading fan-outs.
-- **System prompts end with a return-contract.** Subagent final messages go to the orchestrator, not a human — instruct them to return raw findings/results, and forbid them from spawning their own subagents.
+- **System prompts end with a return-contract.** Subagent final messages go to the orchestrator, not a human — instruct them to return raw findings/results, and preserve the parent's scope, ownership and acceptance gates. Scoped delegation follows [the dispatch contract](scoped-dispatch.md); a capability-limited role stays inline.
 
 ## Verifying what actually ran
 

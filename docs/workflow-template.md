@@ -8,6 +8,9 @@ harness idioms used in `skills/claude/deep-research/workflow.js`: top-level
 calls in the script itself — state lives in the returned object and in
 `log()` lines, not on disk.
 
+Before dispatch, fill the [scoped task packet](scoped-dispatch.md). It grants no
+new tools or access and does not override this workflow's phase restrictions.
+
 ## Contract
 
 Each clause below traces to a measured failure; the template encodes the

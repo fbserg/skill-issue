@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- Worker and research roles permit bounded, capability-aware delegation within
+  the active workflow, with parent-owned follow-through and an explicit dispatch
+  packet. Tool grants are unchanged.
+
 - `zero`: new PROTECTED(ref) procedure — built-in pointer names (`prod`,
   `staging`, `release/*`, `deploy/*`, ...) plus per-repo `git config --add
   zero.protect <glob>` are excluded from every write and printed in the
