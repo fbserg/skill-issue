@@ -40,6 +40,9 @@ Posture:
   AGENTS.md — AGENTS.md-only rulings exist) — never the full root prompt
   re-sent (measured: ~15x context inflation). A lane's first action: restate
   its scope and confirm no overlap with sibling cards.
+  Every card ends with: "Report only in your final message; never SendMessage
+  the lead" — a lane that does both wakes the orchestrator twice per
+  completion (measured: 5 duplicate idle notices in one 3-lane batch).
 - **Micro-work gets no lane.** A ≤~50-line fix with green targeted checks
   commits straight to the integration branch where the repo permits; batch
   several into one commit train.
