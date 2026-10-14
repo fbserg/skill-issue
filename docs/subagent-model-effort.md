@@ -30,7 +30,7 @@ The two load-bearing lines are `model:` and `effort:` — frontmatter pins both 
 |---|---|---|
 | `worker` | sonnet / medium | Default delegate: implementation, review, research with writes. |
 | `explore-mid` | sonnet / medium | Read-only research fan-out when depth matters (tools restricted to read/search). |
-| `opus-worker` | opus / high | Two narrow uses: (1) escalation — a single stuck subtask after Sonnet failed; (2) a single high-leverage **convergence step** (final synthesis, judge-panel verdict, one critical fix) where one call carries the result. Never first attempts, never blanket fan-outs. |
+| `opus-worker` | opus / xhigh | Two narrow uses: (1) escalation — a single stuck subtask after Sonnet failed; (2) a single high-leverage **convergence step** (final synthesis, judge-panel verdict, one critical fix) where one call carries the result. Never first attempts, never blanket fan-outs. |
 
 Restrict tools where it helps, e.g. read-only research:
 
@@ -65,7 +65,7 @@ To confirm at spawn time, the Agent tool's available-types listing reflects the 
 
 Ready-made definitions for all three types live in this repo under `agents/`. `scripts/install.sh` now symlinks them into `~/.claude/agents/` automatically alongside the skills — no manual copy step needed. Then add a CLAUDE.md rule so the orchestrator routes through them, e.g.:
 
-> Delegation goes through named agent types: `worker` (sonnet/medium) as the default delegate, `opus-worker` (opus/high) only as escalation for a single stuck subtask, `explore-mid` (sonnet/medium) for research fan-out when depth matters. These carry explicit `effort` settings so subagents don't inherit the main thread's low effort — passing `model:` alone is not sufficient.
+> Delegation goes through named agent types: `worker` (sonnet/medium) as the default delegate, `opus-worker` (opus/xhigh) only as escalation for a single stuck subtask, `explore-mid` (sonnet/medium) for research fan-out when depth matters. These carry explicit `effort` settings so subagents don't inherit the main thread's low effort — passing `model:` alone is not sufficient.
 
 ## Workflow scripts
 

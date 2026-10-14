@@ -11,39 +11,16 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-# Codex-native skills; shared zero is registered separately below.
-CODEX_SKILLS = (
-    "adversarial-review",
-    "blitz",
-    "epic-plan",
-    "issue",
-    "refactor-dupes",
-    "resolve-issue",
-    "ww",
-)
+def skill_names(subdir: str) -> tuple[str, ...]:
+    """Skill dirs install.sh links: every skills/<subdir>/*/ holding a SKILL.md."""
+    return tuple(sorted(path.parent.name for path in (REPO_ROOT / "skills" / subdir).glob("*/SKILL.md")))
 
-# Claude-only skills remaining under skills/claude/ (the shared skills that
-# used to be duplicated here — authenticity-check, humanizer, zero — now live
-# solely under skills/shared/, see SHARED_SKILLS below. authentic-writing and
-# transcript-backup were deleted: zero invocations across 14,509 transcripts;
-# skills/shared/ww was deleted: its only unique content was a boundary
-# sentence blitz already states from the other side).
-CLAUDE_SKILLS = (
-    "adversary",
-    "blitz",
-    "deep-research",
-    "epic-plan",
-    "resolve-issue",
-    "simplify-sweep",
-    "usage-review",
-)
 
-# Shared skill sources. All install into Claude; zero also installs into Codex.
-# authenticity-check and humanizer were uninstalled 2026-07-30 (0-1 invocations
-# across the transcript corpus); their sources remain in skills/shared/.
-SHARED_SKILLS = (
-    "zero",
-)
+CODEX_SKILLS = skill_names("codex")
+CLAUDE_SKILLS = skill_names("claude")
+SHARED_SKILLS = skill_names("shared")
+# install.sh links only these shared skills into Codex.
+CODEX_SHARED_SKILLS = ("zero", "herdr-share")
 
 # Delegate agent definitions symlinked into ~/.claude/agents/.
 AGENTS = tuple(sorted(path.name for path in (REPO_ROOT / "agents").glob("*.md")))
@@ -52,7 +29,10 @@ EXPECTED_LINKS = {
     Path(f"~/.codex/skills/{name}").expanduser(): REPO_ROOT / f"skills/codex/{name}"
     for name in CODEX_SKILLS
 }
-EXPECTED_LINKS[Path("~/.codex/skills/zero").expanduser()] = REPO_ROOT / "skills/shared/zero"
+EXPECTED_LINKS.update({
+    Path(f"~/.codex/skills/{name}").expanduser(): REPO_ROOT / f"skills/shared/{name}"
+    for name in CODEX_SHARED_SKILLS
+})
 EXPECTED_LINKS.update({
     Path(f"~/.claude/skills/{name}").expanduser(): REPO_ROOT / f"skills/claude/{name}"
     for name in CLAUDE_SKILLS

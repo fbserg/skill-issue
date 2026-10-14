@@ -107,4 +107,5 @@ Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/
 |---|---|---|
 | worker | sonnet / medium | Default delegate for implementation, review, research with writes. |
 | explore-mid | sonnet / medium | Read-only research fan-out when depth matters. |
-| opus-worker | opus / high | One Opus call only: escalate a single subtask Sonnet failed on, or run a single convergence step (synthesis, panel verdict). |
+| opus-worker | opus / xhigh | One Opus call only: escalate a single subtask Sonnet failed on, or run a single convergence step (synthesis, panel verdict). |
+| Explore | haiku / medium | Fast read-only code lookups. Replaces the built-in Explore agent. |
