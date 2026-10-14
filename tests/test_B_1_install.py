@@ -1,12 +1,11 @@
-"""Boundary tests for issue #1: install.sh agent symlinks + shared skill dedup.
+"""install.sh and check-install.py under a throwaway HOME.
 
-Runs scripts/install.sh and scripts/check-install.py under a throwaway
-temp HOME so nothing in the real ~/.claude / ~/.codex tree is touched.
-Run with: python3 -m pytest tests/test_B_1_install.py -v
+Nothing in the real ~/.claude or ~/.codex tree is touched.
 """
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -16,32 +15,25 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 INSTALL_SH = REPO_ROOT / "scripts" / "install.sh"
 CHECK_INSTALL_PY = REPO_ROOT / "scripts" / "check-install.py"
 
-AGENT_NAMES = ("explore-mid.md", "opus-worker.md", "worker.md")
-SHARED_SKILL_NAMES = (
-    "authenticity-check",
-    "humanizer",
-    "zero",
-)
+AGENT_NAMES = tuple(sorted(path.name for path in (REPO_ROOT / "agents").glob("*.md")))
+SHARED_SKILL_NAMES = ("authenticity-check", "humanizer", "zero")
 
 
-def _run_install(home: Path) -> subprocess.CompletedProcess:
+def _run(command: list[str], home: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["bash", str(INSTALL_SH)],
-        env={**os.environ, "HOME": str(home)},
-        cwd=str(REPO_ROOT),
-        capture_output=True,
-        text=True,
+        command, env={**os.environ, "HOME": str(home)}, cwd=str(REPO_ROOT), check=False,
+        capture_output=True, text=True,
     )
 
 
-def _run_check_install(home: Path) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["python3", str(CHECK_INSTALL_PY)],
-        env={**os.environ, "HOME": str(home)},
-        cwd=str(REPO_ROOT),
-        capture_output=True,
-        text=True,
-    )
+def _install(home: Path) -> subprocess.CompletedProcess:
+    result = _run(["bash", str(INSTALL_SH)], home)
+    assert result.returncode == 0, f"install.sh failed:\n{result.stdout}\n{result.stderr}"
+    return result
+
+
+def _check_install(home: Path) -> subprocess.CompletedProcess:
+    return _run(["python3", str(CHECK_INSTALL_PY)], home)
 
 
 @pytest.fixture
@@ -49,171 +41,57 @@ def temp_home(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return tmp_path_factory.mktemp("skill-issue-test-home")
 
 
-def test_B_1_A_fresh_install_creates_all_four_agent_symlinks(temp_home: Path) -> None:
-    result = _run_install(temp_home)
-    assert result.returncode == 0, f"install.sh failed:\n{result.stdout}\n{result.stderr}"
-
-    agents_dir = temp_home / ".claude" / "agents"
-    for name in AGENT_NAMES:
-        link = agents_dir / name
-        assert link.is_symlink(), f"{link} was not created as a symlink"
-        expected_target = (REPO_ROOT / "agents" / name).resolve()
-        assert link.resolve() == expected_target, (
-            f"{link} resolves to {link.resolve()}, expected {expected_target}"
-        )
-
-
-def test_B_1_B_install_is_idempotent(temp_home: Path) -> None:
-    first = _run_install(temp_home)
-    assert first.returncode == 0, f"first install.sh run failed:\n{first.stderr}"
-
-    agents_dir = temp_home / ".claude" / "agents"
-    links_before = {
-        name: (agents_dir / name).resolve() for name in AGENT_NAMES
+def test_fresh_install_links_everything_and_rerun_is_idempotent(temp_home: Path) -> None:
+    _install(temp_home)
+    expected_links = {
+        temp_home / ".claude" / "agents" / name: REPO_ROOT / "agents" / name for name in AGENT_NAMES
+    } | {
+        temp_home / ".claude" / "skills" / name: REPO_ROOT / "skills" / "shared" / name
+        for name in SHARED_SKILL_NAMES
     }
+    for link, target in expected_links.items():
+        assert link.is_symlink() and link.resolve() == target.resolve(), link
+    check_result = _check_install(temp_home)
+    assert check_result.returncode == 0, check_result.stdout + check_result.stderr
 
-    second = _run_install(temp_home)
-    assert second.returncode == 0, f"second install.sh run failed:\n{second.stderr}"
-
-    links_after = {
-        name: (agents_dir / name).resolve() for name in AGENT_NAMES
-    }
-    assert links_before == links_after, "agent symlink targets changed across reruns"
-
-
-def test_B_1_C_shared_skills_resolve_to_skills_shared_only(temp_home: Path) -> None:
-    result = _run_install(temp_home)
-    assert result.returncode == 0, f"install.sh failed:\n{result.stderr}"
-
-    claude_skills_dir = temp_home / ".claude" / "skills"
-    for name in SHARED_SKILL_NAMES:
-        link = claude_skills_dir / name
-        assert link.is_symlink(), f"{link} was not created as a symlink"
-        resolved = link.resolve()
-        expected_target = (REPO_ROOT / "skills" / "shared" / name).resolve()
-        assert resolved == expected_target, (
-            f"{link} resolves to {resolved}, expected {expected_target} "
-            "(skills/shared/ must be the sole canonical source)"
-        )
+    _install(temp_home)
+    for link, target in expected_links.items():
+        assert link.resolve() == target.resolve(), f"{link} changed on rerun"
 
 
-def test_B_1_D_check_install_passes_against_temp_home_install(temp_home: Path) -> None:
-    install_result = _run_install(temp_home)
-    assert install_result.returncode == 0, f"install.sh failed:\n{install_result.stderr}"
-
-    check_result = _run_check_install(temp_home)
-    assert check_result.returncode == 0, (
-        f"check-install.py failed against a fresh install:\n"
-        f"stdout={check_result.stdout}\nstderr={check_result.stderr}"
-    )
+def test_check_install_fails_when_agent_symlink_missing(temp_home: Path) -> None:
+    _install(temp_home)
+    (temp_home / ".claude" / "agents" / "worker.md").unlink()
+    check_result = _check_install(temp_home)
+    assert check_result.returncode != 0
+    assert "worker.md" in check_result.stdout + check_result.stderr
 
 
-def test_B_1_E_check_install_fails_when_agent_symlink_missing(temp_home: Path) -> None:
-    install_result = _run_install(temp_home)
-    assert install_result.returncode == 0, f"install.sh failed:\n{install_result.stderr}"
+@pytest.mark.parametrize("managed_dir", [".claude/agents", ".claude/skills", ".codex/skills"])
+def test_install_does_not_clobber_externally_managed_dir(temp_home: Path, managed_dir: str) -> None:
+    external_dir = temp_home / "external"
+    external_dir.mkdir()
+    stub = external_dir / "worker.md"
+    stub.write_text("externally managed\n")
+    link = temp_home / managed_dir
+    link.parent.mkdir()
+    link.symlink_to(external_dir, target_is_directory=True)
 
-    # Sabotage one agent symlink to prove check-install.py actually covers agents/.
-    missing_link = temp_home / ".claude" / "agents" / "worker.md"
-    assert missing_link.is_symlink()
-    missing_link.unlink()
-
-    check_result = _run_check_install(temp_home)
-    assert check_result.returncode != 0, (
-        "check-install.py should fail when an expected agent symlink is missing, "
-        f"but exited 0. stdout={check_result.stdout}"
-    )
-    assert "worker.md" in check_result.stderr or "worker.md" in check_result.stdout
-
-
-def test_B_1_F_install_does_not_clobber_symlinked_agents_dir(temp_home: Path) -> None:
-    sentinel = "externally managed worker\n"
-    external_agents_dir = temp_home / "external-agents"
-    external_agents_dir.mkdir()
-    stub_worker = external_agents_dir / "worker.md"
-    stub_worker.write_text(sentinel)
-
-    claude_dir = temp_home / ".claude"
-    claude_dir.mkdir()
-    agents_dir = claude_dir / "agents"
-    agents_dir.symlink_to(external_agents_dir, target_is_directory=True)
-
-    result = _run_install(temp_home)
-    assert result.returncode == 0, f"install.sh failed:\n{result.stdout}\n{result.stderr}"
-    assert "externally managed" in result.stdout
-    assert "skipping" in result.stdout
-    assert stub_worker.exists()
-    assert not stub_worker.is_symlink()
-    assert stub_worker.read_text() == sentinel
+    result = _install(temp_home)
+    assert "externally managed" in result.stdout and "skipping" in result.stdout
+    assert list(external_dir.iterdir()) == [stub]
+    assert stub.read_text() == "externally managed\n"
 
 
-def test_B_1_G_install_does_not_clobber_symlinked_claude_skills_dir(temp_home: Path) -> None:
-    sentinel = "externally managed claude skill\n"
-    external_skills_dir = temp_home / "external-claude-skills"
-    external_skills_dir.mkdir()
-    stub_skill = external_skills_dir / "ww"
-    stub_skill.write_text(sentinel)
-
-    claude_dir = temp_home / ".claude"
-    claude_dir.mkdir()
-    skills_dir = claude_dir / "skills"
-    skills_dir.symlink_to(external_skills_dir, target_is_directory=True)
-
-    result = _run_install(temp_home)
-    assert result.returncode == 0, f"install.sh failed:\n{result.stdout}\n{result.stderr}"
-    assert "~/.claude/skills is a symlink (externally managed) — skipping." in result.stdout
-    assert stub_skill.exists()
-    assert not stub_skill.is_symlink()
-    assert stub_skill.read_text() == sentinel
-    # Nothing else was written into the externally-managed dir either.
-    assert list(external_skills_dir.iterdir()) == [stub_skill]
-
-
-def test_B_1_H_install_does_not_clobber_symlinked_codex_skills_dir(temp_home: Path) -> None:
-    sentinel = "externally managed codex skill\n"
-    external_skills_dir = temp_home / "external-codex-skills"
-    external_skills_dir.mkdir()
-    stub_skill = external_skills_dir / "ww"
-    stub_skill.write_text(sentinel)
-
-    codex_dir = temp_home / ".codex"
-    codex_dir.mkdir()
-    skills_dir = codex_dir / "skills"
-    skills_dir.symlink_to(external_skills_dir, target_is_directory=True)
-
-    result = _run_install(temp_home)
-    assert result.returncode == 0, f"install.sh failed:\n{result.stdout}\n{result.stderr}"
-    assert "~/.codex/skills is a symlink (externally managed) — skipping." in result.stdout
-    assert stub_skill.exists()
-    assert not stub_skill.is_symlink()
-    assert stub_skill.read_text() == sentinel
-    assert list(external_skills_dir.iterdir()) == [stub_skill]
-
-
-def test_B_1_I_check_install_skips_symlinked_agents_dir_and_exits_0(
-    temp_home: Path,
-) -> None:
-    install_result = _run_install(temp_home)
-    assert install_result.returncode == 0, f"install.sh failed:\n{install_result.stderr}"
-
-    # Replace the real agents dir install.sh just created with a symlink to
-    # an external dir, simulating a machine where ~/.claude/agents is
-    # externally managed (e.g. dotfiles-linked) rather than skill-issue-owned.
+def test_check_install_skips_symlinked_agents_dir(temp_home: Path) -> None:
+    _install(temp_home)
     agents_dir = temp_home / ".claude" / "agents"
-    for name in AGENT_NAMES:
-        (agents_dir / name).unlink()
-    agents_dir.rmdir()
-    external_agents_dir = temp_home / "external-agents-for-check"
-    external_agents_dir.mkdir()
-    agents_dir.symlink_to(external_agents_dir, target_is_directory=True)
+    shutil.rmtree(agents_dir)
+    external_dir = temp_home / "external-agents"
+    external_dir.mkdir()
+    agents_dir.symlink_to(external_dir, target_is_directory=True)
 
-    check_result = _run_check_install(temp_home)
-    assert check_result.returncode == 0, (
-        f"check-install.py should treat a symlinked agents dir as externally "
-        f"managed and exit 0, but got {check_result.returncode}:\n"
-        f"stdout={check_result.stdout}\nstderr={check_result.stderr}"
-    )
+    check_result = _check_install(temp_home)
+    assert check_result.returncode == 0, check_result.stdout + check_result.stderr
     skip_count = check_result.stdout.count(f"SKIP: {agents_dir} is externally managed")
-    assert skip_count == len(AGENT_NAMES), (
-        f"expected one SKIP line per agent ({len(AGENT_NAMES)}), got {skip_count}:\n"
-        f"{check_result.stdout}"
-    )
+    assert skip_count == len(AGENT_NAMES), check_result.stdout

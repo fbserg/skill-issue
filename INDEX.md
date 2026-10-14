@@ -64,10 +64,7 @@ Published mirror of the live hook set; canonical copies run from a private confi
 | effort_spawn_guard | `hooks/claude/effort_spawn_guard.py` | PreToolUse | Block `Agent`/`Workflow` spawns that omit a custom agent type / `agentType`. |
 | guard-settings-json | `hooks/claude/guard-settings-json.sh` | PreToolUse | Block invalid fields in settings.json; protect `~/.claude/CLAUDE.md`. |
 | pretool-bash | `hooks/claude/pretool-bash.sh` | PreToolUse | Block destructive Bash, filter verbose test output, RTK rewrite, pre-push build gate. |
-| notify-done | `hooks/claude/notify-done.sh` | Stop | Ring the terminal bell when Claude's last message is actually a question. |
 | confetti-gate | `hooks/claude/confetti-gate.sh` | Stop | Fire Raycast confetti after a successful deploy/push. macOS + Raycast only. |
-| stop-failure | `hooks/claude/stop-failure.sh` | StopFailure | Log API-error turn ends to a JSONL watchdog trail + terminal bell. |
-| quality/ (4 hooks + shared lib) | `hooks/claude/quality/` | PreToolUse/PostToolUse/PostToolBatch/PostToolUseFailure/Stop | Format-on-write + unresolved-failure Stop gate. |
 
 Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/README.md`
 

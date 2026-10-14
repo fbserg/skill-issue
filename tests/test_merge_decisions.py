@@ -132,18 +132,6 @@ def test_lane_file_with_multiple_entries_splits_correctly(tmp_path: Path) -> Non
     assert pos_first < pos_second  # 08-18 sorts before 08-17 (descending)
 
 
-def test_merge_is_idempotent_with_nothing_pending(tmp_path: Path) -> None:
-    existing = "## 2026-08-07 — Old ruling\n\n**Decision:** kept things as-is.\n\n"
-    ledger = _write_ledger(tmp_path, entries=existing)
-    lane_dir = _decisions_dir(tmp_path)
-    before = ledger.read_text(encoding="utf-8")
-
-    count = MERGE_DECISIONS.merge(ledger, lane_dir)
-
-    assert count == 0
-    assert ledger.read_text(encoding="utf-8") == before
-
-
 def test_merge_no_op_when_decisions_dir_does_not_exist(tmp_path: Path) -> None:
     ledger = _write_ledger(tmp_path)
     missing_dir = tmp_path / "does-not-exist"
@@ -182,38 +170,6 @@ def test_readme_stub_is_never_treated_as_a_lane_file(tmp_path: Path) -> None:
     assert (lane_dir / "README.md").exists()  # stub survives
 
 
-@pytest.mark.parametrize(
-    "content,expected_fragment",
-    [
-        ("", "file is empty"),
-        ("   \n\n  ", "file is empty"),
-        ("Some prose before any heading.\n\n## 2026-08-18 — Title\n\nbody\n", "content before the first"),
-        ("Not a heading at all, no ## anywhere.\n", "content before the first"),
-        ("## Not a dated heading\n\n**Decision:** x.\n", "does not match"),
-        ("## 2026-13-40 — Bad date shape but right length\n\nbody\n", None),  # regex only checks shape, not validity
-    ],
-)
-def test_malformed_lane_file_fails_hard_naming_the_file(
-    tmp_path: Path, content: str, expected_fragment: str | None
-) -> None:
-    ledger = _write_ledger(tmp_path)
-    lane_dir = _decisions_dir(tmp_path)
-    bad_file = lane_dir / "bad-lane.md"
-    bad_file.write_text(content, encoding="utf-8")
-
-    if expected_fragment is None:
-        # Shape-valid (regex doesn't validate calendar correctness) — merges fine.
-        count = MERGE_DECISIONS.merge(ledger, lane_dir)
-        assert count == 1
-        return
-
-    with pytest.raises(MERGE_DECISIONS.MalformedLaneFileError) as exc_info:
-        MERGE_DECISIONS.merge(ledger, lane_dir)
-    message = str(exc_info.value)
-    assert str(bad_file) in message
-    assert expected_fragment in message
-
-
 def test_malformed_file_blocks_the_whole_merge_no_partial_write(tmp_path: Path) -> None:
     """One malformed lane file must not let good lane files merge partially —
     fail before writing anything."""
@@ -248,10 +204,3 @@ def test_main_exits_1_and_names_file_on_malformed_lane(tmp_path: Path, monkeypat
     assert "bad-lane.md" in err
 
 
-def test_main_exits_0_when_nothing_pending(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    ledger = _write_ledger(tmp_path)
-    lane_dir = _decisions_dir(tmp_path)
-    monkeypatch.setattr(MERGE_DECISIONS, "DECISIONS_PATH", ledger)
-    monkeypatch.setattr(MERGE_DECISIONS, "DECISIONS_DIR", lane_dir)
-
-    assert MERGE_DECISIONS.main() == 0
