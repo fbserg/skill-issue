@@ -113,8 +113,6 @@ See [`tools/gmail-tools/README.md`](tools/gmail-tools/README.md) for OAuth setup
 
 ## Other tools
 
-`tools/claude-spend/spend.py` (per-project Claude Code spend analyzer) isn't
-symlinked by `install.sh` — run it in place: `python3 tools/claude-spend/spend.py`.
 See [INDEX.md](INDEX.md) for the full tools/scripts table.
 
 ## Hooks
