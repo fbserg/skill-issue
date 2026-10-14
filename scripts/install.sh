@@ -96,15 +96,5 @@ fi
 
 echo ""
 
-# ── gmail-tools ───────────────────────────────────────────────────────────────
-gmail_tools_src="${REPO_ROOT}/tools/gmail-tools/bin/gmail-tools"
-gmail_tools_dst="${HOME}/.local/bin/gmail-tools"
-ln -sfn "$gmail_tools_src" "$gmail_tools_dst"
-echo "gmail-tools:"
-echo "  ~/.local/bin/gmail-tools -> $gmail_tools_src"
-
-echo ""
-echo "Done. Confirm ~/.local/bin is on PATH, then verify:"
-echo "  gmail-tools --help   # needs uv installed"
-echo ""
+echo "Done. Verify with: python3 ${REPO_ROOT}/scripts/check-install.py"
 echo "To install hooks, see: ${REPO_ROOT}/hooks/claude/README.md"

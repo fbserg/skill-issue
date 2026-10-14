@@ -33,7 +33,6 @@ cd skill-issue
 | [`blitz`](skills/codex/blitz/SKILL.md) | Fast execution of ad-hoc lanes in parallel worktrees with adversarial review. |
 | [`epic-plan`](skills/codex/epic-plan/SKILL.md) | Scope broad work into a tracker issue and right-sized child issues; materializes on GitHub as soon as the reviewed decomposition is ready — no approval gate. |
 | [`issue`](skills/codex/issue/SKILL.md) | Front door for GitHub issue work; scopes ideas or routes issue numbers to resolve-issue. |
-| [`refactor-dupes`](skills/codex/refactor-dupes/SKILL.md) | Tool-first duplicate detection, architecture brief, approved worktree refactor, draft PR. |
 | [`resolve-issue`](skills/codex/resolve-issue/SKILL.md) | One issue to review-ready PR in an isolated worktree; never merges. |
 | [`ww`](skills/codex/ww/SKILL.md) | Isolated worktree workflow; plan first, PR by default, main untouched. |
 | [`zero`](skills/shared/zero/SKILL.md) | Shared destructive cleanup workflow with proof-before-delete classification. |
@@ -77,7 +76,6 @@ Claiming (assign yourself), plan-comment-before-branch, and PR-only delivery are
 
 - Git
 - GitHub CLI (`gh`) authenticated: `gh auth login`
-- [`uv`](https://docs.astral.sh/uv/) for `gmail-tools` (auto-installs its Google deps on first run)
 - Claude Code with local skill directory support
 
 ## Install
@@ -94,40 +92,21 @@ all relative markdown links in the repo resolve on disk.
 ./scripts/install.sh
 ```
 
-## gmail-tools
-
-A deliberately **draft-only** Gmail CLI at `tools/gmail-tools/bin/gmail-tools`:
-search, read threads, manage labels, download attachments, and compose drafts —
-but **never send**. A no-send proxy makes the send endpoint structurally
-impossible to call, so it's safe to hand to an agent: the worst it can do is queue
-a draft for your review. Needs [`uv`](https://docs.astral.sh/uv/) (Google
-dependencies install on first run via inline script metadata) and a Google Cloud
-OAuth client.
-
-```
-gmail-tools auth
-gmail-tools search "is:unread in:inbox" --max 10
-```
-
-See [`tools/gmail-tools/README.md`](tools/gmail-tools/README.md) for OAuth setup and the full subcommand list.
-
 ## Other tools
 
 See [INDEX.md](INDEX.md) for the full tools/scripts table.
 
 ## Hooks
 
-Seven Claude Code hooks — the live set the author actually runs — mirrored in
-[`hooks/claude/`](hooks/claude/).
+Three standalone Claude Code hooks in [`hooks/claude/`](hooks/claude/). They started as copies of the author's live hooks. The live versions have since moved on, so treat these as starting points, not a mirror.
 
 | Hook | What it does |
 |---|---|
-| [`effort_spawn_guard.py`](hooks/claude/effort_spawn_guard.py) | Block `Agent`/`Workflow` spawns that would inherit the main thread's effort level instead of naming a custom agent type. |
-| [`guard-settings-json.sh`](hooks/claude/guard-settings-json.sh) | Block invalid fields (`mcpServers`, `disabledSkills`) from landing in `settings.json`; protect `~/.claude/CLAUDE.md` from edits. |
-| [`pretool-bash.sh`](hooks/claude/pretool-bash.sh) | Block destructive Bash commands, filter verbose test output, apply RTK's token-saving rewrite, gate `git push` on a clean build. |
-| [`confetti-gate.sh`](hooks/claude/confetti-gate.sh) | Fire Raycast confetti after a successful deploy. macOS + Raycast only. |
+| [`pretool-bash.sh`](hooks/claude/pretool-bash.sh) | Block destructive Bash commands (recursive delete of system paths, force-push to main, `git reset --hard`, dropping tables), Bash writes that escape an isolated worktree, and bare `git stash` on a dirty tree. |
+| [`caffeinate.sh`](hooks/claude/caffeinate.sh) | Keep a Mac awake while the Claude session lives. No-op elsewhere. |
+| [`confetti-gate.sh`](hooks/claude/confetti-gate.sh) | Fire Raycast confetti after a successful main push. macOS + Raycast only. |
 
-See [`hooks/claude/README.md`](hooks/claude/README.md) for per-hook `settings.json` snippets and what was deliberately left out.
+See [`hooks/claude/README.md`](hooks/claude/README.md) for `settings.json` snippets and what was removed.
 
 ## Credits
 
@@ -144,6 +123,4 @@ Experimental. Read each skill before using it on an important repository.
 
 `zero` is intentionally destructive — it merges everything into the default branch and pushes. Use only at a deliberate cleanup point.
 
-The `epic-run` family (epic-run, epic-research, epic-retro), `epic-tools`, and
-the old Codex skills are deprecated and archived under `deprecated/` (see
-`deprecated/README.md`). Current Codex skills live under `skills/codex/`.
+Retired skills and tools are deleted, not archived. Find them in git history.

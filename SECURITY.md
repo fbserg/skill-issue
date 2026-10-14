@@ -22,7 +22,7 @@ a product decision.
 
 ### Deprecated components (epic-run / epic-tools)
 
-The `epic-run` orchestrator, `epic-tools` CLI, and related subcommands (`revert`, `cleanup`, dispatch) are deprecated and archived under `deprecated/` — they are not installed. Their security surface no longer applies to active installs.
+The `epic-run` orchestrator and `epic-tools` CLI were deleted. Their security surface no longer exists.
 
 ## Known limitations
 

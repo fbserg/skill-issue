@@ -17,7 +17,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # Directories whose .md files we scan for references. CHANGELOG is history,
-# not a live contract, and deprecated/ is explicitly archived — both excluded.
+# not a live contract — excluded.
 SCAN_DIRS = ["skills", "agents", "docs", "hooks/claude"]
 SCAN_ROOT_FILES = ["README.md", "INDEX.md"]
 

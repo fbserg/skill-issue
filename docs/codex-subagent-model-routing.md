@@ -12,6 +12,17 @@ Subagents inherit the parent turn's live sandbox and approval choices. Do not cl
 
 ## Routing policy
 
+The author's live setup (Codex CLI 0.162.1, checked 2026-10-14) is simpler than the tables below. The main session runs `gpt-6-astra`. `config.toml` sets `default_subagent_model = "gpt-6.1-sol"` with `default_subagent_reasoning_effort = "medium"`. Only `explorer` pins a model:
+
+| Agent | Model | Effort |
+|---|---|---|
+| `explorer` | `gpt-5.6-terra` | `low` |
+| `worker` | default (`gpt-6.1-sol`) | `medium` |
+| `reviewer` | default (`gpt-6.1-sol`) | `high` |
+| `deep_reviewer` | default (`gpt-6.1-sol`) | `xhigh` |
+
+The gpt-5.6 tables below record the original rollout. The method (catalog check, then rollout-based verification) still applies to any model family.
+
 Use this portable policy unless the live catalog exposes more specific models:
 
 | Agent | Work | Portable model | Effort |

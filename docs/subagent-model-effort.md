@@ -49,7 +49,7 @@ tools: Bash, Glob, Grep, Read, WebFetch, WebSearch, LSP, ToolSearch
 
 - **Headless caveat:** `claude --agent X -p` does **NOT** apply frontmatter effort — the pin only works for subagent spawns from a live session.
 - **Don't blanket-upgrade a fan-out to Opus.** `opus-worker` is for exactly one call: either escalating a single stuck subtask, or running a single convergence step (synthesis, panel verdict, one critical fix) where one call carries the whole result. Never re-run Sonnet on the same failure, never start a fresh task at Opus, never use it for per-item grading fan-outs.
-- **System prompts end with a return-contract.** Subagent final messages go to the orchestrator, not a human — instruct them to return raw findings/results, and preserve the parent's scope, ownership and acceptance gates. Scoped delegation follows [the dispatch contract](scoped-dispatch.md); a capability-limited role stays inline.
+- **System prompts end with a return-contract.** Subagent final messages go to the orchestrator, not a human — instruct them to return raw findings/results, and preserve the parent's scope, ownership and acceptance gates.
 
 ## Verifying what actually ran
 

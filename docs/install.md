@@ -55,7 +55,6 @@ ln -sfn "$PWD/skills/codex/adversarial-review" ~/.codex/skills/adversarial-revie
 ln -sfn "$PWD/skills/codex/blitz"             ~/.codex/skills/blitz
 ln -sfn "$PWD/skills/codex/epic-plan"          ~/.codex/skills/epic-plan
 ln -sfn "$PWD/skills/codex/issue"              ~/.codex/skills/issue
-ln -sfn "$PWD/skills/codex/refactor-dupes"     ~/.codex/skills/refactor-dupes
 ln -sfn "$PWD/skills/codex/resolve-issue"      ~/.codex/skills/resolve-issue
 ln -sfn "$PWD/skills/codex/ww"                 ~/.codex/skills/ww
 ln -sfn "$PWD/skills/shared/zero"              ~/.codex/skills/zero
@@ -96,12 +95,6 @@ The Codex install intentionally does not include `deep-research`,
 `authenticity-check`, `humanizer`, `usage-review`, or the old Claude `simplify-sweep`
 workflow.
 
-## Deprecated components
-
-The `epic-run` family (epic-run, epic-research, epic-retro), `epic-tools` CLI,
-and the old Codex skills are deprecated and archived under `deprecated/`. See
-`deprecated/README.md`. They are not installed by this script.
-
 ## Uninstall
 
 ```bash
@@ -116,7 +109,7 @@ rm ~/.claude/skills/zero
 
 # Remove Codex skill symlinks
 rm ~/.codex/skills/adversarial-review ~/.codex/skills/blitz ~/.codex/skills/epic-plan
-rm ~/.codex/skills/issue ~/.codex/skills/refactor-dupes
+rm ~/.codex/skills/issue
 rm ~/.codex/skills/resolve-issue ~/.codex/skills/ww ~/.codex/skills/zero
 
 # Remove agent symlinks

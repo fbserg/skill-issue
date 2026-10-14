@@ -8,10 +8,9 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 - `skills/claude/` — skills installed into `~/.claude/skills/`
 - `skills/shared/` — skills symlinked into `~/.claude/skills/`; `zero` is also symlinked into `~/.codex/skills/`
 - `agents/` — named subagent types with pinned model/effort, installed into `~/.claude/agents/`
-- `hooks/claude/` — Claude Code hooks (PreToolUse / Stop event handlers)
-- `deprecated/` — archived skills/tools (epic-run family, Codex, epic-tools); not installed. See `deprecated/README.md`.
+- `hooks/claude/` — standalone Claude Code hooks (not a mirror of the live set)
 - `scripts/` — repo maintenance scripts
-- `docs/` — install guide, env sharing, publication checklist
+- `docs/` — install guide, publication checklist, delegation notes
 - `vale/` — `AItells` vale style (canonical merged AI-tells prose linter, three severity tiers) plus `build.sh` and the built `AItells.zip` package consumers `Packages =` at. See `vale/README.md`.
 
 ---
@@ -38,7 +37,6 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | blitz | `skills/codex/blitz/SKILL.md` | Fast execution of ad-hoc lanes in parallel worktrees with adversarial review. |
 | epic-plan | `skills/codex/epic-plan/SKILL.md` | Scope broad work into tracker + child issues; materializes on GitHub immediately once reviewed — no approval gate. |
 | issue | `skills/codex/issue/SKILL.md` | Front door for GitHub issue work; scope ideas or route issue numbers to resolve-issue (`--full` passed through only when the user typed it). |
-| refactor-dupes | `skills/codex/refactor-dupes/SKILL.md` | Detect duplicates, approve an architecture brief, refactor one cluster in a worktree PR. |
 | resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR, solo in an isolated worktree by default; tiered sub-agent pipeline only behind user-typed `--full`. Never merges. |
 | ww | `skills/codex/ww/SKILL.md` | Worktree workflow: branch, plan, implement, check, draft PR; main untouched. |
 | zero | `skills/shared/zero/SKILL.md` | Shared destructive cleanup with proof-before-delete classification. |
@@ -57,13 +55,12 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 
 ## Hooks (`hooks/claude/`)
 
-Published mirror of the live hook set; canonical copies run from a private config repo.
+Standalone hooks. They started as copies of the live set and are not synced.
 
 | Name | Path | Event | TLDR |
 |---|---|---|---|
-| effort_spawn_guard | `hooks/claude/effort_spawn_guard.py` | PreToolUse | Block `Agent`/`Workflow` spawns that omit a custom agent type / `agentType`. |
-| guard-settings-json | `hooks/claude/guard-settings-json.sh` | PreToolUse | Block invalid fields in settings.json; protect `~/.claude/CLAUDE.md`. |
-| pretool-bash | `hooks/claude/pretool-bash.sh` | PreToolUse | Block destructive Bash, filter verbose test output, RTK rewrite, pre-push build gate. |
+| pretool-bash | `hooks/claude/pretool-bash.sh` | PreToolUse | Block destructive Bash, worktree escapes, and bare `git stash` on a dirty tree. |
+| caffeinate | `hooks/claude/caffeinate.sh` | SessionStart | Keep a Mac awake while the session lives. |
 | confetti-gate | `hooks/claude/confetti-gate.sh` | Stop | Fire Raycast confetti after a successful deploy/push. macOS + Raycast only. |
 
 Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/README.md`
@@ -76,8 +73,6 @@ Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/
 |---|---|---|
 | statusline | `tools/statusline/statusline.sh` | Claude Code status line: repo, branch, diff and trunk drift, model·effort, context bar calibrated to the real auto-compact trigger, prompt-cache timer, 5h/7d rate-limit bars with reset ETA and weekly pace delta. Per-account rate-limit cache. Not symlinked: point `statusLine.command` in settings.json at it. |
 | transcript-archive | `tools/transcript-archive/backup.py` | One-way, machine-namespaced, multi-machine archiver for Claude + Codex JSONL transcripts: JSON-aware image tombstoning (replaced the v1 base64 regex, which was corrupting thinking signatures/JWTs/PDFs), never clobbers a larger copy with a smaller one, optional gzip compression, atomic writes, an identity handshake guarding against machine-id collisions and unmounted/wrong destinations, symlinked source dirs followed (cycle-safe). Storage-agnostic — point it at any synced folder, git repo, or disk. `install.sh` for one-command setup (`tools/transcript-archive/install.sh <destination-dir>`; the former transcript-backup skill front-end was deleted as never-invoked). |
-| gmail-tools | `tools/gmail-tools/bin/gmail-tools` | Draft-only Gmail CLI (search, read threads, labels, attachments, compose) — every `send` endpoint is proxied to raise, so a message can only leave the mailbox via a human clicking send in Gmail. Symlinked to `~/.local/bin` by `install.sh`. |
-| secrets | `tools/secrets/secrets` | Encrypt a repo's `.env` to every collaborator's GitHub SSH public key with `age` — no shared passwords, no out-of-band exchange. Full docs: `docs/env-sharing.md`. |
 | check-install | `scripts/check-install.py` | Verify local symlinks point at this repo's copies, not stale older versions. |
 | check-links | `scripts/check-links.py` | Doc-link drift guard: verify every relative markdown link in tracked .md files resolves on disk. |
 | merge-decisions | `scripts/merge-decisions.py` | Fold `docs/decisions/*.md` per-lane ruling files into `docs/DECISIONS.md` in deterministic (date desc, filename asc) order; deletes merged lane files; idempotent no-op when nothing is pending; hard-fails naming the file on a malformed lane entry. |
@@ -90,13 +85,11 @@ Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/
 | File | TLDR |
 |---|---|
 | `docs/install.md` | Full install instructions with symlink commands for Claude, Codex, and hooks. |
-| `docs/env-sharing.md` | Encrypt a repo's `.env` for all GitHub collaborators using age + their SSH public keys. |
 | `docs/publication-checklist.md` | Checklist for publishing new skills or hooks to this repo. |
 | `docs/subagent-model-effort.md` | How to pin model AND effort for subagents via named agent types — built-ins inherit session effort; `model:` alone is not enough. Ships with `agents/`. |
 | `docs/workflow-template.md` | Copy-paste `Workflow` script template: `agentType`-pinning helper, capability pre-check before fan-out, rate-limit fallback (consecutive-null stop, no retry loop), named zero-output wave summary, `schema` example. |
 | `docs/DECISIONS.md` | Durable rulings ledger. Lanes write `docs/decisions/<slug>.md` instead of editing it directly; `scripts/merge-decisions.py` folds them in at close-out. |
 | `docs/codex-subagent-model-routing.md` | Codex custom-agent model routing with live-catalog selection and rollout-based verification; records current cold-discovery failures instead of trusting self-reports. |
-| `docs/multi-claude-remote.md` | Run multiple Claude Code instances on one remote box (SSH + tmux), each on a different account, with a session picker — covers the macOS Keychain-per-config-dir trap, file-vs-Keychain creds, isolation, verification, and starter scripts. |
 | `docs/single-serving-site-host.md` | Host a pile of one-off static pages on one Cloudflare Worker + `public/` dir: push-to-deploy, custom domain, an authenticated POST endpoint for posting pages without a commit, and a code-listed index. Full wrangler.toml + Worker skeleton + deploy hook + post/delete CLIs. |
 
 ---

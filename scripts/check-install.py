@@ -2,7 +2,6 @@
 """Verify the local skill-issue install is not split across checkouts."""
 from __future__ import annotations
 
-import os
 import re
 import subprocess
 import sys
@@ -45,9 +44,6 @@ EXPECTED_LINKS.update({
     Path(f"~/.claude/agents/{name}").expanduser(): REPO_ROOT / f"agents/{name}"
     for name in AGENTS
 })
-EXPECTED_LINKS[
-    Path("~/.local/bin/gmail-tools").expanduser()
-] = REPO_ROOT / "tools/gmail-tools/bin/gmail-tools"
 
 
 def fail(message: str) -> None:
@@ -63,8 +59,6 @@ def check_link(link: Path, expected: Path) -> None:
         fail(f"{link} resolves to {resolved}, expected {expected}")
     if not resolved.exists():
         fail(f"{link} target does not exist: {resolved}")
-    if resolved.name == "gmail-tools" and not os.access(resolved, os.X_OK):
-        fail(f"{resolved} is not executable")
 
 
 def check_codex_skill_parity() -> None:
