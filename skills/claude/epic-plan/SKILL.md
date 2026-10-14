@@ -1,6 +1,6 @@
 ---
 name: epic-plan
-description: "Scope a topic too big for one issue into a GitHub epic: a tracker issue with a frozen contract plus right-sized child issues. Use for /epic-plan TOPIC, resuming one (/epic-plan <tracker#>), or any multi-deliverable/multi-session task. NOT for a single scoped change. Materializes on GitHub autonomously."
+description: "Scope a multi-deliverable or multi-session topic into a GitHub tracker issue plus child issues. /epic-plan TOPIC or /epic-plan <tracker#> to resume. Not for one scoped change."
 ---
 
 Turn a topic into one **tracker** issue carrying a frozen contract plus
@@ -29,7 +29,7 @@ place.
   `/resolve-issue` bouncing an epic); note close-or-supersede in the tracker
   body.
 
-Early exits: **really one issue** → `/issue <topic>`. **Trivial epic** (2–3
+Early exits: **really one issue** → file it, then `/resolve-issue <N>`. **Trivial epic** (2–3
 obvious children, no unknowns) → skip research and the panel, decompose,
 materialize.
 
@@ -145,12 +145,12 @@ ambiguity.
 ## Handoff
 
 Report the exact run commands with real child numbers, dependency-ordered by
-us — the executors do not order dependencies. One child → `/issue <N>`; a
+us — the executors do not order dependencies. One child → `/resolve-issue <N>`; a
 wave of independent children → `/blitz` with the issue numbers:
 
 ```
 /blitz <n-independent-1> <n-independent-2>     # wave 1
-/issue <n-dependent>                           # after wave 1's PRs land
+/resolve-issue <n-dependent>                   # after wave 1's PRs land
 ```
 
 Code-dependent waves that can't wait for merges: base the wave's branches on

@@ -21,10 +21,9 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | Name | Path | TLDR |
 |---|---|---|
 | adversary | `skills/claude/adversary/SKILL.md` | Cross-model adversarial review: sends a plan or diff to Codex (GPT) for a red-team pass before committing. |
-| blitz | `skills/claude/blitz/SKILL.md` | Lightweight executor for ad-hoc lanes: parallel worktrees + adversarial review, no pipeline ceremony. The fast alternative to /issue batch. |
+| blitz | `skills/claude/blitz/SKILL.md` | Lightweight executor for ad-hoc lanes: parallel worktrees + adversarial review, no pipeline ceremony. |
 | deep-research | `skills/claude/deep-research/SKILL.md` | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
-| epic-plan | `skills/claude/epic-plan/SKILL.md` | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /issue → /resolve-issue; re-enters from GitHub state. |
-| issue | `skills/claude/issue/SKILL.md` | Thin front door: scope a rough idea or hand one issue to /resolve-issue (`--full` passed through only when the user typed it); batches route to /blitz. Never writes code, never merges. |
+| epic-plan | `skills/claude/epic-plan/SKILL.md` | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /resolve-issue and /blitz; re-enters from GitHub state. |
 | resolve-issue | `skills/claude/resolve-issue/SKILL.md` | One issue → review-ready PR: one worker solo in a worktree by default; the phased pipeline only behind user-typed `--full`. Bounces a true epic to /epic-plan. Never merges. |
 | simplify-sweep | `skills/claude/simplify-sweep/SKILL.md` | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 | usage-review | `skills/claude/usage-review/SKILL.md` | AI-usage review of local Claude/Codex transcripts or an exporter archive: quant → automation families → command scan → stratified sample → renders → lane fan-out → rubric grade → red team → report. Tools in `tools/`, workflows in `workflows/`, method in `METHODOLOGY.md`. |

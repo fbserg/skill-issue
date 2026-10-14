@@ -30,7 +30,6 @@ ln -sfn "$PWD/skills/claude/adversary"       ~/.claude/skills/adversary
 ln -sfn "$PWD/skills/claude/blitz"           ~/.claude/skills/blitz
 ln -sfn "$PWD/skills/claude/deep-research"   ~/.claude/skills/deep-research
 ln -sfn "$PWD/skills/claude/epic-plan"       ~/.claude/skills/epic-plan
-ln -sfn "$PWD/skills/claude/issue"           ~/.claude/skills/issue
 ln -sfn "$PWD/skills/claude/resolve-issue"   ~/.claude/skills/resolve-issue
 ln -sfn "$PWD/skills/claude/simplify-sweep"  ~/.claude/skills/simplify-sweep
 ln -sfn "$PWD/skills/claude/usage-review"    ~/.claude/skills/usage-review
@@ -109,7 +108,7 @@ and the old Codex skills are deprecated and archived under `deprecated/`. See
 # Remove Claude skill symlinks
 rm ~/.claude/skills/adversary ~/.claude/skills/blitz
 rm ~/.claude/skills/deep-research ~/.claude/skills/epic-plan
-rm ~/.claude/skills/issue ~/.claude/skills/resolve-issue
+rm ~/.claude/skills/resolve-issue
 rm ~/.claude/skills/simplify-sweep ~/.claude/skills/usage-review
 
 # Remove shared skill symlinks (installed for Claude)

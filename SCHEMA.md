@@ -7,7 +7,7 @@ Labels, branch names, and PR title conventions used by the epic workflow.
 | Label | Created by | Meaning |
 |---|---|---|
 | `epic` | `epic-plan` | Tracking issue for a multi-issue epic |
-| `epic:<slug>` | `epic-plan` | Label applied to child issues for routing via `/issue label:epic:<slug>` |
+| `epic:<slug>` | `epic-plan` | Label applied to the epic's child issues |
 | `epic-<N>` | `epic-run` / `epic-tools pr-create` **(deprecated — epic-run)** | Applied to every child PR of epic N |
 | `epic-<N>-running` | `epic-run` orchestrator **(deprecated — epic-run)** | Run lock — epic is currently being executed |
 | `epic-<N>-failed` | `epic-run` orchestrator **(deprecated — epic-run)** | Child issue or PR failed and needs attention |

@@ -1,6 +1,6 @@
 ---
 name: resolve-issue
-description: "Resolve one GitHub issue to a review-ready PR: one worker end to end in a worktree — test-first, gates verbatim, draft → ready. A true epic bounces to /epic-plan. --full (user-typed only) runs the phased multi-agent pipeline. Never merges. --resume <N> continues from GitHub state."
+description: "One GitHub issue → review-ready PR via one worker in a worktree. Never merges. --full (user-typed only) runs the phased pipeline. --resume <N> continues. Epics bounce to /epic-plan."
 ---
 
 # Resolve Issue

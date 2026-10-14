@@ -33,7 +33,6 @@ CLAUDE_SKILLS = (
     "blitz",
     "deep-research",
     "epic-plan",
-    "issue",
     "resolve-issue",
     "simplify-sweep",
     "usage-review",

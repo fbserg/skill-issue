@@ -1,10 +1,10 @@
 ---
 name: blitz
-description: Lightweight executor for multiple ad-hoc lanes — fast, parallel, adversarial — without the /issue → /resolve-issue pipeline. Use when the user invokes /blitz or wants an unfiled batch run fast. Not a planner (that's /epic-plan).
+description: Run a batch of lanes, filed issues or ad-hoc, in parallel worktrees with adversarial review. One filed issue → /resolve-issue. Not a planner.
 ---
 
-Boundary: one filed issue → `/issue`. Any batch — filed or ad-hoc → here
-(`/issue` batch mode was deleted; DECISIONS.md 2026-08-07). For a filed
+Boundary: one filed issue → `/resolve-issue`. Any batch — filed or ad-hoc → here
+(DECISIONS.md 2026-08-07). For a filed
 issue's lane, the card includes the issue number and its acceptance criteria.
 
 You're the orchestrator; you don't implement. First action: one `ToolSearch`
