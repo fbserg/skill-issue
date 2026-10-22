@@ -65,7 +65,7 @@ mis-sized — split it or `/epic-plan`, don't push on.
 ## --full (explicit opt-in only)
 
 The user typed `--full` → run the phased pipeline exactly per
-`docs/resolve-issue-full-pipeline.md` (role-separated subagents, model
+`~/projects/skill-issue/docs/resolve-issue-full-pipeline.md` (role-separated subagents, model
 tiering, Codex builder lane, evidence-bar review). Nothing in this skill
 auto-selects it — complexity alone is a reason to *suggest* it in the report,
 never to run it.

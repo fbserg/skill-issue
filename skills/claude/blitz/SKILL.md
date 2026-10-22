@@ -17,7 +17,7 @@ Posture:
   subtask, or for a deliberate read-only judgment panel — never bare
   `general-purpose`/`Plan`/`Explore` (measured: a 152-agent Opus fan-out cost
   $5.1k where a Sonnet bakeoff scored within a few points;
-  `docs/subagent-model-effort.md`).
+  `~/projects/skill-issue/docs/subagent-model-effort.md`).
 - **Capability pre-check before fan-out.** Confirm the agent type actually
   carries the tools the task needs (measured: a 6-agent Drive/Gmail wave
   launched with an agent type that had no MCP tools and came back empty).
@@ -52,7 +52,7 @@ Posture:
 - **Findings return batched, never as issue confetti.** One batched finding
   list per review lane; at most one follow-up issue per surface (measured: 42
   follow-up issues filed in one day from a single wave).
-- **3+ background lanes → arm the watchdog** per `docs/lane-watchdog.md` —
+- **3+ background lanes → arm the watchdog** per `~/projects/skill-issue/docs/lane-watchdog.md` —
   lanes die silently; this skill doesn't restate the contract (heartbeat,
   1-lane mode, and the TERMINAL-line teardown check live there).
 - **Rate-limit fallback.** Hit a fleet/session rate limit → stop polling,
@@ -64,9 +64,9 @@ Posture:
   harvest's portal lane was silently empty, found only by parsing raw output
   JSON).
 - **Long polls, never tight loops.** `Monitor`, or an until-loop, per
-  `docs/lane-watchdog.md`, poll interval ≥60s (measured: 13,144 `wait_agent`
+  `~/projects/skill-issue/docs/lane-watchdog.md`, poll interval ≥60s (measured: 13,144 `wait_agent`
   calls at 30s in one batch).
-- **Workflow-based lanes** follow `docs/workflow-template.md`.
+- **Workflow-based lanes** follow `~/projects/skill-issue/docs/workflow-template.md`.
 - **Fast through gates.** No re-confirming between phases; push each lane to
   done (commit, PR, human merges). Per-lane gate ladder: targeted checks →
   one batched preflight → one expensive full gate — a gate failing twice
