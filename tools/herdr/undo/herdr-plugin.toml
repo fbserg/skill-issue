@@ -1,0 +1,57 @@
+id = "serg.undo"
+name = "Undo Closed Agent Tab"
+version = "0.1.0"
+min_herdr_version = "0.8.2"
+description = "Reopen the last closed Claude or Codex conversation"
+platforms = ["macos"]
+
+[[startup]]
+command = ["python3", "undo.py", "sync"]
+
+[[actions]]
+id = "undo"
+title = "Reopen closed agent tab"
+contexts = ["global"]
+command = ["python3", "undo.py", "undo"]
+
+[[actions]]
+id = "sync"
+title = "Record current agent sessions"
+contexts = ["global"]
+command = ["python3", "undo.py", "sync"]
+
+[[events]]
+on = "pane.agent_status_changed"
+command = ["python3", "undo.py", "event"]
+
+[[events]]
+on = "pane.agent_detected"
+command = ["python3", "undo.py", "event"]
+
+[[events]]
+on = "pane.focused"
+command = ["python3", "undo.py", "event"]
+
+[[events]]
+on = "pane.moved"
+command = ["python3", "undo.py", "event"]
+
+[[events]]
+on = "tab.focused"
+command = ["python3", "undo.py", "event"]
+
+[[events]]
+on = "pane.closed"
+command = ["python3", "undo.py", "event"]
+
+[[events]]
+on = "pane.exited"
+command = ["python3", "undo.py", "event"]
+
+[[events]]
+on = "tab.closed"
+command = ["python3", "undo.py", "event"]
+
+[[events]]
+on = "workspace.closed"
+command = ["python3", "undo.py", "event"]

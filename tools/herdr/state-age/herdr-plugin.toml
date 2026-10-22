@@ -1,0 +1,19 @@
+id = "serg.state-age"
+name = "Agent State Age"
+version = "0.2.0"
+min_herdr_version = "0.8.2"
+platforms = ["macos", "linux"]
+description = "Show actionable working, blocked, and done ages in Herdr agent rows."
+
+[[startup]]
+command = ["python3", "state_age.py", "start"]
+
+[[events]]
+on = "pane.agent_status_changed"
+command = ["python3", "state_age.py", "event"]
+
+[[actions]]
+id = "refresh"
+title = "Start or refresh agent state ages"
+contexts = ["global"]
+command = ["python3", "state_age.py", "start"]
