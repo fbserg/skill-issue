@@ -1,0 +1,51 @@
+id = "serg.project-anchors"
+name = "Project Anchors"
+version = "0.1.0"
+min_herdr_version = "0.9.5"
+description = "Keep an inert first tab in enrolled project workspaces"
+platforms = ["linux"]
+
+[[startup]]
+command = ["python3", "anchors.py", "sync"]
+
+[[actions]]
+id = "protect"
+title = "Keep this project open"
+contexts = ["workspace"]
+command = ["python3", "anchors.py", "protect"]
+
+[[actions]]
+id = "enroll"
+title = "Keep project spaces open on this server"
+contexts = ["workspace"]
+command = ["python3", "anchors.py", "enroll"]
+
+[[actions]]
+id = "release"
+title = "Stop keeping this project open"
+contexts = ["workspace"]
+command = ["python3", "anchors.py", "release"]
+
+[[events]]
+on = "workspace.created"
+command = ["python3", "anchors.py", "sync"]
+
+[[events]]
+on = "workspace.renamed"
+command = ["python3", "anchors.py", "sync"]
+
+[[events]]
+on = "workspace.closed"
+command = ["python3", "anchors.py", "sync"]
+
+[[events]]
+on = "tab.closed"
+command = ["python3", "anchors.py", "sync"]
+
+[[events]]
+on = "pane.closed"
+command = ["python3", "anchors.py", "sync"]
+
+[[events]]
+on = "pane.exited"
+command = ["python3", "anchors.py", "sync"]

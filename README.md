@@ -97,6 +97,14 @@ all relative markdown links in the repo resolve on disk.
 
 See [INDEX.md](INDEX.md) for the full tools/scripts table.
 
+### Herdr tools
+
+[`herdr-project-anchors`](tools/herdr-project-anchors/README.md) keeps an inert
+first tab in each enrolled project and restores it after closure or a Herdr
+restart. It is a self-contained Linux plugin, installed separately from the skills.
+A whole-workspace close still stops its workers. A full machine reboot remains
+untested.
+
 ## Hooks
 
 Three standalone Claude Code hooks in [`hooks/claude/`](hooks/claude/). They started as copies of the author's live hooks. The live versions have since moved on, so treat these as starting points, not a mirror.
