@@ -25,7 +25,7 @@ Parallel default: one detached worktree per batch
 `run_in_background`; per finished batch export the worktree diff as a patch,
 apply to the main checkout, review, test, commit, remove the worktree.
 Sequential in the main checkout is fine for 1–2 batches. **3+ background
-batches → watchdog per `docs/lane-watchdog.md`.**
+batches → watchdog per `~/projects/skill-issue/docs/lane-watchdog.md`.**
 
 ```bash
 claude -p --model sonnet --permission-mode acceptEdits \

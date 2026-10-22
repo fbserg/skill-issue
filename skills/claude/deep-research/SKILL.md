@@ -17,7 +17,7 @@ so read `workflow.js` directly for the current mechanics rather than this file.
 Every `agent()` call inside `workflow.js` names an explicit `agentType`: `worker` for
 search/fetch/verify, `opus-worker` only for the
 scope/critic/reasoning/synthesize judgment-and-synthesis stages — never a bare fan-out at Opus
-(`docs/subagent-model-effort.md`).
+(`~/projects/skill-issue/docs/subagent-model-effort.md`).
 
 ## How to invoke
 

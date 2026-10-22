@@ -35,8 +35,7 @@ materialize.
 
 ## Contract (freeze before decomposing)
 
-Ask only questions whose answer changes the decomposition — one at a time,
-each with a recommended answer; refuse to proceed on `TBD` success criteria,
+Ask at most one question, only when two readings would produce materially different trackers; otherwise state the assumption and proceed. Refuse to proceed on `TBD` success criteria,
 boundaries, or key terms. The contract goes
 verbatim into the tracker and binds every child:
 
@@ -73,7 +72,7 @@ Schema pre-check yourself (every child fully filled), then concurrent
 `opus-worker` critics role-locked to find flaws, distinct lenses:
 completeness, dependency-ordering, scope/altitude/value, feasibility &
 testability, premortem. Synthesize once per
-`docs/adversarial-review-panel.md` — no loops. Revise once against upheld
+`~/projects/skill-issue/docs/adversarial-review-panel.md` — no loops. Revise once against upheld
 blockers; advisories are nudges.
 
 ## Materialize (direct `gh`, idempotent) + report
