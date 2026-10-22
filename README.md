@@ -46,6 +46,7 @@ cd skill-issue
 | [`deep-research`](skills/claude/deep-research/SKILL.md) | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
 | [`epic-plan`](skills/claude/epic-plan/SKILL.md) | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /resolve-issue and /blitz; re-enters from GitHub state. |
 | [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | One worker resolves one issue end to end (test-first, gates verbatim, draft→ready PR); the phased multi-agent pipeline only on user-typed --full. Bounces a true epic to /epic-plan. Never merges. |
+| [`patchcue-resolve-issue`](skills/claude/patchcue-resolve-issue/SKILL.md) | PatchCue worker workflow for Claude Code; same marked plan/outcome protocol as the Codex `resolve-issue` skill. |
 | [`simplify-sweep`](skills/claude/simplify-sweep/SKILL.md) | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 | [`usage-review`](skills/claude/usage-review/SKILL.md) | Review your own Claude Code / Codex transcripts (or a shared archive) into a red-teamed report: numbers, automation families, risk incidents, rubric grades, coaching, action plan. Local-only; work dir kept out of git; secret scan before sharing. |
 

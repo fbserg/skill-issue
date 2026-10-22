@@ -24,6 +24,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | deep-research | `skills/claude/deep-research/SKILL.md` | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
 | epic-plan | `skills/claude/epic-plan/SKILL.md` | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /resolve-issue and /blitz; re-enters from GitHub state. |
 | resolve-issue | `skills/claude/resolve-issue/SKILL.md` | One issue → review-ready PR: one worker solo in a worktree by default; the phased pipeline only behind user-typed `--full`. Bounces a true epic to /epic-plan. Never merges. |
+| patchcue-resolve-issue | `skills/claude/patchcue-resolve-issue/SKILL.md` | PatchCue's headless Claude worker: reads the Codex `resolve-issue` protocol through `protocol.md` and posts the marked plan/outcome comments. Never merges. |
 | simplify-sweep | `skills/claude/simplify-sweep/SKILL.md` | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 | usage-review | `skills/claude/usage-review/SKILL.md` | AI-usage review of local Claude/Codex transcripts or an exporter archive: quant → automation families → command scan → stratified sample → renders → lane fan-out → rubric grade → red team → report. Tools in `tools/`, workflows in `workflows/`, method in `METHODOLOGY.md`. |
 
