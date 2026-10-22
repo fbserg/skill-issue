@@ -31,6 +31,7 @@ ln -sfn "$PWD/skills/claude/blitz"           ~/.claude/skills/blitz
 ln -sfn "$PWD/skills/claude/deep-research"   ~/.claude/skills/deep-research
 ln -sfn "$PWD/skills/claude/epic-plan"       ~/.claude/skills/epic-plan
 ln -sfn "$PWD/skills/claude/resolve-issue"   ~/.claude/skills/resolve-issue
+ln -sfn "$PWD/skills/claude/patchcue-resolve-issue" ~/.claude/skills/patchcue-resolve-issue
 ln -sfn "$PWD/skills/claude/simplify-sweep"  ~/.claude/skills/simplify-sweep
 ln -sfn "$PWD/skills/claude/usage-review"    ~/.claude/skills/usage-review
 ```
