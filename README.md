@@ -99,12 +99,10 @@ See [INDEX.md](INDEX.md) for the full tools/scripts table.
 
 ### Herdr tools
 
-The [Herdr category](tools/herdr/README.md) holds plugins and an inventory of
-existing tools worth extracting. Start with
-[project placeholders](tools/herdr/project-anchors/README.md), a self-contained
-Linux plugin for inert first tabs and close recovery. Plugins install separately
-from skills. A whole-workspace close still stops workers; full machine reboot
-recovery remains untested.
+The [Herdr category](tools/herdr/README.md) holds project placeholders, agent state
+ages, undo closed tabs, pane sharing, a Codex cache countdown, and a quota display.
+Each package has its own instructions and tests. Plugins install separately from
+skills. Publishing these tools does not migrate existing host installations.
 
 ## Hooks
 

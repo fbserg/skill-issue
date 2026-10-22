@@ -14,4 +14,7 @@ herdr-share status
 herdr-share stop
 ```
 
-Login is always `as` / `as`. Links expire after three hours. Source: `~/projects/etc/configs/herdr-share/herdr_share.py`.
+Use the credentials printed by the installed command. Published control shares
+have a random password; older host copies may use a fixed password. Links expire
+after three hours by default. Source: `tools/herdr/share/herdr_share.py` in this
+repository. The command output is authoritative for the active installation.

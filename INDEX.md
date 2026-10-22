@@ -72,7 +72,7 @@ Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/
 
 | Name | Path | TLDR |
 |---|---|---|
-| Herdr tools | `tools/herdr/README.md` | Herdr category: plugins, the sharing skill, and existing candidates for standalone packaging. |
+| Herdr tools | `tools/herdr/README.md` | Herdr category: six standalone tools, install instructions, focused tests, and local real-server checks. |
 | statusline | `tools/statusline/statusline.sh` | Claude Code status line: repo, branch, diff and trunk drift, model·effort, context bar calibrated to the real auto-compact trigger, prompt-cache timer, 5h/7d rate-limit bars with reset ETA and weekly pace delta. Per-account rate-limit cache. Not symlinked: point `statusLine.command` in settings.json at it. |
 | transcript-archive | `tools/transcript-archive/backup.py` | One-way, machine-namespaced, multi-machine archiver for Claude + Codex JSONL transcripts: JSON-aware image tombstoning (replaced the v1 base64 regex, which was corrupting thinking signatures/JWTs/PDFs), never clobbers a larger copy with a smaller one, optional gzip compression, atomic writes, an identity handshake guarding against machine-id collisions and unmounted/wrong destinations, symlinked source dirs followed (cycle-safe). Storage-agnostic — point it at any synced folder, git repo, or disk. `install.sh` for one-command setup (`tools/transcript-archive/install.sh <destination-dir>`; the former transcript-backup skill front-end was deleted as never-invoked). |
 | check-install | `scripts/check-install.py` | Verify local symlinks point at this repo's copies, not stale older versions. |
@@ -87,10 +87,14 @@ Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/
 | Name | Path | TLDR |
 |---|---|---|
 | project-anchors | `tools/herdr/project-anchors/README.md` | Self-contained Linux plugin: inert first project tabs, close recovery, server-startup restore, enrollment and release. Restores placeholders, not workers. |
-| herdr-share skill | `skills/shared/herdr-share/SKILL.md` | Entry point for temporary browser pane access. The implementation still lives in the host repository. |
+| state-age | `tools/herdr/state-age/README.md` | Sidebar state ages and symbols, with per-session refresher state. |
+| undo | `tools/herdr/undo/README.md` | Restore recorded Claude/Codex conversations. macOS plugin with a shell-startup hook. |
+| share | `tools/herdr/share/README.md` | Temporary browser access with view and control modes; ttyd/cloudflared required. |
+| cache-countdown | `tools/herdr/cache-countdown/README.md` | Estimated Codex cache window from local thread and rollout files. |
+| quota | `tools/herdr/quota/README.md` | Weekly allowance and pace from CodexBar's snapshot. |
+| herdr-share skill | `skills/shared/herdr-share/SKILL.md` | Entry point for temporary browser pane access through the installed CLI. |
 
-See [the category inventory](tools/herdr/README.md) for state ages, undo closed
-agent tabs, pane sharing, cache countdown, and quota display candidates.
+See [the category guide](tools/herdr/README.md) for installation scope and limits.
 
 ---
 

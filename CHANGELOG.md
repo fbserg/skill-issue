@@ -4,6 +4,13 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- Published five more standalone Herdr packages: state ages, undo closed agent
+  tabs, browser pane sharing, Codex cache countdown, and quota display. Each has
+  documentation and tests. State ages now isolate refresher state per socket.
+  Sharing assigns a random password to new control shares and validates the pane
+  and session before reusing an invite. Existing host copies
+  remain unchanged. Added a combined suite with private real-server checks.
+
 - Added `tools/herdr/project-anchors`, a self-contained Linux Herdr plugin for
   inert first project tabs, close recovery, and server-startup restore. Includes
   explicit enrollment and release, unit tests, and an isolated real-server gate.

@@ -2,7 +2,38 @@
   "name": "skill-issue",
   "suites": {
     "herdr-anchors": {
-      "command": ["python3", "-m", "unittest", "discover", "-s", "tools/herdr/project-anchors", "-p", "test_*.py", "-v"],
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/herdr/project-anchors",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "platform": "linux"
+    },
+    "herdr-tools": {
+      "command": [
+        "python3",
+        "tools/herdr/test_all.py"
+      ],
+      "platform": "linux"
+    },
+    "herdr-share": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/herdr/share",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
       "platform": "linux"
     }
   }
