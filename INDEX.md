@@ -72,13 +72,25 @@ Per-hook `settings.json` snippets and excluded personal plumbing: `hooks/claude/
 
 | Name | Path | TLDR |
 |---|---|---|
-| herdr-project-anchors | `tools/herdr-project-anchors/README.md` | Self-contained Linux Herdr plugin: inert first project tabs, event-based close recovery, server-startup restore, explicit enrollment and release. Restores placeholders, not workers. |
+| Herdr tools | `tools/herdr/README.md` | Herdr category: plugins, the sharing skill, and existing candidates for standalone packaging. |
 | statusline | `tools/statusline/statusline.sh` | Claude Code status line: repo, branch, diff and trunk drift, model·effort, context bar calibrated to the real auto-compact trigger, prompt-cache timer, 5h/7d rate-limit bars with reset ETA and weekly pace delta. Per-account rate-limit cache. Not symlinked: point `statusLine.command` in settings.json at it. |
 | transcript-archive | `tools/transcript-archive/backup.py` | One-way, machine-namespaced, multi-machine archiver for Claude + Codex JSONL transcripts: JSON-aware image tombstoning (replaced the v1 base64 regex, which was corrupting thinking signatures/JWTs/PDFs), never clobbers a larger copy with a smaller one, optional gzip compression, atomic writes, an identity handshake guarding against machine-id collisions and unmounted/wrong destinations, symlinked source dirs followed (cycle-safe). Storage-agnostic — point it at any synced folder, git repo, or disk. `install.sh` for one-command setup (`tools/transcript-archive/install.sh <destination-dir>`; the former transcript-backup skill front-end was deleted as never-invoked). |
 | check-install | `scripts/check-install.py` | Verify local symlinks point at this repo's copies, not stale older versions. |
 | check-links | `scripts/check-links.py` | Doc-link drift guard: verify every relative markdown link in tracked .md files resolves on disk. |
 | merge-decisions | `scripts/merge-decisions.py` | Fold `docs/decisions/*.md` per-lane ruling files into `docs/DECISIONS.md` in deterministic (date desc, filename asc) order; deletes merged lane files; idempotent no-op when nothing is pending; hard-fails naming the file on a malformed lane entry. |
 | install | `scripts/install.sh` | Symlink all skills and delegate agents into the right runtime dirs. Idempotent. |
+
+---
+
+## Herdr (`tools/herdr/`)
+
+| Name | Path | TLDR |
+|---|---|---|
+| project-anchors | `tools/herdr/project-anchors/README.md` | Self-contained Linux plugin: inert first project tabs, close recovery, server-startup restore, enrollment and release. Restores placeholders, not workers. |
+| herdr-share skill | `skills/shared/herdr-share/SKILL.md` | Entry point for temporary browser pane access. The implementation still lives in the host repository. |
+
+See [the category inventory](tools/herdr/README.md) for state ages, undo closed
+agent tabs, pane sharing, cache countdown, and quota display candidates.
 
 ---
 

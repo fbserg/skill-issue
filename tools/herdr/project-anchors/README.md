@@ -13,13 +13,13 @@ self-contained and uses only Python's standard library.
 From a checkout of this repository:
 
 ```sh
-herdr plugin link "$PWD/tools/herdr-project-anchors" --enabled
+herdr plugin link "$PWD/tools/herdr/project-anchors" --enabled
 ```
 
 Or install the tool directory through Herdr:
 
 ```sh
-herdr plugin install fbserg/skill-issue/tools/herdr-project-anchors --yes
+herdr plugin install fbserg/skill-issue/tools/herdr/project-anchors --yes
 ```
 
 Link or install the plugin once. This alone does not enroll any workspace.
@@ -78,7 +78,7 @@ project-test --suite herdr-anchors
 The underlying test command is:
 
 ```sh
-python3 -m unittest discover -s tools/herdr-project-anchors -p 'test_*.py' -v
+python3 -m unittest discover -s tools/herdr/project-anchors -p 'test_*.py' -v
 ```
 
 The suite includes a real Herdr server in a private temporary home. It tests

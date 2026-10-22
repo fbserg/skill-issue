@@ -1,7 +1,8 @@
 ## 2026-10-22 — Reusable Herdr tools live in skill-issue
 
-**Decision:** Keep reusable Herdr plugin code and its tests under `tools/` in
-this repository. Start with `tools/herdr-project-anchors`, a self-contained Linux
+**Decision:** Keep reusable Herdr plugin code and its tests under `tools/herdr/`
+in this repository, with one folder per tool and an index of existing candidates.
+Start with `tools/herdr/project-anchors`, a self-contained Linux
 plugin for inert project placeholders. Host services, live enrollment records,
 and machine-specific deployment evidence remain in the host configuration repo.
 Do not add a generic skill that duplicates Herdr's own CLI skill.

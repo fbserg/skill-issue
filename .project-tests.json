@@ -2,7 +2,7 @@
   "name": "skill-issue",
   "suites": {
     "herdr-anchors": {
-      "command": ["python3", "-m", "unittest", "discover", "-s", "tools/herdr-project-anchors", "-p", "test_*.py", "-v"],
+      "command": ["python3", "-m", "unittest", "discover", "-s", "tools/herdr/project-anchors", "-p", "test_*.py", "-v"],
       "platform": "linux"
     }
   }

@@ -99,11 +99,12 @@ See [INDEX.md](INDEX.md) for the full tools/scripts table.
 
 ### Herdr tools
 
-[`herdr-project-anchors`](tools/herdr-project-anchors/README.md) keeps an inert
-first tab in each enrolled project and restores it after closure or a Herdr
-restart. It is a self-contained Linux plugin, installed separately from the skills.
-A whole-workspace close still stops its workers. A full machine reboot remains
-untested.
+The [Herdr category](tools/herdr/README.md) holds plugins and an inventory of
+existing tools worth extracting. Start with
+[project placeholders](tools/herdr/project-anchors/README.md), a self-contained
+Linux plugin for inert first tabs and close recovery. Plugins install separately
+from skills. A whole-workspace close still stops workers; full machine reboot
+recovery remains untested.
 
 ## Hooks
 

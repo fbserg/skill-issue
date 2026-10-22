@@ -4,7 +4,7 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
-- Added `tools/herdr-project-anchors`, a self-contained Linux Herdr plugin for
+- Added `tools/herdr/project-anchors`, a self-contained Linux Herdr plugin for
   inert first project tabs, close recovery, and server-startup restore. Includes
   explicit enrollment and release, unit tests, and an isolated real-server gate.
   Extracted from the tested host setup. Workspace closes still stop workers;
