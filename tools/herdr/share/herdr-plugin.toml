@@ -1,0 +1,30 @@
+id = "serg.herdr-share"
+name = "Herdr Share"
+version = "0.3.0"
+min_herdr_version = "0.9.5"
+description = "Share the focused pane through a temporary browser link: VIEW ONLY or FULL CONTROL"
+platforms = ["macos", "linux"]
+
+[[actions]]
+id = "view"
+title = "Share pane: VIEW ONLY (browser can watch, not type)"
+contexts = ["workspace"]
+command = ["python3", "herdr_share.py", "view"]
+
+[[actions]]
+id = "control"
+title = "Share pane: FULL CONTROL (browser can type into it)"
+contexts = ["workspace"]
+command = ["python3", "herdr_share.py", "control"]
+
+[[actions]]
+id = "stop"
+title = "Share pane: stop (revoke link)"
+contexts = ["workspace"]
+command = ["python3", "herdr_share.py", "stop"]
+
+[[actions]]
+id = "status"
+title = "Share pane: status (mode + link)"
+contexts = ["workspace"]
+command = ["python3", "herdr_share.py", "status"]
