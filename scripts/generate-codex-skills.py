@@ -299,7 +299,7 @@ BLITZ_REWRITE = {
     "skill": "blitz",
     "claude_path": "skills/claude/blitz/SKILL.md",
     "claude_anchor": "- **Findings return batched, never as issue confetti.**",
-    "claude_end_anchor": "\n- **3+ background lanes",
+    "claude_end_anchor": "\n- **3+ detached lanes",
     "codex_path": "skills/codex/blitz/SKILL.md",
     "codex_old": (
         "- Any FOLLOW-UP a lane surfaces is filed via `gh issue create` (label "
