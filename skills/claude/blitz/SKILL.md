@@ -52,9 +52,11 @@ Posture:
 - **Findings return batched, never as issue confetti.** One batched finding
   list per review lane; at most one follow-up issue per surface (measured: 42
   follow-up issues filed in one day from a single wave).
-- **3+ background lanes → arm the watchdog** per `~/projects/skill-issue/docs/lane-watchdog.md` —
-  lanes die silently; this skill doesn't restate the contract (heartbeat,
-  1-lane mode, and the TERMINAL-line teardown check live there).
+- **3+ detached lanes (`codex exec`, `claude -p`) → arm the watchdog** per
+  `~/projects/skill-issue/docs/lane-watchdog.md` — detached processes die
+  silently; this skill doesn't restate the contract (heartbeat, 1-lane mode,
+  and the TERMINAL-line teardown check live there). Agent-tool lanes need no
+  watchdog: the harness re-invokes you when each one completes.
 - **Rate-limit fallback.** Hit a fleet/session rate limit → stop polling,
   write in-flight state to the pulse dir, hand back to the human (measured:
   after a session-limit hit the parent repeated the same error 4x and did
