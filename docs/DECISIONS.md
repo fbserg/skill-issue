@@ -20,6 +20,97 @@ git and is never treated as a lane file. Re-running with nothing pending is
 a no-op (exit 0); a lane file that doesn't parse as dated entries is a hard
 error naming the file — never a partial or silently-skipped merge.
 
+## 2026-11-04 — Zero resolves drafts and preserves parked work
+
+**Decision:** A draft PR is active work to review, repair, validate and integrate.
+Explicit parking in an owner instruction, PR record or repo decision excludes
+the PR, branch and worktree before any write. Parking takes precedence over
+draft status, and a generic zero does not resume it. Review rejections require
+resolution, not automatic parking or a gate bypass.
+
+**Evidence:** The owner clarified that drafts get figured out but parked work
+must stay untouched. The live inventory contains an explicitly parked open
+draft alongside active drafts, so `isDraft` cannot distinguish them.
+
+**Reopen when:** the owner changes zero's scope or defines another explicit
+deferral state.
+
+## 2026-11-03 — Skill diet: usage-review deleted, epic-plan and red-team skills shrunk
+
+**Decision:** Delete `skills/claude/usage-review` (0 uses since it went
+user-typed-only on 2026-10-14), superseding the 2026-08-19 "kept" ruling.
+Shrink `epic-plan`, `adversary`, and Codex `adversarial-review` to short briefs
+and drop the epic-plan review panel and `blitz` adversarial review. Owner
+direction: newer models do better with goals than with scripted procedure.
+
+**Reopen when:** epic-plan output shows duplicated issues, layer-sliced
+children, or missed scope that the old panel would have caught.
+
+## 2026-11-03 — resolve-issue cut to a brief; --full pipeline deleted
+
+**Decision:** `resolve-issue` keeps only its guards (worktree, untrusted issue
+text, comment re-poll, draft-until-mergeable, never merge) and, in Codex, the
+PatchCue protocol v1 text verbatim. The `--full` pipeline, negative control,
+mandatory failing-test-first, stub draft PR, and self-review ceremony are gone.
+Supersedes the `--full` parts of the earlier resolve-issue rulings.
+
+**Reopen when:** PatchCue runs or `/resolve-issue` PRs start shipping
+regressions that a discriminating test would have caught.
+
+## 2026-10-22 — Reusable Herdr tools live in skill-issue
+
+**Decision:** Keep reusable Herdr plugin code and its tests under `tools/herdr/`
+in this repository, with one folder per tool. Publish project placeholders,
+state ages, undo, sharing, cache countdown, and quota display as separate packages.
+The first publication leaves existing host integrations on their current copies.
+Host services, live enrollment records,
+and machine-specific deployment evidence remain in the host configuration repo.
+Do not add a generic skill that duplicates Herdr's own CLI skill.
+
+**Evidence:** The placeholder passed the isolated real-server gate and a live
+session smoke test before extraction. Its close recovery does not preserve workers
+after a workspace close. Herdr restart was tested; a full machine reboot was not.
+Plugin IDs stay stable. State-age 0.2 deliberately uses per-socket storage;
+sharing 0.3 uses random control passwords. A later host migration must stop any
+old refresher through its original owner before changing the source link. Package
+publication does not authorize a live migration or public terminal exposure.
+
+**Reopen when:** A reusable Herdr workflow needs agent instructions beyond the
+built-in skill, or Herdr provides a native protected-tab feature.
+
+## 2026-10-14 — Context diet: /issue deleted for Claude, usage-review hidden from the model
+
+**Decision:** `skills/claude/issue` is deleted. It was an alias for
+`/resolve-issue <N>` plus "file the issue first", which needs no skill. Use
+`/resolve-issue <N>` directly. The Codex `issue` front door is unchanged.
+`usage-review`, `zero` and `simplify-sweep` stay installed but are set to
+`user-invocable-only` in `skillOverrides` (etc `configs/*/claude/settings.json`),
+so they cost no listing tokens and still run when typed. This narrows the
+2026-08-19 usage-review ruling to "kept, user-typed only". Descriptions of
+blitz, resolve-issue and epic-plan were shortened.
+
+**Evidence:** 60 days of oracle-dev transcripts: `issue` 5 invocations,
+`resolve-issue` 11, `blitz` 10, `epic-plan` 13, `usage-review` 0. Owner asked
+for the cut on 2026-10-14.
+
+**Reopen when:** free-text issue filing goes wrong without the scoping step.
+
+## 2026-10-14 — Sweep: delete what the live setup does not use
+
+**Decision:** Deleted `deprecated/` (git history is the archive),
+`tools/secrets` with `docs/env-sharing.md` (live secrets use the sops keyring),
+`tools/gmail-tools` (zero runs in 90 days, Gmail goes through MCP),
+`docs/multi-claude-remote.md` (replaced by claude-smart and herdr),
+`docs/scoped-dispatch*.md` (no live reference), the unwired hooks
+`effort_spawn_guard.py` and `guard-settings-json.sh`, and the Codex skills
+`wayfinder`, `x-scout-tldr`, `thermo-nuclear-code-quality-review` (zero
+sessions in 90 days) and `refactor-dupes` (one). `hooks/claude/` is relabelled
+as standalone hooks, not a live mirror. Kept: `vale/` (ARG's `.vale.ini`
+downloads `AItells.zip` from this repo), `tools/transcript-archive` (Mac
+launch agent), humanizer and authenticity-check (in active use).
+
+**Reopen when:** a deleted item is wanted again: restore it from git history.
+
 ## 2026-09-02 — Codex resolve-issue emits PatchCue worker protocol v1
 
 **Decision:** `skills/codex/resolve-issue` emits PatchCue worker protocol v1
