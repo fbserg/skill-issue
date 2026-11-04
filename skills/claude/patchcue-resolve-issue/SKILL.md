@@ -14,7 +14,7 @@ in full before any action, then follow it exactly.
 Claude-specific notes:
 
 - Work solo in the current directory. PatchCue already created the worktree;
-  never create another and never spawn subagents. Ignore `--full`.
+  never create another and never spawn subagents.
 - `gh` is authenticated as the PatchCue login. Every issue comment you post
   must use the exact marker lines from `protocol.md`; PatchCue parses them.
 - The launcher prompt adds `KIND:`, `UX_TWEAK:`, `REPORTER_ASK:`, and

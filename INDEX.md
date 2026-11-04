@@ -23,7 +23,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | blitz | `skills/claude/blitz/SKILL.md` | Lightweight executor for ad-hoc lanes: parallel worktrees, no pipeline ceremony. |
 | deep-research | `skills/claude/deep-research/SKILL.md` | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
 | epic-plan | `skills/claude/epic-plan/SKILL.md` | Planner: contract plus child issues that execute via /resolve-issue and /blitz; re-enters from GitHub state. |
-| resolve-issue | `skills/claude/resolve-issue/SKILL.md` | One issue → review-ready PR: one worker solo in a worktree by default; the phased pipeline only behind user-typed `--full`. Bounces a true epic to /epic-plan. Never merges. |
+| resolve-issue | `skills/claude/resolve-issue/SKILL.md` | One issue → review-ready PR in a worktree. Bounces a true epic to /epic-plan. Never merges. |
 | patchcue-resolve-issue | `skills/claude/patchcue-resolve-issue/SKILL.md` | PatchCue's headless Claude worker: reads the Codex `resolve-issue` protocol through `protocol.md` and posts the marked plan/outcome comments. Never merges. |
 | simplify-sweep | `skills/claude/simplify-sweep/SKILL.md` | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 
@@ -36,8 +36,8 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | adversarial-review | `skills/codex/adversarial-review/SKILL.md` | Read-only adversarial review of a plan or diff before risky work lands. |
 | blitz | `skills/codex/blitz/SKILL.md` | Fast execution of ad-hoc lanes in parallel worktrees. |
 | epic-plan | `skills/codex/epic-plan/SKILL.md` | Scope broad work into tracker + child issues; materializes on GitHub with no approval gate. |
-| issue | `skills/codex/issue/SKILL.md` | Front door for GitHub issue work; scope ideas or route issue numbers to resolve-issue (`--full` passed through only when the user typed it). |
-| resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR, solo in an isolated worktree by default; tiered sub-agent pipeline only behind user-typed `--full`. Never merges. |
+| issue | `skills/codex/issue/SKILL.md` | Front door for GitHub issue work; scope ideas or route issue numbers to resolve-issue. |
+| resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR, solo in an isolated worktree. Never merges. |
 | ww | `skills/codex/ww/SKILL.md` | Worktree workflow: branch, plan, implement, check, draft PR; main untouched. |
 | zero | `skills/shared/zero/SKILL.md` | Shared destructive cleanup with proof-before-delete classification. |
 

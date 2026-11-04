@@ -234,49 +234,6 @@ class Gate:
 
 GATES = [
     Gate(
-        skill="resolve-issue",
-        gate_id="draft-state-gate",
-        claude_path="docs/resolve-issue-full-pipeline.md",
-        claude_anchor="**Finalize gate: repo checks pass",
-        claude_end_anchor="\n\nPR body sections:",
-        codex_path="skills/codex/resolve-issue/SKILL.md",
-        codex_marker="draft-state-gate",
-        codex_insert_after="6. Mark the PR ready only after checks pass.",
-        codex_replace="6. Mark the PR ready only after checks pass.",
-    ),
-    Gate(
-        skill="resolve-issue",
-        gate_id="amendment-repoll",
-        claude_path="docs/resolve-issue-full-pipeline.md",
-        claude_anchor="2. **Amendment re-poll, before any commit.**",
-        claude_end_anchor="\n3. *Before any code*",
-        codex_path="skills/codex/resolve-issue/SKILL.md",
-        codex_marker="amendment-repoll",
-        codex_insert_after="1. Create branch `fix/issue-<N>-<short-slug>` in a worktree.",
-        codex_replace=None,
-        renumber_after_heading="## Implement",
-    ),
-    Gate(
-        skill="resolve-issue",
-        gate_id="negative-control",
-        claude_path="docs/resolve-issue-full-pipeline.md",
-        claude_anchor="- **Negative control:**",
-        claude_end_anchor="\n- Commit tests on the same branch",
-        codex_path="skills/codex/resolve-issue/SKILL.md",
-        codex_marker="negative-control",
-        codex_insert_after=(
-            "6. Prove at least one new test discriminates the fix by temporarily "
-            "reversing or disabling its core behavior, observing failure, "
-            "restoring it, and confirming green."
-        ),
-        codex_replace=(
-            "6. Prove at least one new test discriminates the fix by temporarily "
-            "reversing or disabling its core behavior, observing failure, "
-            "restoring it, and confirming green."
-        ),
-        renumber_after_heading="## Implement",
-    ),
-    Gate(
         skill="epic-plan",
         gate_id="dont-invent-scope",
         claude_path="skills/claude/epic-plan/SKILL.md",

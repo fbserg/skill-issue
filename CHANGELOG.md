@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- Shrank `resolve-issue` (Claude 86 → 26 lines, Codex 171 → 93). Kept the
+  PatchCue plan/outcome protocol verbatim. Deleted the `--full` pipeline,
+  `docs/resolve-issue-full-pipeline.md`, `docs/codex-builder-lane.md`, the
+  negative-control and stub-draft-PR steps, and the three sync gates that
+  carried them into Codex.
 - Shrank `epic-plan` (Claude 171 → 49 lines, Codex 54 → 22), `adversary`, and
   Codex `adversarial-review` to short briefs that leave method to the agent.
   Dropped `epic-plan`'s review panel and deleted `docs/adversarial-review-panel.md`.

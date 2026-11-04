@@ -45,7 +45,7 @@ cd skill-issue
 | [`blitz`](skills/claude/blitz/SKILL.md) | Lightweight executor for ad-hoc lanes: parallel worktrees, no pipeline ceremony. Owns all batches, filed or not. |
 | [`deep-research`](skills/claude/deep-research/SKILL.md) | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
 | [`epic-plan`](skills/claude/epic-plan/SKILL.md) | Planner: contract plus child issues that execute via /resolve-issue and /blitz; re-enters from GitHub state. |
-| [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | One worker resolves one issue end to end (test-first, gates verbatim, draft→ready PR); the phased multi-agent pipeline only on user-typed --full. Bounces a true epic to /epic-plan. Never merges. |
+| [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | One issue to review-ready PR in a worktree; never merges. Bounces a true epic to /epic-plan. |
 | [`patchcue-resolve-issue`](skills/claude/patchcue-resolve-issue/SKILL.md) | PatchCue worker workflow for Claude Code; same marked plan/outcome protocol as the Codex `resolve-issue` skill. |
 | [`simplify-sweep`](skills/claude/simplify-sweep/SKILL.md) | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
 
@@ -64,7 +64,7 @@ Claude skills remain available for Claude Code. Codex uses the separate
 
 | You have | Use |
 |---|---|
-| An issue number | `/resolve-issue <N>` (add `--full` for the heavy pipeline) |
+| An issue number | `/resolve-issue <N>` |
 | A rough idea (no issue yet) | Ask the agent to file it, then `/resolve-issue <N>` |
 | Multiple issues | `/blitz 42 43 44` — parallel lanes |
 | Ad-hoc lanes, nothing filed | `/blitz` — parallel worktrees, no issue required |
