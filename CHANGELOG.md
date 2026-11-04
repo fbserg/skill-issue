@@ -4,6 +4,11 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- `zero`: resolve active draft PRs through their normal review and test gates.
+  Preserve explicitly parked PRs, branches and worktrees before any write.
+  Draft status alone no longer leaves active work behind, and a generic zero
+  does not resume parked or superseded work.
+
 - Shrank `resolve-issue` (Claude 86 → 26 lines, Codex 171 → 93). Kept the
   PatchCue plan/outcome protocol verbatim. Deleted the `--full` pipeline,
   `docs/resolve-issue-full-pipeline.md`, `docs/codex-builder-lane.md`, the

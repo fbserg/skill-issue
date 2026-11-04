@@ -58,7 +58,7 @@ Claude skills remain available for Claude Code. Codex uses the separate
 |---|---|
 | [`authenticity-check`](skills/shared/authenticity-check/SKILL.md) | Score human authenticity and flag AI-sounding spans. Not installed by default. |
 | [`humanizer`](skills/shared/humanizer/SKILL.md) | De-slop AI prose. Not installed by default. |
-| [`zero`](skills/shared/zero/SKILL.md) | Destructive repo reset: checkpoint, merge all branches/worktrees into main, push. Read before use. |
+| [`zero`](skills/shared/zero/SKILL.md) | Integrate active work and draft PRs, preserve parked work, clean merged branches, push. |
 
 ## Routing an issue
 
@@ -128,6 +128,6 @@ everything else here is MIT under [`LICENSE`](LICENSE).
 
 Experimental. Read each skill before using it on an important repository.
 
-`zero` is intentionally destructive — it merges everything into the default branch and pushes. Use only at a deliberate cleanup point.
+`zero` integrates active work, resolves draft PRs, and removes proven merged branches and worktrees. Explicitly parked work stays untouched. Use only at a deliberate cleanup point.
 
 Retired skills and tools are deleted, not archived. Find them in git history.
