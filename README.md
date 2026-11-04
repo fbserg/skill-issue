@@ -30,7 +30,7 @@ cd skill-issue
 | Skill | Description |
 |---|---|
 | [`adversarial-review`](skills/codex/adversarial-review/SKILL.md) | Read-only red-team pass over a plan or diff before risky work lands. |
-| [`blitz`](skills/codex/blitz/SKILL.md) | Fast execution of ad-hoc lanes in parallel worktrees with adversarial review. |
+| [`blitz`](skills/codex/blitz/SKILL.md) | Fast execution of ad-hoc lanes in parallel worktrees. |
 | [`epic-plan`](skills/codex/epic-plan/SKILL.md) | Scope broad work into a tracker issue and right-sized child issues; materializes on GitHub as soon as the reviewed decomposition is ready — no approval gate. |
 | [`issue`](skills/codex/issue/SKILL.md) | Front door for GitHub issue work; scopes ideas or routes issue numbers to resolve-issue. |
 | [`resolve-issue`](skills/codex/resolve-issue/SKILL.md) | One issue to review-ready PR in an isolated worktree; never merges. |
@@ -42,7 +42,7 @@ cd skill-issue
 | Skill | Description |
 |---|---|
 | [`adversary`](skills/claude/adversary/SKILL.md) | Cross-model red-team: sends a plan or diff to Codex (GPT) for an adversarial pass before committing. |
-| [`blitz`](skills/claude/blitz/SKILL.md) | Lightweight executor for ad-hoc lanes: parallel worktrees + adversarial review, no pipeline ceremony. Owns all batches, filed or not. |
+| [`blitz`](skills/claude/blitz/SKILL.md) | Lightweight executor for ad-hoc lanes: parallel worktrees, no pipeline ceremony. Owns all batches, filed or not. |
 | [`deep-research`](skills/claude/deep-research/SKILL.md) | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
 | [`epic-plan`](skills/claude/epic-plan/SKILL.md) | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /resolve-issue and /blitz; re-enters from GitHub state. |
 | [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | One worker resolves one issue end to end (test-first, gates verbatim, draft→ready PR); the phased multi-agent pipeline only on user-typed --full. Bounces a true epic to /epic-plan. Never merges. |
@@ -67,7 +67,7 @@ Claude skills remain available for Claude Code. Codex uses the separate
 |---|---|
 | An issue number | `/resolve-issue <N>` (add `--full` for the heavy pipeline) |
 | A rough idea (no issue yet) | Ask the agent to file it, then `/resolve-issue <N>` |
-| Multiple issues | `/blitz 42 43 44` — parallel lanes, adversarial review |
+| Multiple issues | `/blitz 42 43 44` — parallel lanes |
 | Ad-hoc lanes, nothing filed | `/blitz` — parallel worktrees, no issue required |
 | A true epic (multi-session, multiple deliverables) | `/epic-plan <topic>` → `/resolve-issue <child-number>` |
 

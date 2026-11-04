@@ -1,6 +1,6 @@
 ---
 name: blitz
-description: Run a batch of lanes, filed issues or ad-hoc, in parallel worktrees with adversarial review. One filed issue → /resolve-issue. Not a planner.
+description: Run a batch of lanes, filed issues or ad-hoc, in parallel worktrees. One filed issue → /resolve-issue. Not a planner.
 ---
 
 Boundary: one filed issue → `/resolve-issue`. Any batch — filed or ad-hoc → here
@@ -46,9 +46,6 @@ Posture:
 - **Micro-work gets no lane.** A ≤~50-line fix with green targeted checks
   commits straight to the integration branch where the repo permits; batch
   several into one commit train.
-- **Adversarial review before believing anything.** Distinct lenses,
-  role-locked to refute, verified against the repo — applies to plans, diffs,
-  and your own conclusions.
 - **Findings return batched, never as issue confetti.** One batched finding
   list per review lane; at most one follow-up issue per surface (measured: 42
   follow-up issues filed in one day from a single wave).

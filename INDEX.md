@@ -20,7 +20,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | Name | Path | TLDR |
 |---|---|---|
 | adversary | `skills/claude/adversary/SKILL.md` | Cross-model adversarial review: sends a plan or diff to Codex (GPT) for a red-team pass before committing. |
-| blitz | `skills/claude/blitz/SKILL.md` | Lightweight executor for ad-hoc lanes: parallel worktrees + adversarial review, no pipeline ceremony. |
+| blitz | `skills/claude/blitz/SKILL.md` | Lightweight executor for ad-hoc lanes: parallel worktrees, no pipeline ceremony. |
 | deep-research | `skills/claude/deep-research/SKILL.md` | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
 | epic-plan | `skills/claude/epic-plan/SKILL.md` | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /resolve-issue and /blitz; re-enters from GitHub state. |
 | resolve-issue | `skills/claude/resolve-issue/SKILL.md` | One issue → review-ready PR: one worker solo in a worktree by default; the phased pipeline only behind user-typed `--full`. Bounces a true epic to /epic-plan. Never merges. |
@@ -35,7 +35,7 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | Name | Path | TLDR |
 |---|---|---|
 | adversarial-review | `skills/codex/adversarial-review/SKILL.md` | Read-only adversarial review of a plan or diff before risky work lands. |
-| blitz | `skills/codex/blitz/SKILL.md` | Fast execution of ad-hoc lanes in parallel worktrees with adversarial review. |
+| blitz | `skills/codex/blitz/SKILL.md` | Fast execution of ad-hoc lanes in parallel worktrees. |
 | epic-plan | `skills/codex/epic-plan/SKILL.md` | Scope broad work into tracker + child issues; materializes on GitHub immediately once reviewed — no approval gate. |
 | issue | `skills/codex/issue/SKILL.md` | Front door for GitHub issue work; scope ideas or route issue numbers to resolve-issue (`--full` passed through only when the user typed it). |
 | resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR, solo in an isolated worktree by default; tiered sub-agent pipeline only behind user-typed `--full`. Never merges. |
