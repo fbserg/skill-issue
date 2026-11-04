@@ -4,6 +4,10 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- Shrank `epic-plan` (Claude 171 → 49 lines, Codex 54 → 22), `adversary`, and
+  Codex `adversarial-review` to short briefs that leave method to the agent.
+  Dropped `epic-plan`'s review panel and deleted `docs/adversarial-review-panel.md`.
+  Deleted `usage-review`. Removed adversarial review from `blitz`.
 - Published five more standalone Herdr packages: state ages, undo closed agent
   tabs, browser pane sharing, Codex cache countdown, and quota display. Each has
   documentation and tests. State ages now isolate refresher state per socket.

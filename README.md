@@ -31,7 +31,7 @@ cd skill-issue
 |---|---|
 | [`adversarial-review`](skills/codex/adversarial-review/SKILL.md) | Read-only red-team pass over a plan or diff before risky work lands. |
 | [`blitz`](skills/codex/blitz/SKILL.md) | Fast execution of ad-hoc lanes in parallel worktrees. |
-| [`epic-plan`](skills/codex/epic-plan/SKILL.md) | Scope broad work into a tracker issue and right-sized child issues; materializes on GitHub as soon as the reviewed decomposition is ready — no approval gate. |
+| [`epic-plan`](skills/codex/epic-plan/SKILL.md) | Scope broad work into a tracker issue and right-sized child issues; materializes on GitHub with no approval gate. |
 | [`issue`](skills/codex/issue/SKILL.md) | Front door for GitHub issue work; scopes ideas or routes issue numbers to resolve-issue. |
 | [`resolve-issue`](skills/codex/resolve-issue/SKILL.md) | One issue to review-ready PR in an isolated worktree; never merges. |
 | [`ww`](skills/codex/ww/SKILL.md) | Isolated worktree workflow; plan first, PR by default, main untouched. |
@@ -44,11 +44,10 @@ cd skill-issue
 | [`adversary`](skills/claude/adversary/SKILL.md) | Cross-model red-team: sends a plan or diff to Codex (GPT) for an adversarial pass before committing. |
 | [`blitz`](skills/claude/blitz/SKILL.md) | Lightweight executor for ad-hoc lanes: parallel worktrees, no pipeline ceremony. Owns all batches, filed or not. |
 | [`deep-research`](skills/claude/deep-research/SKILL.md) | Opus-planned multi-source research with disconfirmation lens, GRADE evidence tiers, and a saturation loop. |
-| [`epic-plan`](skills/claude/epic-plan/SKILL.md) | Research-heavy planner: wide parallel research, multi-lens review of the decomposition, child issues that execute via /resolve-issue and /blitz; re-enters from GitHub state. |
+| [`epic-plan`](skills/claude/epic-plan/SKILL.md) | Planner: contract plus child issues that execute via /resolve-issue and /blitz; re-enters from GitHub state. |
 | [`resolve-issue`](skills/claude/resolve-issue/SKILL.md) | One worker resolves one issue end to end (test-first, gates verbatim, draft→ready PR); the phased multi-agent pipeline only on user-typed --full. Bounces a true epic to /epic-plan. Never merges. |
 | [`patchcue-resolve-issue`](skills/claude/patchcue-resolve-issue/SKILL.md) | PatchCue worker workflow for Claude Code; same marked plan/outcome protocol as the Codex `resolve-issue` skill. |
 | [`simplify-sweep`](skills/claude/simplify-sweep/SKILL.md) | Batch-clean a pushed commit range via headless Sonnet /simplify per area; orchestrator reviews and commits. |
-| [`usage-review`](skills/claude/usage-review/SKILL.md) | Review your own Claude Code / Codex transcripts (or a shared archive) into a red-teamed report: numbers, automation families, risk incidents, rubric grades, coaching, action plan. Local-only; work dir kept out of git; secret scan before sharing. |
 
 Claude skills remain available for Claude Code. Codex uses the separate
 `skills/codex/` tree so tool names and workflow assumptions stay runtime-native.
