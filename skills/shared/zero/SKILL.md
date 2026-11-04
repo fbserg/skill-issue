@@ -19,12 +19,14 @@ patch-equivalent to `main`.
 ### PARKED(ref, PR) — explicit deferral, not draft status
 
 Before any write, read the relevant PR body, labels, owner comments, and repo
-decisions. An explicit instruction to park, defer, or not merge the work excludes
-its PR, branch, and worktree from zero. Do not checkpoint, ready, merge, close,
+decisions. An explicit owner decision to park, defer, or keep the work out of
+integration excludes its PR, branch, and worktree from zero. Do not checkpoint, ready, merge, close,
 or delete them. Report the evidence and leave them intact. A generic zero does
 not resume parked work; the user must explicitly resume that work.
 
-`isDraft` alone is never evidence of parking. Review active drafts, resolve
+`isDraft` alone is never evidence of parking.
+Readiness conditions such as "do not merge until tests pass" are gates to resolve,
+not parking. Review active drafts, resolve
 conflicts and review findings within their agreed scope, run the repo's checks,
 then mark ready and merge. A rejected review is work to resolve, not permission
 to bypass checks or a reason to treat an active draft as parked. If a missing
