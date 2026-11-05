@@ -20,6 +20,17 @@ git and is never treated as a lane file. Re-running with nothing pending is
 a no-op (exit 0); a lane file that doesn't parse as dated entries is a hard
 error naming the file — never a partial or silently-skipped merge.
 
+## 2026-11-05 — Remove the Codex ww skill
+
+**Decision:** Delete the Codex `ww` skill, its installed symlink, and active
+install and routing references. This supersedes the 2026-07-10 fourth
+entry point. Historical decision and changelog entries remain as evidence.
+
+**Evidence:** The owner explicitly requested deletion. The global instructions
+already require isolated writes and a plan before edits.
+
+**Reopen when:** the owner explicitly requests a separate worktree skill.
+
 ## 2026-11-04 — Zero resolves drafts and preserves parked work
 
 **Decision:** A draft PR is active work to review, repair, validate and integrate.
@@ -293,7 +304,7 @@ re-add the specific missing lens as a conditional, never the full stack.
 
 **Decision:** rules the estate could not enforce were deleted rather than
 re-asserted, and the mechanisms they stood in for were built instead.
-- `/ww` deleted. It restated the worktree rule already present in every context
+- The `ww` skill was deleted. It restated the worktree rule already present in every context
   window; its only unique content was a boundary sentence `/blitz` states from
   the other side. **Supersedes the fourth bullet of the 2026-07-10 lineup.**
 - `/issue` Single mode deleted — it was a pure pass-through to `/resolve-issue`.
@@ -368,7 +379,7 @@ boundaries, no new orchestrator skill.
   GitHub-state resume) via `/resolve-issue`, which self-scales.
 - `/blitz` runs AD-HOC/UNFILED lanes fast: parallel worktrees + adversarial
   review + no gate re-confirmation; watchdog required at 3+ background lanes.
-- `/ww` is exactly one lane, plan-first, approval-gated.
+- The now-retired `ww` skill covered exactly one lane, plan-first, approval-gated.
 
 **Killed:** epic-run revival (any wave-loop skill). /issue batch already owns
 concurrency/resume/watchdog; the residual gap (cross-/issue wave sequencing,

@@ -1,6 +1,6 @@
 ---
 name: blitz
-description: Lightweight Codex executor for multiple ad-hoc tasks or lanes—fast and parallel—without the full issue or resolve-issue pipeline. Use when the user invokes /blitz or $blitz, asks to run several unfiled tasks quickly or explicitly wants a fast fan-out. Not a planner; use epic-plan for broad planning, issue for filed GitHub work, and ww for one approval-gated lane.
+description: Lightweight Codex executor for multiple ad-hoc tasks or lanes—fast and parallel—without the full issue or resolve-issue pipeline. Use when the user invokes /blitz or $blitz, asks to run several unfiled tasks quickly or explicitly wants a fast fan-out. Not a planner; use epic-plan for broad planning, issue for filed GitHub work.
 ---
 
 # Blitz
@@ -34,4 +34,4 @@ Act as the orchestrator; do not implement lane work in the main checkout.
 - After targeted, preflight, and full local gates pass for a lane, dependent lanes may start on explicitly tracked stacked branches while the prerequisite's hosted CI runs. Record each stack's base and dependency order.
 - Merge stacks only in dependency order, and only after every final branch head receives its required hosted checks. Restack or rebase after prerequisites merge, then rerun invalidated checks without discarding the recorded proof from the pre-restack head.
 
-Use `issue` for filed GitHub issues and its batch routing. Use `ww` for exactly one plan-first, approval-gated task. Use `epic-plan` when the work first needs decomposition.
+Use `issue` for filed GitHub issues and its batch routing. Use `epic-plan` when the work first needs decomposition.

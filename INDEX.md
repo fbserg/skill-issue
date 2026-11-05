@@ -38,7 +38,6 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 | epic-plan | `skills/codex/epic-plan/SKILL.md` | Scope broad work into tracker + child issues; materializes on GitHub with no approval gate. |
 | issue | `skills/codex/issue/SKILL.md` | Front door for GitHub issue work; scope ideas or route issue numbers to resolve-issue. |
 | resolve-issue | `skills/codex/resolve-issue/SKILL.md` | One GitHub issue to review-ready PR, solo in an isolated worktree. Never merges. |
-| ww | `skills/codex/ww/SKILL.md` | Worktree workflow: branch, plan, implement, check, draft PR; main untouched. |
 | zero | `skills/shared/zero/SKILL.md` | Shared destructive cleanup with proof-before-delete classification. |
 
 ---

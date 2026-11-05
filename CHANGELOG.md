@@ -4,6 +4,8 @@ All notable changes to this project will be documented here.
 
 ## Unreleased
 
+- Removed the Codex `ww` skill and its install and routing references.
+
 - `zero`: resolve active draft PRs through their normal review and test gates.
   Preserve explicitly parked PRs, branches and worktrees before any write.
   Draft status alone no longer leaves active work behind, and a generic zero

@@ -56,7 +56,6 @@ ln -sfn "$PWD/skills/codex/blitz"             ~/.codex/skills/blitz
 ln -sfn "$PWD/skills/codex/epic-plan"          ~/.codex/skills/epic-plan
 ln -sfn "$PWD/skills/codex/issue"              ~/.codex/skills/issue
 ln -sfn "$PWD/skills/codex/resolve-issue"      ~/.codex/skills/resolve-issue
-ln -sfn "$PWD/skills/codex/ww"                 ~/.codex/skills/ww
 ln -sfn "$PWD/skills/shared/zero"              ~/.codex/skills/zero
 ```
 
@@ -110,7 +109,7 @@ rm ~/.claude/skills/zero
 # Remove Codex skill symlinks
 rm ~/.codex/skills/adversarial-review ~/.codex/skills/blitz ~/.codex/skills/epic-plan
 rm ~/.codex/skills/issue
-rm ~/.codex/skills/resolve-issue ~/.codex/skills/ww ~/.codex/skills/zero
+rm ~/.codex/skills/resolve-issue ~/.codex/skills/zero
 
 # Remove agent symlinks
 rm ~/.claude/agents/explore-mid.md
