@@ -36,15 +36,13 @@ Do NOT change public behavior, serialized output, generated files, CLI/user-visi
 text, or test intent. When unsure, leave it alone. Do not commit.
 ```
 
-**Sonnet floor — never Haiku** (punts on large diffs); `worker` is Sonnet.
-**Never two lanes editing one checkout.** The lane leaves uncommitted edits
-in its worktree — that's the handoff.
+The lane leaves uncommitted edits in its worktree. That is the handoff.
 
 ## 3. Review and commit (main session)
 
 Per batch: read the diff in the lane's worktree and revert over-reaches — behavior changes, dict-key
 removals, anything touching serialized output or test intent (expect ~2–3 per
-batch; this gate is the skill's entire safety story, never skip it). Run the
+batch). Run the
 repo's fast test loop; tests pass before commit. Commit on the lane's branch,
 merge it, then `git worktree remove --force` the lane. Subject `sweep(<area>):
 <summary>` — the tag doubles as the next sweep's range marker. Finish with a

@@ -1,1 +1,0 @@
-../../writing-references/common-core.md

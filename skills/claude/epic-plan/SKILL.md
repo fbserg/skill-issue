@@ -42,6 +42,5 @@ Report the contract, the children, and run commands in dependency order:
 
 ## Hard rules
 
-1. **Materialize autonomously.** Only a real contract ambiguity stops for input.
-2. **Don't invent scope.** "Audit backups" means backups — the Out-of-scope line is the fence.
-3. **No PRD bloat.** Tracker = Goal + Contract + Children; child = the template, nothing else.
+1. **Don't invent scope.** "Audit backups" means backups — the Out-of-scope line is the fence.
+2. **No PRD bloat.** Tracker = Goal + Contract + Children; child = the template, nothing else.

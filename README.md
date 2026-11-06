@@ -55,8 +55,6 @@ Claude skills remain available for Claude Code. Codex uses the separate
 
 | Skill | Description |
 |---|---|
-| [`authenticity-check`](skills/shared/authenticity-check/SKILL.md) | Score human authenticity and flag AI-sounding spans. Not installed by default. |
-| [`humanizer`](skills/shared/humanizer/SKILL.md) | De-slop AI prose. Not installed by default. |
 | [`zero`](skills/shared/zero/SKILL.md) | Integrate active work and draft PRs, preserve parked work, clean merged branches, push. |
 
 ## Routing an issue
@@ -114,14 +112,9 @@ Three standalone Claude Code hooks in [`hooks/claude/`](hooks/claude/). They sta
 
 See [`hooks/claude/README.md`](hooks/claude/README.md) for `settings.json` snippets and what was removed.
 
-## Credits
+## License
 
-The `authenticity-check` and `humanizer` skills
-are vendored from [aihxp](https://github.com/aihxp)'s Scriveno project
-([authenticity-check](https://github.com/aihxp/authenticity-check),
-[humanizer](https://github.com/aihxp/humanizer)) and used under the MIT License.
-Each vendored skill keeps its original `LICENSE` (copyright preserved as required);
-everything else here is MIT under [`LICENSE`](LICENSE).
+Everything here is MIT under [`LICENSE`](LICENSE).
 
 ## Status
 

@@ -16,7 +16,7 @@ INSTALL_SH = REPO_ROOT / "scripts" / "install.sh"
 CHECK_INSTALL_PY = REPO_ROOT / "scripts" / "check-install.py"
 
 AGENT_NAMES = tuple(sorted(path.name for path in (REPO_ROOT / "agents").glob("*.md")))
-SHARED_SKILL_NAMES = ("authenticity-check", "humanizer", "zero")
+SHARED_SKILL_NAMES = ("herdr-share", "zero")
 
 
 def _run(command: list[str], home: Path) -> subprocess.CompletedProcess:

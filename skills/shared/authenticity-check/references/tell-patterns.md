@@ -1,1 +1,0 @@
-../../writing-references/tell-patterns.md

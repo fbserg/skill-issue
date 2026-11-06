@@ -43,8 +43,6 @@ Claude only — do not duplicate them under `skills/claude/`.
 ```bash
 mkdir -p ~/.claude/skills
 ln -sfn "$PWD/skills/shared/zero"                ~/.claude/skills/zero
-# authenticity-check and humanizer stay uninstalled (0-1 measured invocations);
-# their sources remain under skills/shared/ — re-add a symlink to reinstate.
 ```
 
 ### Codex
@@ -90,9 +88,8 @@ the runtime picked up the symlinked files.
 
 ## Codex exclusions
 
-The Codex install intentionally does not include `deep-research`,
-`authenticity-check`, `humanizer`, or the old Claude `simplify-sweep`
-workflow.
+The Codex install intentionally does not include `deep-research` or the
+Claude `simplify-sweep` workflow.
 
 ## Uninstall
 

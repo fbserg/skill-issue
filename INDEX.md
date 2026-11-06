@@ -46,8 +46,6 @@ Primary audience: LLM agents. Use this file to locate skills, hooks, tools, and 
 
 | Name | Path | TLDR |
 |---|---|---|
-| authenticity-check | `skills/shared/authenticity-check/SKILL.md` | Score how authentically text reads as human-written. Not installed by default (near-zero measured use). |
-| humanizer | `skills/shared/humanizer/SKILL.md` | De-slop AI prose. Not installed by default (near-zero measured use). |
 | zero | `skills/shared/zero/SKILL.md` | Destructive repo reset: checkpoint, merge all branches/worktrees into main, push. Read before use. |
 
 ---

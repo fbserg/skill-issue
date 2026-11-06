@@ -37,9 +37,7 @@ because its patch differs from main.
 ### CHECKPOINT(path) — commit a dirty tree
 
 `git -C <path> status --short`; if dirty: inspect the diff, `add -A`, commit
-with a real message describing the actual change — never a generic checkpoint
-label. Run pre-commit on staged files if configured (hooks modify files →
-restage, rerun once). A stale `.git/index.lock` may be removed only after `ps`
+with a real message describing the actual change. A stale `.git/index.lock` may be removed only after `ps`
 proves no live Git process. A failed commit: report it, don't drop that
 worktree/branch, continue with the rest.
 
@@ -69,11 +67,7 @@ Never treat a local or remote branch as unmerged solely because it isn't an
 ancestor of `main` — squash-merges change commit IDs while the patch content
 is already in `main`.
 
-```bash
-git rev-list --count main..<ref>        # ahead count
-git merge-base --is-ancestor <ref> main # exit 0 = ancestor
-git cherry main <ref>                   # '+' lines = real unmerged patches
-```
+Use the ahead count, `git merge-base --is-ancestor`, and `git cherry main <ref>`.
 
 - **Merged** (`ahead=0` or ancestor): safe to delete after the deletion rules
   below are satisfied.
@@ -81,9 +75,8 @@ git cherry main <ref>                   # '+' lines = real unmerged patches
   `git cherry` proves no patch content is missing from `main`.
 - **Real work** (`+` lines): merge into `main` — via the repo's documented
   integrate recipe (e.g. `just integrate <ref>`) if one exists, else plain
-  `git merge --no-edit` — then delete. Conflicts are part of the work: read
-  both sides, keep good new behavior, run the narrowest relevant validation,
-  commit. Ask the user only on a product decision code/tests can't answer.
+  `git merge --no-edit` — then delete. Resolve conflicts yourself and validate.
+  Ask the user only on a product decision code/tests can't answer.
   Never delete before the merge commit succeeds.
 - Upstream `[gone]` is suspect until proven merged/empty by the checks above.
 
@@ -100,9 +93,7 @@ Deletion rules:
 
 ## Execution
 
-1. **Inventory.** Don't scan for active agent sessions — unrelated agent
-   processes with CWDs in the repo aren't evidence they're writing it. Block
-   only on concrete mutation state: an active Git operation, `.git/index.lock`
+1. **Inventory.** Block only on concrete mutation state: an active Git operation, `.git/index.lock`
    held by a live pid, or a repo-specific ship/deploy lock. Then
    `git fetch --prune --all && git worktree prune` and collect: default branch
    (`git symbolic-ref refs/remotes/origin/HEAD`), `git worktree list
@@ -110,9 +101,8 @@ Deletion rules:
    configured remote, `gh pr list`, `gh issue list`. Exclude each remote's
    symbolic `HEAD`, default branch, every PROTECTED ref, and PARKED work from cleanup;
    distinguish active drafts from parked work and print their evidence and the
-   resolved protected set. Read-only commands may run
-   in parallel; never run Git writers in parallel with any other Git command
-   in the same repo. Report counts, continue.
+   resolved protected set. Never run Git writers in parallel with any other Git
+   command in the same repo. Report counts, continue.
 2. **Checkpoint main:** `git checkout $DEFAULT_BRANCH`, CHECKPOINT it.
 3. **Open PRs:** skip PARKED work. Checkpoint any active local worktree on the
    PR's head branch. Resolve drafts as above, including normal review and test
