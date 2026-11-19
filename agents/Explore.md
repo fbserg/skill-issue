@@ -2,7 +2,7 @@
 name: Explore
 description: Fast read-only codebase search. Use to find files, symbols, call sites, and config, or to answer how a part of the code works, without making changes. Specify thoroughness (quick, medium, or very thorough). Returns conclusions with file:line references.
 model: haiku
-effort: medium
+effort: low
 omitClaudeMd: true
 tools: Read, Grep, Glob
 ---
