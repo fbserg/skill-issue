@@ -29,8 +29,8 @@ Act as the orchestrator; do not implement lane work in the main checkout.
 - Do not push cosmetic-only cleanup that restarts expensive hosted CI unless correctness or required reviewer understanding materially requires an immediate push; fold all other clarity cleanup into the next substantive batch.
 - Do not accept retry-only greens for flakes. Stress the focused failure and repair lifecycle, dispatcher, shared-state, or test isolation defects; if it does not reproduce, record the stress evidence once and continue.
 - Reserve shared resources explicitly (build mutexes, emulators, backend records). Release them immediately between commands; stale reservations are blockers, not queues to poll forever.
-- Send a user-visible update at least every 60 seconds while work is active. Report the current command or gate, the last observed result, and the next terminal condition. Repeated `wait` calls are not progress.
-- If a lane is silent for two update intervals, request a ledger update. If it remains silent or repeats the same gate, interrupt and re-scope it instead of continuing to poll.
+- Let completion notifications wake you when available. If you need to wait, use one long `wait_agent` mailbox wait across all open lanes, bounded by the next intervention deadline.
+- Update the ledger and user on state changes. Message a running worker when you have new information or need to intervene at a gate or deadline.
 - After targeted, preflight, and full local gates pass for a lane, dependent lanes may start on explicitly tracked stacked branches while the prerequisite's hosted CI runs. Record each stack's base and dependency order.
 - Merge stacks only in dependency order, and only after every final branch head receives its required hosted checks. Restack or rebase after prerequisites merge, then rerun invalidated checks without discarding the recorded proof from the pre-restack head.
 
